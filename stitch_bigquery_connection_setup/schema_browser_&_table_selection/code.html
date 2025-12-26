@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lunara - Dataset Browser &amp; Table Selection</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec", // Bright Blue
+                        "primary-hover": "#1d4ed8",
+                        "background-light": "#f8fafc", // Clean light blue-grey
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="font-display bg-background-light text-slate-900 overflow-hidden h-screen flex flex-col antialiased">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 bg-white px-6 py-3 h-16 shrink-0 z-20 shadow-sm">
+<div class="flex items-center gap-4 text-slate-900">
+<div class="size-8 text-primary flex items-center justify-center">
+<svg class="w-full h-full" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z" fill="currentColor" fill-rule="evenodd"></path>
+<path clip-rule="evenodd" d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-slate-900 text-xl font-bold leading-tight tracking-[-0.015em]">Lunara</h2>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<div class="flex gap-2">
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</button>
+</div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 ring-2 ring-slate-100" data-alt="User profile avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDC087hmovjVEy_kTZM491_XmKAt7kIT5rh9XTZcLGk8mo7EZ4bk3MzyNz0UkL8UmQxjLLGjdt1Oqrat7zw6x10nP7IoqoRgKGB6Z3oy9XcwOvFjv5VxhN-SHKJuHQ8kTsw2hteorpsDReXoiH8IYKkkGH9ocLclSK0-sTSa1OMoMZUSvK_qwJOXK4shAfPCncDQzFsYihC9fWlWxfzGt1PezkK6doDMd_EMxkd32ATBQMlzxYX84TuN8AqDVzScn7YXZnfNeWiMWim");'></div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<aside class="w-80 flex flex-col border-r border-slate-200 bg-white z-10 shrink-0">
+<div class="p-4 border-b border-slate-100">
+<div class="flex items-center justify-between mb-3">
+<h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Datasets</h2>
+<span class="bg-blue-50 text-primary text-xs px-2 py-0.5 rounded-full font-medium border border-blue-100">4</span>
+</div>
+<div class="relative">
+<input class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-900 placeholder:text-slate-400" placeholder="Filter datasets..." type="text"/>
+<span class="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 text-[18px]">search</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-2 space-y-1">
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 border border-blue-100 text-primary group transition-all">
+<span class="material-symbols-outlined text-[20px]">dataset</span>
+<span class="text-sm font-semibold truncate">analytics_prod</span>
+<span class="material-symbols-outlined text-[16px] ml-auto opacity-100">check</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all border border-transparent hover:border-slate-100">
+<span class="material-symbols-outlined text-[20px] text-slate-400 group-hover:text-primary">dataset</span>
+<span class="text-sm font-medium truncate">marketing_raw</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all border border-transparent hover:border-slate-100">
+<span class="material-symbols-outlined text-[20px] text-slate-400 group-hover:text-primary">dataset</span>
+<span class="text-sm font-medium truncate">stripe_staging</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all border border-transparent hover:border-slate-100">
+<span class="material-symbols-outlined text-[20px] text-slate-400 group-hover:text-primary">dataset</span>
+<span class="text-sm font-medium truncate">users_dev</span>
+</button>
+</div>
+<div class="p-4 border-t border-slate-100">
+<button class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                Add new source
+            </button>
+</div>
+</aside>
+<main class="flex-1 flex flex-col relative bg-background-light overflow-hidden">
+<div class="flex-shrink-0 px-8 py-6 pb-2">
+<nav class="flex items-center text-sm font-medium text-slate-500 mb-4">
+<a class="hover:text-primary transition-colors" href="#">BigQuery Project</a>
+<span class="material-symbols-outlined text-[16px] mx-2 text-slate-400">chevron_right</span>
+<span class="text-slate-900 font-semibold">analytics_prod</span>
+</nav>
+<div class="flex flex-wrap justify-between items-end gap-4 mb-6">
+<div>
+<h1 class="text-3xl font-bold text-slate-900 tracking-tight mb-1">analytics_prod</h1>
+<p class="text-slate-500">Select tables to include in your semantic layer.</p>
+</div>
+<div class="flex items-center gap-3 w-full md:w-auto">
+<div class="relative group min-w-[320px]">
+<input class="w-full bg-white border border-slate-200 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-900 shadow-sm placeholder:text-slate-400" placeholder="Search tables..." type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
+</div>
+<button class="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-primary hover:border-slate-300 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]">filter_list</span>
+                        Filter
+                    </button>
+</div>
+</div>
+<div class="flex items-center justify-between mb-2">
+<span class="text-sm font-semibold text-primary bg-blue-50 px-3 py-1 rounded-full border border-blue-100">15 tables found</span>
+<div class="flex items-center gap-2">
+<button class="text-xs font-medium text-primary hover:text-blue-700 hover:underline">Select All</button>
+<span class="text-slate-300">|</span>
+<button class="text-xs font-medium text-slate-500 hover:text-slate-700">Deselect All</button>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-8 pb-24">
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+<table class="w-full text-left border-collapse">
+<thead class="bg-slate-50 text-xs uppercase text-slate-500 font-semibold sticky top-0 z-10">
+<tr>
+<th class="p-4 w-12 border-b border-slate-200">
+<input class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer" type="checkbox"/>
+</th>
+<th class="p-4 border-b border-slate-200">Table Name</th>
+<th class="p-4 border-b border-slate-200 w-32">Type</th>
+<th class="p-4 border-b border-slate-200 w-32">Rows</th>
+<th class="p-4 border-b border-slate-200 w-48">Last Modified</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<tr class="group hover:bg-slate-50 transition-colors bg-blue-50/60">
+<td class="p-4">
+<input checked="" class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded flex items-center justify-center bg-white border border-blue-100 text-primary shadow-sm">
+<span class="material-symbols-outlined text-[18px]">table_chart</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-900 font-mono">orders_fact</p>
+<p class="text-xs text-slate-500">Core transactions table</p>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">Table</span>
+</td>
+<td class="p-4 text-sm text-slate-600 font-mono">1.2M</td>
+<td class="p-4 text-sm text-slate-500">2 mins ago</td>
+</tr>
+<tr class="group hover:bg-slate-50 transition-colors bg-blue-50/60">
+<td class="p-4">
+<input checked="" class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded flex items-center justify-center bg-white border border-blue-100 text-primary shadow-sm">
+<span class="material-symbols-outlined text-[18px]">table_chart</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-900 font-mono">customers_dim</p>
+<p class="text-xs text-slate-500">Customer details and demographics</p>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">Table</span>
+</td>
+<td class="p-4 text-sm text-slate-600 font-mono">50.4K</td>
+<td class="p-4 text-sm text-slate-500">4 hours ago</td>
+</tr>
+<tr class="group hover:bg-slate-50 transition-colors">
+<td class="p-4">
+<input class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded flex items-center justify-center bg-purple-50 border border-purple-100 text-purple-600">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-900 font-mono">daily_revenue</p>
+<p class="text-xs text-slate-500">Aggregated daily view</p>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">View</span>
+</td>
+<td class="p-4 text-sm text-slate-600 font-mono">--</td>
+<td class="p-4 text-sm text-slate-500">1 day ago</td>
+</tr>
+<tr class="group hover:bg-slate-50 transition-colors">
+<td class="p-4">
+<input class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded flex items-center justify-center bg-slate-100 text-slate-500">
+<span class="material-symbols-outlined text-[18px]">table_chart</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-900 font-mono">products_catalog</p>
+<p class="text-xs text-slate-500">Global SKU list</p>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">Table</span>
+</td>
+<td class="p-4 text-sm text-slate-600 font-mono">8.2K</td>
+<td class="p-4 text-sm text-slate-500">3 days ago</td>
+</tr>
+<tr class="group hover:bg-slate-50 transition-colors">
+<td class="p-4">
+<input class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded flex items-center justify-center bg-slate-100 text-slate-500">
+<span class="material-symbols-outlined text-[18px]">table_chart</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-900 font-mono">web_events_log</p>
+<p class="text-xs text-slate-500">Raw clickstream data</p>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">Table</span>
+</td>
+<td class="p-4 text-sm text-slate-600 font-mono">15.8M</td>
+<td class="p-4 text-sm text-slate-500">1 min ago</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 p-4 px-8 z-30 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="flex -space-x-2">
+<div class="size-8 rounded-full border-2 border-white bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">DB</div>
+<div class="size-8 rounded-full border-2 border-white bg-purple-500 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">BQ</div>
+</div>
+<span class="text-sm font-medium text-slate-600"><strong class="text-slate-900">2 tables</strong> selected from <span class="font-mono text-xs bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded">analytics_prod</span></span>
+</div>
+<div class="flex gap-4">
+<button class="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-bold hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
+                    Cancel
+                </button>
+<button class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+                    Generate Semantic Layer
+                </button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Lunara - Connect BigQuery</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary-accent": "#1A73E8", // BigQuery Blue / Google Blue
+                        "background-main": "#ffffff",
+                        "text-dark": "#1a1a1a", // Dark charcoal / near-black
+                        "border-subtle": "#e0e0e0", // Extremely subtle light grey
+                        "bg-subtle": "#f8f8f8", // Extremely subtle light grey for background elements
+                        "info-bg": "#F0F7FF", // Light blue background for security notice
+                        "info-border": "#D0E3FF", // Light blue border for security notice
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <style>
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        textarea::-webkit-scrollbar-track {
+            background: var(--bg-subtle);
+        }
+
+        textarea::-webkit-scrollbar-thumb {
+            background: var(--border-subtle);
+            border-radius: 4px;
+        }
+
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #c0c0c0;
+        }
+    </style>
+</head>
+
+<body class="bg-background-main font-display antialiased min-h-screen flex flex-col overflow-x-hidden">
+    <header
+        class="flex items-center justify-between whitespace-nowrap border-b border-solid border-border-subtle bg-background-main px-10 py-3 sticky top-0 z-50">
+        <div class="flex items-center gap-4 text-text-dark">
+            <div class="size-8 flex items-center justify-center text-primary-accent">
+                <span class="material-symbols-outlined text-3xl">token</span>
+            </div>
+            <h2 class="text-text-dark text-lg font-bold leading-tight tracking-[-0.015em]">Lunara</h2>
+        </div>
+        <div class="flex flex-1 justify-end gap-8">
+            <div class="hidden md:flex items-center gap-9">
+                <a class="text-gray-600 hover:text-primary-accent text-sm font-medium leading-normal transition-colors"
+                    href="#">Dashboard</a>
+                <a class="text-primary-accent text-sm font-medium leading-normal" href="#">Data Sources</a>
+                <a class="text-gray-600 hover:text-primary-accent text-sm font-medium leading-normal transition-colors"
+                    href="#">Settings</a>
+            </div>
+            <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-border-subtle"
+                data-alt="User profile avatar image"
+                style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAcR_HS-9snxOSO78YsLKIRhZIDo3ZBgGOmkMJHBfxYrqW0rpoPcVaqVqp0tS68NUu9BDxihTCgShscSsAWtk2QwGeRszVMeNpkwq0LYQriXDi5a4Gv-uZYMEqE_JqR-Nx1h7WaJdw9Wip_VPx51ugNBvuTTIZjDOcXHJpwT3qzRtgtpPfOEp3x8-5pAg0KP0qbqSW98V73ZVzt87kfpDo5KrmYp-rwOkVLROxImbd1nGnFzHiEaqOekzcTeXttoP0ex_5wtXqkCwOJ");'>
+            </div>
+        </div>
+    </header>
+    <main class="flex-grow flex flex-col items-center justify-start py-10 px-4 md:px-10">
+        <div class="w-full max-w-[800px] flex flex-col gap-8">
+            <div class="flex flex-col gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-background-main rounded-lg border border-border-subtle">
+                        <img alt="Google Cloud Logo" class="size-8" data-alt="Google Cloud Platform logo icon"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqvrpEuFyJzbiKlvknPhaAi3njoSnw3mRp3mzTUPsCkDAiiuQhBqBdOlBR_PYLlztKixbPJW7mIR-jhOKAOsBK9kV8z9lc2QdWYNR-4pM1h36KPO9Qd1MalhK-pU1W_A1rAsbsWYr2MK13F5Vt-rksEyBuNAW0l4FGDSF0BpGXc8VT9X2Uqyo8gItYkA5mSBMxwF6PJbt7YaOuxHOH-aBCO5O-phEjP_fQHqY1vUtyNtQF5M_GnQHUtCQW74jrn_-vQGwxOyZnAwNf" />
+                    </div>
+                    <h1 class="text-text-dark text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">Connect
+                        BigQuery</h1>
+                </div>
+                <p class="text-gray-700 text-base font-normal leading-relaxed max-w-2xl">
+                    Lunara needs read access to your datasets to generate your semantic layer. Provide your Google Cloud
+                    Service Account credentials below to establish a secure connection.
+                </p>
+                <div
+                    class="flex items-center gap-2 text-sm text-primary-accent font-medium mt-1 hover:underline cursor-pointer w-fit">
+                    <span class="material-symbols-outlined text-sm">open_in_new</span>
+                    How to generate a Service Account Key?
+                </div>
+            </div>
+            <div class="bg-background-main rounded-xl border border-border-subtle shadow-sm overflow-hidden">
+                <div class="border-b border-border-subtle">
+                    <div class="flex px-6 gap-8">
+                        <button id="tab-upload"
+                            class="group flex items-center gap-2 border-b-[3px] border-primary-accent pb-[13px] pt-4 px-2 focus:outline-none">
+                            <span class="material-symbols-outlined text-primary-accent text-sm">upload_file</span>
+                            <p class="text-primary-accent text-sm font-bold leading-normal tracking-[0.015em]">Upload
+                                JSON File</p>
+                        </button>
+                        <button id="tab-paste"
+                            class="group flex items-center gap-2 border-b-[3px] border-transparent hover:border-border-subtle pb-[13px] pt-4 px-2 focus:outline-none transition-colors">
+                            <span
+                                class="material-symbols-outlined text-gray-500 group-hover:text-gray-700 text-sm">code</span>
+                            <p
+                                class="text-gray-600 group-hover:text-gray-800 text-sm font-bold leading-normal tracking-[0.015em]">
+                                Paste JSON Key</p>
+                        </button>
+                    </div>
+                </div>
+                <!-- Upload Panel -->
+                <div id="upload-panel" class="p-8 flex flex-col gap-6">
+                    <div id="drop-zone"
+                        class="group relative flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border-subtle bg-bg-subtle hover:bg-gray-100 hover:border-primary-accent/50 transition-all cursor-pointer px-6 py-12">
+                        <div class="p-4 bg-background-main rounded-full shadow-sm">
+                            <span class="material-symbols-outlined text-3xl text-primary-accent">cloud_upload</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-1 text-center">
+                            <p id="drop-zone-text" class="text-text-dark text-lg font-bold">Click to upload or drag and
+                                drop</p>
+                            <p id="drop-zone-subtext" class="text-gray-600 text-sm">JSON file (max. 2MB)</p>
+                        </div>
+                        <input id="file-input" accept=".json"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" type="file" />
+                    </div>
+                    <div class="flex items-start gap-3 p-4 rounded-lg bg-info-bg border border-info-border">
+                        <span class="material-symbols-outlined text-primary-accent mt-0.5">lock</span>
+                        <div class="flex flex-col gap-1">
+                            <p class="text-text-dark text-sm font-bold">Credentials are encrypted at rest</p>
+                            <p class="text-gray-700 text-sm leading-snug">
+                                We use industry-standard encryption to protect your service account keys. Lunara will
+                                only access the datasets you explicitly authorize.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Paste JSON Panel (hidden by default) -->
+                <div id="paste-panel" class="p-8 flex flex-col gap-6 hidden">
+                    <div class="flex flex-col gap-2">
+                        <label for="json-textarea" class="text-text-dark text-sm font-medium">Service Account
+                            JSON</label>
+                        <textarea id="json-textarea"
+                            class="w-full h-64 p-4 rounded-xl border border-border-subtle bg-bg-subtle focus:border-primary-accent focus:ring-1 focus:ring-primary-accent font-mono text-sm resize-none transition-colors"
+                            placeholder='Paste your service account JSON here...
+
+{
+  "type": "service_account",
+  "project_id": "your-project-id",
+  "private_key_id": "...",
+  ...
+}'></textarea>
+                    </div>
+                    <div class="flex items-start gap-3 p-4 rounded-lg bg-info-bg border border-info-border">
+                        <span class="material-symbols-outlined text-primary-accent mt-0.5">lock</span>
+                        <div class="flex flex-col gap-1">
+                            <p class="text-text-dark text-sm font-bold">Credentials are encrypted at rest</p>
+                            <p class="text-gray-700 text-sm leading-snug">
+                                We use industry-standard encryption to protect your service account keys.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Status Message -->
+                <div id="status-message" class="mx-8 mb-4 p-3 rounded-lg border hidden">
+                    <p id="status-text" class="text-sm font-medium"></p>
+                </div>
+                <!-- Footer -->
+                <div class="px-8 py-5 bg-bg-subtle border-t border-border-subtle flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <button id="cancel-btn"
+                            class="px-5 py-2.5 rounded-lg text-gray-700 font-medium hover:bg-gray-200 transition-colors text-sm">
+                            Cancel
+                        </button>
+                        <button id="connect-btn"
+                            class="flex items-center gap-2 px-6 py-2.5 bg-primary-accent hover:bg-[#1557B0] text-white font-bold rounded-lg shadow-lg shadow-primary-accent/20 transition-all text-sm">
+                            <span id="connect-btn-text">Connect</span>
+                            <span id="connect-btn-spinner"
+                                class="material-symbols-outlined text-sm animate-spin hidden">progress_activity</span>
+                        </button>
+                    </div>
+                    <button id="next-btn"
+                        class="flex items-center gap-2 px-6 py-2.5 bg-gray-300 text-gray-500 font-bold rounded-lg transition-all text-sm cursor-not-allowed"
+                        disabled>
+                        <span>Next</span>
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+            <div class="flex justify-center mt-4">
+                <a class="text-gray-500 text-sm hover:text-gray-700 transition-colors" href="#">
+                    Need help setting up? Read our setup guide
+                </a>
+            </div>
+        </div>
+    </main>
+    <script>
+        // API Configuration
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // DOM Elements
+        const tabUpload = document.getElementById('tab-upload');
+        const tabPaste = document.getElementById('tab-paste');
+        const uploadPanel = document.getElementById('upload-panel');
+        const pastePanel = document.getElementById('paste-panel');
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const dropZoneText = document.getElementById('drop-zone-text');
+        const dropZoneSubtext = document.getElementById('drop-zone-subtext');
+        const jsonTextarea = document.getElementById('json-textarea');
+        const connectBtn = document.getElementById('connect-btn');
+        const connectBtnText = document.getElementById('connect-btn-text');
+        const connectBtnSpinner = document.getElementById('connect-btn-spinner');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const statusMessage = document.getElementById('status-message');
+        const statusText = document.getElementById('status-text');
+
+        // State
+        let currentCredentials = null;
+        let activeTab = 'upload';
+        let isConnected = false;
+
+        // Tab switching
+        function setActiveTab(tab) {
+            activeTab = tab;
+            if (tab === 'upload') {
+                tabUpload.classList.add('border-primary-accent');
+                tabUpload.querySelector('span').classList.replace('text-gray-500', 'text-primary-accent');
+                tabUpload.querySelector('p').classList.replace('text-gray-600', 'text-primary-accent');
+                tabPaste.classList.remove('border-primary-accent');
+                tabPaste.classList.add('border-transparent');
+                tabPaste.querySelector('span').classList.replace('text-primary-accent', 'text-gray-500');
+                tabPaste.querySelector('p').classList.replace('text-primary-accent', 'text-gray-600');
+                uploadPanel.classList.remove('hidden');
+                pastePanel.classList.add('hidden');
+            } else {
+                tabPaste.classList.add('border-primary-accent');
+                tabPaste.querySelector('span').classList.replace('text-gray-500', 'text-primary-accent');
+                tabPaste.querySelector('p').classList.replace('text-gray-600', 'text-primary-accent');
+                tabUpload.classList.remove('border-primary-accent');
+                tabUpload.classList.add('border-transparent');
+                tabUpload.querySelector('span').classList.replace('text-primary-accent', 'text-gray-500');
+                tabUpload.querySelector('p').classList.replace('text-primary-accent', 'text-gray-600');
+                pastePanel.classList.remove('hidden');
+                uploadPanel.classList.add('hidden');
+            }
+        }
+
+        tabUpload.addEventListener('click', () => setActiveTab('upload'));
+        tabPaste.addEventListener('click', () => setActiveTab('paste'));
+
+        // File handling
+        function handleFile(file) {
+            if (!file) return;
+
+            if (!file.name.endsWith('.json')) {
+                showStatus('error', 'Please upload a JSON file');
+                return;
+            }
+
+            if (file.size > 2 * 1024 * 1024) {
+                showStatus('error', 'File is too large (max 2MB)');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    currentCredentials = json;
+                    dropZoneText.textContent = file.name;
+                    dropZoneSubtext.textContent = 'File loaded successfully';
+                    dropZone.classList.add('border-green-400', 'bg-green-50');
+                    dropZone.classList.remove('border-border-subtle', 'bg-bg-subtle');
+                    showStatus('success', 'Credentials loaded. Click Connect to continue.');
+                } catch (err) {
+                    showStatus('error', 'Invalid JSON format in file');
+                    currentCredentials = null;
+                }
+            };
+            reader.onerror = () => {
+                showStatus('error', 'Error reading file');
+            };
+            reader.readAsText(file);
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+
+        // Drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-primary-accent', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-primary-accent', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-primary-accent', 'bg-blue-50');
+            const file = e.dataTransfer.files[0];
+            handleFile(file);
+        });
+
+        // JSON textarea handling
+        jsonTextarea.addEventListener('input', () => {
+            const value = jsonTextarea.value.trim();
+            if (!value) {
+                currentCredentials = null;
+                return;
+            }
+
+            try {
+                currentCredentials = JSON.parse(value);
+                showStatus('success', 'Valid JSON. Click Connect to continue.');
+            } catch (err) {
+                currentCredentials = null;
+                showStatus('error', 'Invalid JSON format');
+            }
+        });
+
+        // Status message display
+        function showStatus(type, message) {
+            statusMessage.classList.remove('hidden');
+            statusText.textContent = message;
+
+            statusMessage.classList.remove('bg-red-50', 'border-red-200', 'text-red-700',
+                'bg-green-50', 'border-green-200', 'text-green-700',
+                'bg-blue-50', 'border-blue-200', 'text-blue-700');
+
+            if (type === 'error') {
+                statusMessage.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+            } else if (type === 'success') {
+                statusMessage.classList.add('bg-green-50', 'border-green-200', 'text-green-700');
+            } else {
+                statusMessage.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-700');
+            }
+        }
+
+        function hideStatus() {
+            statusMessage.classList.add('hidden');
+        }
+
+        // Loading state
+        function setLoading(isLoading) {
+            connectBtn.disabled = isLoading;
+            if (isLoading) {
+                connectBtnText.textContent = 'Connecting...';
+                connectBtnSpinner.classList.remove('hidden');
+                connectBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            } else {
+                connectBtnText.textContent = 'Connect';
+                connectBtnSpinner.classList.add('hidden');
+                connectBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+        }
+
+        // Connect button handler
+        connectBtn.addEventListener('click', async () => {
+            // Get credentials from active tab
+            if (activeTab === 'paste') {
+                const value = jsonTextarea.value.trim();
+                if (!value) {
+                    showStatus('error', 'Please paste your service account JSON');
+                    return;
+                }
+                try {
+                    currentCredentials = JSON.parse(value);
+                } catch (err) {
+                    showStatus('error', 'Invalid JSON format');
+                    return;
+                }
+            }
+
+            if (!currentCredentials) {
+                showStatus('error', activeTab === 'upload'
+                    ? 'Please upload a service account JSON file'
+                    : 'Please paste your service account JSON');
+                return;
+            }
+
+            // Validate basic structure
+            if (!currentCredentials.project_id || !currentCredentials.private_key || !currentCredentials.client_email) {
+                showStatus('error', 'Invalid service account format. Missing required fields.');
+                return;
+            }
+
+            setLoading(true);
+            showStatus('info', 'Connecting to BigQuery...');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v1/connection/bigquery`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ credentials: currentCredentials }),
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'connected') {
+                    showStatus('success', `Connected to ${data.project_id}! Found ${data.datasets_count} datasets. Click Next to continue.`);
+                    isConnected = true;
+                    // Enable the Next button
+                    nextBtn.disabled = false;
+                    nextBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                    nextBtn.classList.add('bg-primary-accent', 'hover:bg-[#1557B0]', 'text-white', 'shadow-lg', 'shadow-primary-accent/20');
+                } else {
+                    showStatus('error', data.message || 'Failed to connect to BigQuery');
+                }
+            } catch (err) {
+                console.error('Connection error:', err);
+                if (err.message.includes('Failed to fetch')) {
+                    showStatus('error', 'Cannot reach backend server. Make sure the backend is running on port 8000.');
+                } else {
+                    showStatus('error', `Connection failed: ${err.message}`);
+                }
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Cancel button
+        cancelBtn.addEventListener('click', () => {
+            currentCredentials = null;
+            fileInput.value = '';
+            jsonTextarea.value = '';
+            dropZoneText.textContent = 'Click to upload or drag and drop';
+            dropZoneSubtext.textContent = 'JSON file (max. 2MB)';
+            dropZone.classList.remove('border-green-400', 'bg-green-50');
+            dropZone.classList.add('border-border-subtle', 'bg-bg-subtle');
+            hideStatus();
+        });
+
+        // Next button - navigate to schema browser
+        nextBtn.addEventListener('click', () => {
+            if (isConnected) {
+                window.location.href = 'schema_browser.html';
+            }
+        });
+
+        // Check existing connection on load
+        async function checkExistingConnection() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v1/connection/status`);
+                const data = await response.json();
+                if (data.status === 'connected') {
+                    showStatus('success', `Already connected to ${data.project_id}. Click Next to continue.`);
+                    isConnected = true;
+                    // Enable the Next button
+                    nextBtn.disabled = false;
+                    nextBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                    nextBtn.classList.add('bg-primary-accent', 'hover:bg-[#1557B0]', 'text-white', 'shadow-lg', 'shadow-primary-accent/20');
+                }
+            } catch (err) {
+                // Backend not running or no existing connection - that's fine
+                console.log('No existing connection or backend not running');
+            }
+        }
+
+        // Run on page load
+        checkExistingConnection();
+    </script>
+</body>
+
+</html>

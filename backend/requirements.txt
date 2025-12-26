@@ -1,0 +1,18 @@
+# FastAPI and server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Google Cloud
+google-cloud-bigquery==3.27.0
+
+# Data validation
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Security / encryption
+cryptography==44.0.0
+
+# Environment management
+python-dotenv==1.0.1
+
+# CORS support
