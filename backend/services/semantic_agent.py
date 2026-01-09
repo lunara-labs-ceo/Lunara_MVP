@@ -47,7 +47,7 @@ class SemanticAgentService:
         
         # Create the agent with tools
         self.agent = Agent(
-            model="gemini-2.0-flash",
+            model="gemini-3-flash-preview",
             name="semantic_layer_agent",
             description="Analyzes BigQuery schemas and generates semantic layer definitions",
             instruction=self._get_system_instruction(),

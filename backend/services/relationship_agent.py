@@ -41,7 +41,7 @@ class RelationshipAgentService:
         
         # Create the agent (no tools - pure LLM reasoning)
         self.agent = Agent(
-            model="gemini-2.0-flash",
+            model="gemini-3-flash-preview",
             name="relationship_detection_agent",
             description="Analyzes semantic models to detect foreign key relationships between tables",
             instruction=self._get_system_instruction(),
