@@ -44,6 +44,7 @@ class SemanticAgentService:
         self.bq_service = bigquery_service
         self._runner: Optional[InMemoryRunner] = None
         self._session_id: Optional[str] = None
+        self._table_cache: Dict[str, List[dict]] = {}  # Cache for LLM-classified columns
         
         # Create the agent with tools
         self.agent = Agent(
@@ -53,7 +54,7 @@ class SemanticAgentService:
             instruction=self._get_system_instruction(),
             tools=[
                 self.get_table_schema,
-                self.analyze_column,
+                self.classify_table_columns,
             ],
         )
     
@@ -62,20 +63,23 @@ class SemanticAgentService:
         return """You are an expert data modeler for the Lunara BI platform.
 
 Your task is to analyze BigQuery table schemas and generate semantic layer definitions.
-Think step-by-step and explain your reasoning as you analyze.
 
 For each table:
-1. First, fetch the schema using get_table_schema
-2. Analyze each column to determine if it's a dimension, measure, or time column
-3. Generate human-readable names and descriptions
+1. Fetch the schema using get_table_schema
+2. Analyze ALL columns together, then call classify_table_columns ONCE with a JSON array of all classifications
 
-Output your thinking in a conversational way so users can follow along:
-- Start with "🔍 Analyzing table X..."
-- Explain what you find: "📊 Found 5 columns..."
-- Make recommendations: "💡 I recommend treating column Y as a measure because..."
-- Summarize at the end: "✅ Created semantic model with X dimensions and Y measures"
+When classifying columns, for each column provide:
+- name: column name
+- semantic_type: 'dimension', 'measure', or 'time'
+- description: clear, business-friendly description (e.g., "Customer's first name")
+- aggregation: for measures only, specify SUM, AVG, COUNT, MIN, MAX
 
-Be concise but informative. Users want to see your progress."""
+Output your thinking conversationally:
+- "🔍 Analyzing table X with Y columns..."
+- Brief summary of what you found
+- "✅ Classified X dimensions, Y measures, Z time columns"
+
+Be concise. Process each table completely before moving to the next."""
 
     async def initialize(self):
         """Initialize the runner and session."""
@@ -124,55 +128,49 @@ Be concise but informative. Users want to see your progress."""
         except Exception as e:
             return {"error": str(e)}
 
-    def analyze_column(self, column_name: str, column_type: str, table_context: str) -> dict:
+    def classify_table_columns(
+        self, 
+        table_id: str,
+        columns: str
+    ) -> dict:
         """
-        Analyze a column and suggest its semantic type.
+        Classify all columns in a table at once.
         
         Args:
-            column_name: Name of the column
-            column_type: BigQuery data type
-            table_context: Description of the table for context
+            table_id: Full table identifier (e.g., 'thelook_ecom.users')
+            columns: JSON array of column classifications, each with:
+                     - name: column name
+                     - semantic_type: 'dimension', 'measure', or 'time'
+                     - description: human-readable description
+                     - aggregation: for measures, the aggregation function (optional)
             
         Returns:
-            Suggested semantic classification for the column.
+            Confirmation of classifications stored.
         """
-        # Heuristics for column classification
-        name_lower = column_name.lower()
-        
-        # Time columns
-        if column_type in ["TIMESTAMP", "DATE", "DATETIME"] or any(
-            kw in name_lower for kw in ["date", "time", "created", "updated", "at"]
-        ):
+        try:
+            # Parse the JSON array of columns
+            column_list = json.loads(columns) if isinstance(columns, str) else columns
+            
+            # Store in cache for later retrieval
+            self._table_cache[table_id] = column_list
+            
+            # Count by type
+            dimensions = sum(1 for c in column_list if c.get('semantic_type') == 'dimension')
+            measures = sum(1 for c in column_list if c.get('semantic_type') == 'measure')
+            time_cols = sum(1 for c in column_list if c.get('semantic_type') == 'time')
+            
             return {
-                "column": column_name,
-                "suggested_type": "time",
-                "reason": f"Column type is {column_type} or name suggests temporal data"
+                "status": "success",
+                "table_id": table_id,
+                "columns_classified": len(column_list),
+                "dimensions": dimensions,
+                "measures": measures,
+                "time_columns": time_cols
             }
-        
-        # Measure columns (numeric that should be aggregated)
-        if column_type in ["INT64", "FLOAT64", "NUMERIC", "BIGNUMERIC"]:
-            if any(kw in name_lower for kw in ["amount", "price", "cost", "revenue", "count", "total", "sum", "qty", "quantity"]):
-                return {
-                    "column": column_name,
-                    "suggested_type": "measure",
-                    "suggested_aggregation": "SUM",
-                    "reason": f"Numeric column '{column_name}' appears to be a measurable value"
-                }
-        
-        # ID columns (foreign keys / dimensions)
-        if any(kw in name_lower for kw in ["_id", "id_", "key", "code"]):
-            return {
-                "column": column_name,
-                "suggested_type": "dimension",
-                "reason": f"Column '{column_name}' appears to be an identifier or foreign key"
-            }
-        
-        # Default: dimension
-        return {
-            "column": column_name,
-            "suggested_type": "dimension",
-            "reason": f"Column '{column_name}' classified as dimension by default"
-        }
+        except json.JSONDecodeError as e:
+            return {"error": f"Invalid JSON: {str(e)}"}
+        except Exception as e:
+            return {"error": str(e)}
 
 
     async def generate_semantic_layer(
@@ -191,34 +189,8 @@ Be concise but informative. Users want to see your progress."""
         """
         await self.initialize()
         
-        # Collect table schemas for structured output
-        collected_tables = []
-        for table_id in tables:
-            schema = self.get_table_schema(table_id)
-            if "error" not in schema:
-                # Classify columns
-                classified_columns = []
-                for col in schema.get("columns", []):
-                    classification = self.analyze_column(
-                        col["name"], 
-                        col["type"], 
-                        table_id
-                    )
-                    classified_columns.append({
-                        "name": col["name"],
-                        "type": col["type"],
-                        "mode": col.get("mode", "NULLABLE"),
-                        "description": col.get("description", ""),
-                        "semantic_type": classification.get("suggested_type", "dimension"),
-                        "aggregation": classification.get("suggested_aggregation"),
-                    })
-                
-                collected_tables.append({
-                    "table_id": table_id,
-                    "name": table_id.split(".")[-1] if "." in table_id else table_id,
-                    "row_count": schema.get("row_count"),
-                    "columns": classified_columns,
-                })
+        # Clear the table cache for fresh LLM classifications
+        self._table_cache = {}
         
         # Build the prompt
         tables_str = ", ".join(tables)
@@ -228,7 +200,13 @@ Tables: {tables_str}
 
 For each table:
 1. Use get_table_schema to fetch the schema
-2. Analyze each column using analyze_column to classify as dimension, measure, or time
+2. For EACH column, call analyze_column with:
+   - column_name: the column name
+   - column_type: the BigQuery data type
+   - table_context: the full table ID
+   - description: a clear, human-readable description you generate
+   - semantic_type: 'dimension', 'measure', or 'time'
+   - aggregation: for measures, specify SUM, AVG, COUNT, etc.
 
 Output your thinking step-by-step as you work. At the end, provide a summary of the semantic model you've created."""
 
@@ -258,6 +236,35 @@ Output your thinking step-by-step as you work. At the end, provide a summary of 
                                 "content": f"🔧 Calling {part.function_call.name}..."
                             }
             
+            # After LLM finishes, collect structured data using cached table classifications
+            collected_tables = []
+            for table_id in tables:
+                schema = self.get_table_schema(table_id)
+                if "error" not in schema:
+                    # Get LLM classifications from cache
+                    llm_columns = {c.get('name'): c for c in self._table_cache.get(table_id, [])}
+                    
+                    classified_columns = []
+                    for col in schema.get("columns", []):
+                        col_name = col["name"]
+                        llm_data = llm_columns.get(col_name, {})
+                        
+                        classified_columns.append({
+                            "name": col_name,
+                            "type": col["type"],
+                            "mode": col.get("mode", "NULLABLE"),
+                            "description": llm_data.get("description", ""),
+                            "semantic_type": llm_data.get("semantic_type", "dimension"),
+                            "aggregation": llm_data.get("aggregation"),
+                        })
+                    
+                    collected_tables.append({
+                        "table_id": table_id,
+                        "name": table_id.split(".")[-1] if "." in table_id else table_id,
+                        "row_count": schema.get("row_count"),
+                        "columns": classified_columns,
+                    })
+            
             # Yield the structured model data for the relationship agent
             yield {
                 "type": "model",
@@ -271,4 +278,3 @@ Output your thinking step-by-step as you work. At the end, provide a summary of 
             
         except Exception as e:
             yield {"type": "error", "content": str(e)}
-
