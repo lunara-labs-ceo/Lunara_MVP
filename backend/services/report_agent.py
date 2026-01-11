@@ -1,7 +1,9 @@
-"""Report Agent Service - generates reports using Gemini's built-in code execution.
+"""Report Agent Service - hierarchical agent architecture using AgentTool pattern.
 
-Uses multi-agent pattern due to ADK limitation:
-Code execution cannot be combined with other tools in the same agent.
+Architecture:
+- ReportWriter (main) - orchestrates report building
+  └── AgentTool(DataAssistant) - fetches artifacts, manages blocks
+  └── AgentTool(CodeExecutor) - runs Python for charts/analysis
 """
 import os
 import json
@@ -10,9 +12,11 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, AsyncIterator
 
-from google.adk.agents import LlmAgent, Agent
+from google.adk.agents import LlmAgent
+from google.adk.tools import agent_tool
 from google.adk.runners import Runner
-from google.adk.sessions import DatabaseSessionService
+from google.adk.sessions import InMemorySessionService
+from google.adk.artifacts import InMemoryArtifactService
 from google.adk.code_executors import BuiltInCodeExecutor
 
 # Database path
@@ -23,52 +27,73 @@ SERVICE_ACCOUNT_PATH = Path(__file__).parent.parent.parent / "lunara-dev-094f5e9
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(SERVICE_ACCOUNT_PATH)
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
 os.environ["GOOGLE_CLOUD_PROJECT"] = "lunara-dev"
-os.environ["GOOGLE_CLOUD_LOCATION"] = "us-central1"
+os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
 
 
 class ReportAgentService:
-    """AI Agent for generating reports with Gemini's built-in code execution.
+    """Hierarchical agent system for report generation.
     
-    Uses multi-agent architecture:
-    - CodeExecutorAgent: Has code_executor for Python analysis/charts
-    - DataToolsAgent: Has tools for artifacts and report blocks
-    - RootAgent: Orchestrates between them
+    Uses AgentTool pattern:
+    - ReportWriter: Main agent that orchestrates
+    - DataAssistant: Agent wrapped as tool for artifact operations
+    - CodeExecutor: Agent wrapped as tool for Python execution
     """
     
     def __init__(self):
-        """Initialize the Report Agent."""
+        """Initialize the hierarchical agent system."""
         self._runner: Optional[Runner] = None
         self._session_id: Optional[str] = None
+        self._user_id: str = "default"
         self._report_blocks: List[Dict] = []
         
-        # Agent 1: Code Execution (no other tools allowed per ADK limitations)
-        self.code_executor_agent = LlmAgent(
+        # =====================================================
+        # Agent 1: CodeExecutor (only has code execution)
+        # =====================================================
+        self.code_executor = LlmAgent(
             model="gemini-3-flash-preview",
-            name="code_executor",
-            description="Executes Python code for data analysis and chart generation. Use this for pandas analysis, matplotlib charts, and calculations.",
-            instruction="""You are a Python code executor. When given data and a task:
-1. Write Python code using pandas, matplotlib, numpy
-2. Execute the code to analyze data or create charts
-3. Return the results
+            name="CodeExecutor",
+            description="Executes Python code for data analysis and chart generation. Use for pandas analysis, matplotlib charts, and calculations.",
+            instruction="""You are a Python code execution specialist.
 
-For charts, use matplotlib with clean styling.
-For analysis, use pandas and print key insights.""",
+When given data, you should:
+1. Write Python code using pandas, numpy, matplotlib
+2. Execute the code to create visualizations or analyze data
+3. Return the results clearly
+
+For charts:
+- Use plt.figure(figsize=(10, 6))
+- Add clear titles, labels, and legends
+- Use professional color schemes
+- Always call plt.show() to render
+
+For analysis:
+- Use pandas for data manipulation
+- Print key insights and statistics
+- Be precise with numbers""",
             code_executor=BuiltInCodeExecutor(),
         )
         
-        # Agent 2: Data Tools (artifacts + blocks)
-        self.data_tools_agent = LlmAgent(
+        # =====================================================
+        # Agent 2: DataAssistant (only has custom tools)
+        # =====================================================
+        self.data_assistant = LlmAgent(
             model="gemini-3-flash-preview",
-            name="data_tools",
-            description="Manages artifacts and report blocks. Use this to list/get artifacts and add blocks to the report.",
+            name="DataAssistant", 
+            description="Manages data artifacts and report blocks. Use to list/get artifacts and add content to the report.",
             instruction="""You manage data artifacts and report blocks.
 
 Available tools:
-- get_artifacts(): List all saved artifacts
-- get_artifact_data(artifact_id): Get full data from an artifact
-- add_block(block_type, content, title): Add content to report
+- get_artifacts(): List all saved data artifacts
+- get_artifact_data(artifact_id): Get full data from a specific artifact
+- add_block(block_type, content, title): Add content to the report canvas
 
-Call these tools when asked about artifacts or adding to the report.""",
+Block types:
+- 'chart': For images (base64 encoded)
+- 'text': For written analysis and summaries
+- 'kpi': For key metrics (e.g. "Total Revenue: $1.2M")
+- 'table': For tabular data (JSON string)
+
+Always call get_artifacts() first to see what data is available.""",
             tools=[
                 self.get_artifacts,
                 self.get_artifact_data,
@@ -76,49 +101,38 @@ Call these tools when asked about artifacts or adding to the report.""",
             ],
         )
         
-        # Root Agent: Orchestrates sub-agents
-        self.root_agent = Agent(
+        # =====================================================
+        # Agent 3: ReportWriter (orchestrator with AgentTools)
+        # =====================================================
+        self.report_writer = LlmAgent(
             model="gemini-3-flash-preview",
-            name="report_agent",
-            description="Generates data reports with charts and analysis",
+            name="ReportWriter",
+            description="Main report generation agent that orchestrates data retrieval and code execution.",
             instruction="""You are a report generation AI for Lunara BI.
 
-You have two specialized sub-agents:
-1. data_tools: Use to list/get artifacts and add blocks to report
-2. code_executor: Use to run Python code for analysis and charts
+You have two specialized assistants available as tools:
+1. **DataAssistant** - Use to list/get artifacts and add blocks to the report
+2. **CodeExecutor** - Use to run Python code for analysis and charts
 
 Workflow:
-1. Ask data_tools to list available artifacts
-2. Ask data_tools to get the data you need
-3. Ask code_executor to analyze data or create charts
-4. Ask data_tools to add results to the report
+1. Call DataAssistant to list available artifacts
+2. Call DataAssistant to get specific artifact data
+3. Call CodeExecutor with the data to create analysis/charts
+4. Call DataAssistant to add the results to the report
 
-Be helpful and insightful in your analysis.""",
-            sub_agents=[
-                self.data_tools_agent,
-                self.code_executor_agent,
+Be helpful, insightful, and create professional visualizations.
+When the user asks for a report, coordinate between your assistants to build it.""",
+            tools=[
+                agent_tool.AgentTool(agent=self.data_assistant),
+                agent_tool.AgentTool(agent=self.code_executor),
             ],
         )
         
-        # Session persistence
-        self._session_service = DatabaseSessionService(
-            db_url=f"sqlite:///{DB_PATH}"
-        )
+        # Session service removed - InMemoryRunner handles it internally
     
-    async def initialize(self, user_id: str = "default"):
-        """Initialize runner and session."""
-        self._runner = Runner(
-            agent=self.root_agent,
-            app_name="lunara_report_builder",
-            session_service=self._session_service,
-        )
-        
-        self._session_id = f"report_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        await self._runner.session_service.create_session(
-            app_name="lunara_report_builder",
-            user_id=user_id,
-            session_id=self._session_id,
-        )
+    # =========================================================
+    # Tools for DataAssistant
+    # =========================================================
     
     def get_artifacts(self) -> dict:
         """
@@ -131,7 +145,7 @@ Be helpful and insightful in your analysis.""",
             conn = sqlite3.connect(str(DB_PATH))
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, name, created_at 
+                SELECT id, title, created_at 
                 FROM artifacts 
                 ORDER BY created_at DESC
             """)
@@ -146,7 +160,7 @@ Be helpful and insightful in your analysis.""",
         except Exception as e:
             return {"error": str(e)}
     
-    def get_artifact_data(self, artifact_id: int) -> dict:
+    def get_artifact_data(self, artifact_id: str) -> dict:
         """
         Get full data from an artifact.
         
@@ -160,7 +174,7 @@ Be helpful and insightful in your analysis.""",
             conn = sqlite3.connect(str(DB_PATH))
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, name, sql_query, data, created_at 
+                SELECT id, title, sql, data, created_at 
                 FROM artifacts WHERE id = ?
             """, (artifact_id,))
             row = cursor.fetchone()
@@ -201,6 +215,10 @@ Be helpful and insightful in your analysis.""",
         self._report_blocks.append(block)
         return {"status": "success", "block_id": block["id"]}
     
+    # =========================================================
+    # Service methods
+    # =========================================================
+    
     def get_report_blocks(self) -> List[Dict]:
         """Get all blocks added to the report."""
         return self._report_blocks
@@ -208,6 +226,31 @@ Be helpful and insightful in your analysis.""",
     def clear_blocks(self):
         """Clear all report blocks."""
         self._report_blocks = []
+    
+    async def initialize(self, user_id: str = "default"):
+        """Initialize runner and session."""
+        self._user_id = user_id
+        if self._runner is None:
+            # Create services
+            session_service = InMemorySessionService()
+            artifact_service = InMemoryArtifactService()
+            
+            # Create Runner with both services
+            self._runner = Runner(
+                agent=self.report_writer,
+                app_name="lunara_reports",
+                session_service=session_service,
+                artifact_service=artifact_service,
+            )
+            
+            # Create session
+            session = await session_service.create_session(
+                app_name="lunara_reports",
+                user_id=self._user_id,
+                state={"blocks": []}
+            )
+            self._session_id = session.id
+            print(f"✓ Report Agent: Created session {self._session_id} for user {self._user_id}")
     
     async def generate(
         self,
@@ -229,43 +272,102 @@ Be helpful and insightful in your analysis.""",
             parts=[types.Part.from_text(text=prompt)]
         )
         
-        async for event in self._runner.run_async(
-            user_id="default",
-            session_id=self._session_id,
-            new_message=content,
-        ):
-            if hasattr(event, 'content') and event.content:
-                for part in event.content.parts:
-                    if hasattr(part, 'text') and part.text:
-                        yield {
-                            "type": "text",
-                            "content": part.text,
-                            "author": getattr(event, 'author', 'unknown')
-                        }
-                    elif hasattr(part, 'executable_code') and part.executable_code:
-                        yield {
-                            "type": "code",
-                            "content": part.executable_code.code
-                        }
-                    elif hasattr(part, 'code_execution_result') and part.code_execution_result:
-                        yield {
-                            "type": "code_result",
-                            "output": part.code_execution_result.output,
-                            "outcome": str(part.code_execution_result.outcome)
-                        }
-                    elif hasattr(part, 'function_call') and part.function_call:
-                        yield {
-                            "type": "status",
-                            "content": f"🔧 {part.function_call.name}..."
-                        }
-                    elif hasattr(part, 'inline_data') and part.inline_data:
-                        # Handle generated images from code execution
+        try:
+            async for event in self._runner.run_async(
+                user_id=self._user_id,
+                session_id=self._session_id,
+                new_message=content,
+            ):
+                if hasattr(event, 'content') and event.content:
+                    for part in event.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            yield {
+                                "type": "text",
+                                "content": part.text,
+                                "author": getattr(event, 'author', 'unknown')
+                            }
+                        elif hasattr(part, 'executable_code') and part.executable_code:
+                            yield {
+                                "type": "code",
+                                "content": part.executable_code.code
+                            }
+                        elif hasattr(part, 'code_execution_result') and part.code_execution_result:
+                            yield {
+                                "type": "code_result",
+                                "output": part.code_execution_result.output,
+                                "outcome": str(part.code_execution_result.outcome)
+                            }
+                        elif hasattr(part, 'function_call') and part.function_call:
+                            yield {
+                                "type": "status",
+                                "content": f"🔧 Calling {part.function_call.name}..."
+                            }
+                        elif hasattr(part, 'inline_data') and part.inline_data:
+                            # Handle generated images from code execution
+                            import base64
+                            image_data = part.inline_data.data
+                            if isinstance(image_data, bytes):
+                                image_data = base64.b64encode(image_data).decode()
+                            yield {
+                                "type": "image",
+                                "mime_type": part.inline_data.mime_type,
+                                "data": image_data
+                            }
+                            # Also add as a block
+                            self._report_blocks.append({
+                                "id": len(self._report_blocks) + 1,
+                                "type": "chart",
+                                "title": "Generated Chart",
+                                "content": image_data,
+                                "created_at": datetime.now().isoformat(),
+                            })
+        except Exception as e:
+            yield {
+                "type": "error",
+                "content": str(e)
+            }
+        
+        # After generation, try to fetch any artifacts saved by CodeExecutor
+        try:
+            if self._runner and self._runner.artifact_service:
+                artifact_names = await self._runner.artifact_service.list_artifact_keys(
+                    app_name="lunara_reports",
+                    user_id=self._user_id,
+                    session_id=self._session_id,
+                )
+                
+                for artifact_name in artifact_names:
+                    # Fetch the artifact
+                    artifact_part = await self._runner.artifact_service.load_artifact(
+                        app_name="lunara_reports",
+                        user_id=self._user_id,
+                        session_id=self._session_id,
+                        filename=artifact_name,
+                    )
+                    
+                    if artifact_part and hasattr(artifact_part, 'inline_data') and artifact_part.inline_data:
                         import base64
+                        image_data = artifact_part.inline_data.data
+                        if isinstance(image_data, bytes):
+                            image_data = base64.b64encode(image_data).decode()
+                        
                         yield {
                             "type": "image",
-                            "mime_type": part.inline_data.mime_type,
-                            "data": base64.b64encode(part.inline_data.data).decode() if isinstance(part.inline_data.data, bytes) else part.inline_data.data
+                            "mime_type": artifact_part.inline_data.mime_type,
+                            "data": image_data,
+                            "filename": artifact_name,
                         }
+                        
+                        # Add as a block
+                        self._report_blocks.append({
+                            "id": len(self._report_blocks) + 1,
+                            "type": "chart",
+                            "title": artifact_name,
+                            "content": image_data,
+                            "created_at": datetime.now().isoformat(),
+                        })
+        except Exception as e:
+            print(f"Warning: Failed to retrieve artifacts: {e}")
         
         # After generation, yield any new blocks
         for block in self._report_blocks:
