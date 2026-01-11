@@ -307,6 +307,45 @@
             }
         }
 
+        // Update a column property and save
+        function updateColumn(columnName, field, value) {
+            if (!semanticModel?.tables?.[currentTableIndex]) return;
+
+            const table = semanticModel.tables[currentTableIndex];
+            const column = table.columns.find(c => c.name === columnName);
+
+            if (column) {
+                const oldValue = column[field];
+                column[field] = value;
+
+                // If changing semantic type, handle aggregation
+                if (field === 'semantic_type') {
+                    if (value === 'measure' && !column.aggregation) {
+                        column.aggregation = 'SUM';
+                    } else if (value !== 'measure') {
+                        column.aggregation = null;
+                    }
+                }
+
+                // Save to localStorage
+                saveSemanticModel();
+
+                // Visual feedback - flash the card
+                const card = document.querySelector(`[data-col-name="${columnName}"]`);
+                if (card) {
+                    card.classList.add('ring-2', 'ring-green-500');
+                    setTimeout(() => card.classList.remove('ring-2', 'ring-green-500'), 500);
+                }
+
+                // If semantic type changed, re-render to move column to correct tab
+                if (field === 'semantic_type' && oldValue !== value) {
+                    renderTableDetail(table);
+                }
+
+                console.log(`Updated ${columnName}.${field} = ${value}`);
+            }
+        }
+
         // Render models in sidebar
         function renderModels() {
             if (!semanticModel?.tables?.length) {
@@ -386,7 +425,7 @@
             renderRelationshipsList(tableRelationships);
         }
 
-        // Render a list of columns
+        // Render a list of columns with edit controls
         function renderColumnList(containerId, columns, type) {
             const container = document.getElementById(containerId);
             if (!columns.length) {
@@ -400,16 +439,48 @@
                 time: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
             };
 
+            const aggregationOptions = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX', 'COUNT_DISTINCT'];
+
             container.innerHTML = columns.map(col => `
-                <div class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div class="flex-1">
+                <div class="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-all hover:shadow-md" data-col-name="${col.name}">
+                    <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-semibold text-[#111318] dark:text-white">${col.name}</span>
-                            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${typeColors[type]}">${type}</span>
                             <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">${col.type}</span>
-                            ${col.aggregation ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">${col.aggregation}</span>` : ''}
                         </div>
-                        ${col.description ? `<p class="text-xs text-gray-500 mt-0.5">${col.description}</p>` : ''}
+                    </div>
+                    
+                    <!-- Editable description -->
+                    <div class="mb-2">
+                        <input type="text" 
+                            class="w-full px-2 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                            placeholder="Add description..."
+                            value="${col.description || ''}"
+                            onchange="updateColumn('${col.name}', 'description', this.value)"
+                        />
+                    </div>
+                    
+                    <!-- Type and Aggregation controls -->
+                    <div class="flex items-center gap-2">
+                        <select 
+                            class="px-2 py-1 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary/50 transition-all"
+                            onchange="updateColumn('${col.name}', 'semantic_type', this.value)"
+                        >
+                            <option value="dimension" ${col.semantic_type === 'dimension' ? 'selected' : ''}>Dimension</option>
+                            <option value="measure" ${col.semantic_type === 'measure' ? 'selected' : ''}>Measure</option>
+                            <option value="time" ${col.semantic_type === 'time' ? 'selected' : ''}>Time</option>
+                        </select>
+                        
+                        ${col.semantic_type === 'measure' || type === 'measure' ? `
+                            <select 
+                                class="px-2 py-1 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary/50 transition-all"
+                                onchange="updateColumn('${col.name}', 'aggregation', this.value)"
+                            >
+                                ${aggregationOptions.map(agg => `
+                                    <option value="${agg}" ${col.aggregation === agg ? 'selected' : ''}>${agg}</option>
+                                `).join('')}
+                            </select>
+                        ` : ''}
                     </div>
                 </div>
             `).join('');
