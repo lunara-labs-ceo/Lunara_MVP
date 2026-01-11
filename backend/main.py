@@ -15,6 +15,7 @@ from api.v1 import connection
 from api.v1 import datasets
 from api.v1 import semantic
 from api.v1 import chat
+from api.v1 import reports
 from services.bigquery import BigQueryService
 
 
@@ -111,6 +112,7 @@ app.include_router(connection.router, prefix="/api/v1")
 app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(semantic.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
 
 
 @app.get("/health")

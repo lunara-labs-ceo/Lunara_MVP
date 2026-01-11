@@ -187,6 +187,29 @@ async def list_artifacts():
     ]
 
 
+@router.get("/artifacts/{artifact_id}", response_model=Artifact)
+async def get_artifact(artifact_id: str):
+    """
+    Get a single artifact by ID.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, title, sql, data, created_at FROM artifacts WHERE id = ?", (artifact_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    
+    return Artifact(
+        id=row[0],
+        title=row[1],
+        sql=row[2],
+        data=json.loads(row[3]),
+        created_at=row[4]
+    )
+
+
 @router.delete("/artifacts/{artifact_id}")
 async def delete_artifact(artifact_id: str):
     """
