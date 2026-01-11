@@ -1,12 +1,16 @@
 <!DOCTYPE html>
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Lunara - Semantic Layer Chat Agent</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Lunara - Semantic Layer Chat Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -21,361 +25,497 @@
                         "display": ["Inter", "sans-serif"],
                         "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
                     },
-                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
                 },
             },
         }
     </script>
-<style>
+    <style>
         ::-webkit-scrollbar {
             width: 8px;
-            height: 8px;
         }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
+
         ::-webkit-scrollbar-thumb {
             background: #cbd5e1;
             border-radius: 4px;
         }
+
         .dark ::-webkit-scrollbar-thumb {
             background: #374151;
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-        .code-editor-line {
-            counter-increment: line;
-        }
-        .code-editor-line::before {
-            content: counter(line);
-            display: inline-block;
-            width: 2rem;
-            text-align: right;
-            margin-right: 1rem;
-            color: #9ca3af;
-            user-select: none;
-            font-size: 0.75rem;
-            line-height: 1.5rem;
-        }
     </style>
 </head>
-<body class="bg-background-light dark:bg-background-dark text-[#111318] dark:text-white font-display overflow-hidden flex flex-col h-screen">
-<header class="shrink-0 flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e5e7eb] dark:border-gray-800 bg-white dark:bg-[#101622] px-4 py-2.5 shadow-sm z-20">
-<div class="flex items-center gap-4">
-<div class="flex items-center gap-2">
-<div class="size-8 text-primary">
-<svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-<path clip-rule="evenodd" d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z" fill="currentColor" fill-rule="evenodd"></path>
-<path clip-rule="evenodd" d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-<h2 class="text-[#111318] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Lunara</h2>
-</div>
-<div class="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
-<nav class="flex items-center text-xs font-medium text-[#616f89] dark:text-gray-400">
-<span class="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer">
-<span class="material-symbols-outlined text-[16px]">database</span>
-                BigQuery
-            </span>
-<span class="mx-2 text-gray-300 dark:text-gray-600">/</span>
-<span class="text-[#111318] dark:text-white font-semibold">Semantic Agent</span>
-</nav>
-</div>
-<div class="flex items-center gap-3">
-<button class="flex items-center justify-center rounded-lg size-8 bg-transparent hover:bg-[#f0f2f4] dark:hover:bg-gray-800 text-[#111318] dark:text-white transition-colors">
-<span class="material-symbols-outlined text-[20px]">notifications</span>
-</button>
-<button class="flex items-center justify-center rounded-lg size-8 bg-transparent hover:bg-[#f0f2f4] dark:hover:bg-gray-800 text-[#111318] dark:text-white transition-colors">
-<span class="material-symbols-outlined text-[20px]">settings</span>
-</button>
-<div class="h-8 w-8 rounded-full bg-cover bg-center border border-gray-200 dark:border-gray-700" data-alt="User profile avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBvcWPaJ8XiFeNWDlBQxI2oxsQ0jDX_Lgvrq3b9Zh55fwelAzmzuUUMxbSPZhQ7uiWrHuEYutr05jf8g-O-PuxU5nP1A_VXfrTKfoDbOL4wfrlKqGLSBRqUrgHGnRxb1nHwvJtII2zZ4WgRnQ2TD-251D_2v28kAqZBZXg0I4AORjSOwG2R04llGITJ0deqUowHRLnKz-o41XdkxWiZEBEpVBLYINZkSCwio-43PO3GBxxvIu4IJzBUtyb97PQMXoSqNfRc2hZWU0dj");'></div>
-</div>
-</header>
-<main class="flex-1 flex overflow-hidden">
-<aside class="w-64 bg-white dark:bg-[#101622] border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0 z-10">
-<div class="flex flex-col flex-1 min-h-0">
-<div class="p-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-[#101622] shrink-0">
-<h3 class="font-semibold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Semantic Models</h3>
-<button class="text-gray-400 hover:text-primary transition-colors">
-<span class="material-symbols-outlined text-[16px]">add</span>
-</button>
-</div>
-<div class="flex-1 overflow-y-auto p-2 space-y-3">
-<div>
-<div class="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer">
-<span class="material-symbols-outlined text-primary text-[16px]">table_chart</span>
-                    orders
+
+<body
+    class="bg-background-light dark:bg-background-dark text-[#111318] dark:text-white font-display overflow-hidden flex flex-col h-screen">
+    <!-- Header -->
+    <header
+        class="shrink-0 flex items-center justify-between border-b border-[#e5e7eb] dark:border-gray-800 bg-white dark:bg-[#101622] px-4 py-2.5 shadow-sm z-20">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <div class="size-8 text-primary">
+                    <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                        <path clip-rule="evenodd"
+                            d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z"
+                            fill="currentColor" fill-rule="evenodd"></path>
+                        <path clip-rule="evenodd"
+                            d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z"
+                            fill="currentColor" fill-rule="evenodd"></path>
+                    </svg>
                 </div>
-<ul class="ml-6 mt-1 space-y-0.5 border-l border-gray-100 dark:border-gray-800 pl-2">
-<li class="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer py-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-1 rounded">
-<span>total_revenue</span>
-<span class="font-mono text-[9px] text-gray-400">NUM</span>
-</li>
-<li class="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer py-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-1 rounded">
-<span>order_count</span>
-<span class="font-mono text-[9px] text-gray-400">INT</span>
-</li>
-<li class="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer py-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-1 rounded">
-<span>avg_order_value</span>
-<span class="font-mono text-[9px] text-gray-400">FLOAT</span>
-</li>
-</ul>
-</div>
-<div>
-<div class="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer">
-<span class="material-symbols-outlined text-purple-500 text-[16px]">group</span>
-                    customers
+                <h2 class="text-[#111318] dark:text-white text-lg font-bold">Lunara</h2>
+            </div>
+            <div class="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
+            <nav class="flex items-center text-xs font-medium text-[#616f89] dark:text-gray-400">
+                <a href="semantic_layer_setup.html"
+                    class="flex items-center gap-1 hover:text-primary transition-colors">
+                    <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                    Semantic Layer
+                </a>
+                <span class="mx-2 text-gray-300 dark:text-gray-600">/</span>
+                <span class="text-[#111318] dark:text-white font-semibold">Query Agent</span>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        <!-- Sidebar: Semantic Models -->
+        <aside
+            class="w-64 bg-white dark:bg-[#101622] border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
+            <div class="flex flex-col flex-1 min-h-0">
+                <div
+                    class="p-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50">
+                    <h3 class="font-semibold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Semantic
+                        Models</h3>
                 </div>
-<ul class="ml-6 mt-1 space-y-0.5 border-l border-gray-100 dark:border-gray-800 pl-2">
-<li class="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer py-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-1 rounded">
-<span>customer_ltv</span>
-<span class="font-mono text-[9px] text-gray-400">FLOAT</span>
-</li>
-<li class="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer py-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-1 rounded">
-<span>signup_date</span>
-<span class="font-mono text-[9px] text-gray-400">DATE</span>
-</li>
-</ul>
-</div>
-<div>
-<div class="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer">
-<span class="material-symbols-outlined text-orange-500 text-[16px]">inventory_2</span>
-                    products
+                <div id="models-list" class="flex-1 overflow-y-auto p-2 space-y-2">
+                    <p class="text-xs text-gray-400 italic p-2">Loading...</p>
                 </div>
-<ul class="ml-6 mt-1 space-y-0.5 border-l border-gray-100 dark:border-gray-800 pl-2">
-<li class="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer py-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-1 rounded">
-<span>category</span>
-<span class="font-mono text-[9px] text-gray-400">STR</span>
-</li>
-<li class="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer py-1 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-1 rounded">
-<span>stock_level</span>
-<span class="font-mono text-[9px] text-gray-400">INT</span>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="flex flex-col h-[35%] border-t border-gray-200 dark:border-gray-800">
-<div class="p-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-[#101622] shrink-0">
-<h3 class="font-semibold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saved Artifacts</h3>
-<button class="text-gray-400 hover:text-primary transition-colors">
-<span class="material-symbols-outlined text-[16px]">more_horiz</span>
-</button>
-</div>
-<div class="flex-1 overflow-y-auto">
-<div class="p-2 space-y-1">
-<a class="block group" href="#">
-<div class="flex items-center gap-2 px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors">
-<span class="material-symbols-outlined text-blue-500 text-[18px]">table_chart</span>
-<div class="flex-1 min-w-0">
-<div class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate group-hover:text-primary">Q4 Sales Report</div>
-<div class="text-[10px] text-gray-400 truncate">Modified 2h ago</div>
-</div>
-</div>
-</a>
-<a class="block group" href="#">
-<div class="flex items-center gap-2 px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors">
-<span class="material-symbols-outlined text-purple-500 text-[18px]">query_stats</span>
-<div class="flex-1 min-w-0">
-<div class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate group-hover:text-primary">User Retention</div>
-<div class="text-[10px] text-gray-400 truncate">Modified 1d ago</div>
-</div>
-</div>
-</a>
-<a class="block group" href="#">
-<div class="flex items-center gap-2 px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors">
-<span class="material-symbols-outlined text-green-500 text-[18px]">schema</span>
-<div class="flex-1 min-w-0">
-<div class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate group-hover:text-primary">Inventory Snapshot</div>
-<div class="text-[10px] text-gray-400 truncate">Modified 3d ago</div>
-</div>
-</div>
-</a>
-</div>
-</div>
-</div>
-</aside>
-<section class="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#0d1117] border-r border-gray-200 dark:border-gray-800">
-<div class="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-[#101622] shrink-0">
-<div class="flex items-center gap-2">
-<button class="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded shadow-sm transition-colors">
-<span class="material-symbols-outlined text-[16px]">play_arrow</span>
-                    Run
-                </button>
-<button class="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded transition-colors">
-<span class="material-symbols-outlined text-[16px]">stop</span>
-                    Stop
-                </button>
-<div class="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-<button class="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-xs font-medium rounded transition-colors">
-<span class="material-symbols-outlined text-[16px]">save</span>
-                    Save
-                </button>
-<button class="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-xs font-medium rounded transition-colors">
-<span class="material-symbols-outlined text-[16px]">format_align_left</span>
-                    Format
-                </button>
-</div>
-<div class="flex items-center gap-2 text-xs text-gray-500">
-<span class="flex items-center gap-1">
-<div class="size-2 rounded-full bg-green-500"></div>
-                    Ready
-                </span>
-<span class="text-gray-300 dark:text-gray-700">|</span>
-<span>BigQuery US</span>
-</div>
-</div>
-<div class="flex-1 relative flex flex-col overflow-hidden bg-white dark:bg-[#0d1117]">
-<div class="absolute inset-0 flex font-mono text-sm leading-6">
-<div class="w-12 bg-gray-50 dark:bg-[#161b22] border-r border-gray-100 dark:border-gray-800 text-gray-300 dark:text-gray-600 text-right pr-3 pt-4 select-none">
-                    1<br/>2<br/>3<br/>4<br/>5<br/>6<br/>7<br/>8<br/>9<br/>10<br/>11<br/>12<br/>13<br/>14<br/>15
+            </div>
+            <!-- Artifacts Section -->
+            <div class="flex flex-col h-[35%] border-t border-gray-200 dark:border-gray-800">
+                <div
+                    class="p-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50">
+                    <h3 class="font-semibold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saved
+                        Artifacts</h3>
+                    <span id="artifacts-count" class="text-[10px] text-gray-400">0</span>
                 </div>
-<div class="flex-1 p-4 overflow-auto focus:outline-none dark:text-gray-300" contenteditable="true" spellcheck="false">
-<div><span class="text-purple-600 dark:text-purple-400 font-bold">SELECT</span></div>
-<div>  date_trunc(o.order_date, <span class="text-orange-600 dark:text-orange-300">MONTH</span>) <span class="text-purple-600 dark:text-purple-400 font-bold">AS</span> month,</div>
-<div>  p.category,</div>
-<div>  <span class="text-blue-600 dark:text-blue-400">sum</span>(o.amount) <span class="text-purple-600 dark:text-purple-400 font-bold">AS</span> total_revenue</div>
-<div><span class="text-purple-600 dark:text-purple-400 font-bold">FROM</span></div>
-<div>  `lunara.public.orders` <span class="text-purple-600 dark:text-purple-400 font-bold">AS</span> o</div>
-<div><span class="text-purple-600 dark:text-purple-400 font-bold">JOIN</span></div>
-<div>  `lunara.public.products` <span class="text-purple-600 dark:text-purple-400 font-bold">AS</span> p <span class="text-purple-600 dark:text-purple-400 font-bold">ON</span> o.product_id = p.id</div>
-<div><span class="text-purple-600 dark:text-purple-400 font-bold">WHERE</span></div>
-<div>  o.order_date &gt;= <span class="text-green-600 dark:text-green-400">'2023-01-01'</span></div>
-<div>  <span class="text-purple-600 dark:text-purple-400 font-bold">AND</span> p.category != <span class="text-green-600 dark:text-green-400">'Accessories'</span></div>
-<div><span class="text-purple-600 dark:text-purple-400 font-bold">GROUP BY</span></div>
-<div>  1, 2</div>
-<div><span class="text-purple-600 dark:text-purple-400 font-bold">ORDER BY</span></div>
-<div>  1 <span class="text-purple-600 dark:text-purple-400 font-bold">DESC</span>, 2</div>
-</div>
-</div>
-</div>
-<div class="h-64 border-t border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-[#101622]">
-<div class="flex items-center px-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#161b22]">
-<button class="px-4 py-2 text-xs font-semibold text-primary border-b-2 border-primary bg-white dark:bg-transparent">
-                    Query Results
-                </button>
-<button class="px-4 py-2 text-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                    JSON
-                </button>
-<button class="px-4 py-2 text-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                    Execution Details
-                </button>
-<div class="flex-1"></div>
-<button class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-primary dark:text-blue-300 text-xs font-semibold rounded transition-colors mr-3 border border-blue-100 dark:border-blue-800">
-<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
-    Save as Artifact
-</button>
-<div class="text-[10px] text-gray-400 px-2">
-                    0.4s • 2.1 KB processed
+                <div id="artifacts-list" class="flex-1 overflow-y-auto p-2 space-y-1">
+                    <p class="text-xs text-gray-400 italic p-2">No artifacts saved</p>
                 </div>
-</div>
-<div class="flex-1 overflow-auto">
-<table class="w-full text-left border-collapse">
-<thead class="bg-gray-50 dark:bg-[#1a202c] sticky top-0 z-10">
-<tr>
-<th class="py-2 px-4 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 w-12 text-center">#</th>
-<th class="py-2 px-4 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">month</th>
-<th class="py-2 px-4 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">category</th>
-<th class="py-2 px-4 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 text-right">total_revenue</th>
-</tr>
-</thead>
-<tbody class="divide-y divide-gray-100 dark:divide-gray-800 text-sm dark:text-gray-300 font-mono">
-<tr class="hover:bg-blue-50/50 dark:hover:bg-blue-900/10">
-<td class="py-1.5 px-4 text-xs text-gray-400 text-center">1</td>
-<td class="py-1.5 px-4">2023-12-01</td>
-<td class="py-1.5 px-4">Electronics</td>
-<td class="py-1.5 px-4 text-right">45,230.50</td>
-</tr>
-<tr class="hover:bg-blue-50/50 dark:hover:bg-blue-900/10">
-<td class="py-1.5 px-4 text-xs text-gray-400 text-center">2</td>
-<td class="py-1.5 px-4">2023-12-01</td>
-<td class="py-1.5 px-4">Clothing</td>
-<td class="py-1.5 px-4 text-right">12,120.00</td>
-</tr>
-<tr class="hover:bg-blue-50/50 dark:hover:bg-blue-900/10">
-<td class="py-1.5 px-4 text-xs text-gray-400 text-center">3</td>
-<td class="py-1.5 px-4">2023-12-01</td>
-<td class="py-1.5 px-4">Home &amp; Garden</td>
-<td class="py-1.5 px-4 text-right">8,450.25</td>
-</tr>
-<tr class="hover:bg-blue-50/50 dark:hover:bg-blue-900/10">
-<td class="py-1.5 px-4 text-xs text-gray-400 text-center">4</td>
-<td class="py-1.5 px-4">2023-11-01</td>
-<td class="py-1.5 px-4">Electronics</td>
-<td class="py-1.5 px-4 text-right">38,900.00</td>
-</tr>
-<tr class="hover:bg-blue-50/50 dark:hover:bg-blue-900/10">
-<td class="py-1.5 px-4 text-xs text-gray-400 text-center">5</td>
-<td class="py-1.5 px-4">2023-11-01</td>
-<td class="py-1.5 px-4">Clothing</td>
-<td class="py-1.5 px-4 text-right">14,300.75</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</section>
-<aside class="w-96 bg-white dark:bg-[#101622] flex flex-col shrink-0 border-l border-gray-200 dark:border-gray-800 z-10 shadow-lg">
-<div class="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-[#101622]">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
-<h3 class="font-semibold text-sm text-[#111318] dark:text-white">Lunara Assistant</h3>
-</div>
-<button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-<span class="material-symbols-outlined text-[18px]">close_fullscreen</span>
-</button>
-</div>
-<div class="flex-1 overflow-y-auto p-4 space-y-6 bg-gray-50 dark:bg-[#0d1117]">
-<div class="flex flex-col items-end gap-1">
-<div class="bg-primary text-white px-4 py-2.5 rounded-2xl rounded-tr-sm shadow-sm text-sm leading-relaxed max-w-[90%]">
-                    Show me the total revenue by month for 2023, broken down by product category.
+            </div>
+        </aside>
+
+        <!-- SQL Editor Section -->
+        <section
+            class="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#0d1117] border-r border-gray-200 dark:border-gray-800">
+            <!-- Toolbar -->
+            <div
+                class="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-[#101622]">
+                <div class="flex items-center gap-2">
+                    <button id="run-btn" onclick="executeQuery()"
+                        class="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded shadow-sm transition-colors">
+                        <span class="material-symbols-outlined text-[16px]">play_arrow</span>
+                        Run
+                    </button>
+                    <button onclick="clearEditor()"
+                        class="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 text-gray-700 dark:text-gray-300 text-xs font-medium rounded transition-colors">
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        Clear
+                    </button>
                 </div>
-<span class="text-[10px] text-gray-400 mr-1">10:42 AM</span>
-</div>
-<div class="flex gap-3">
-<div class="size-6 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0 shadow-sm mt-1">
-<span class="material-symbols-outlined text-primary text-[14px]">auto_awesome</span>
-</div>
-<div class="flex-1 space-y-2">
-<div class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-[#1a202c] p-3 rounded-2xl rounded-tl-sm border border-gray-100 dark:border-gray-800 shadow-sm">
-<p>I've generated a query to aggregate <code>total_revenue</code> from the <code>orders</code> model, joined with <code>products</code> to get the category. Check the editor.</p>
-</div>
-</div>
-</div>
-<div class="flex flex-col items-end gap-1">
-<div class="bg-primary text-white px-4 py-2.5 rounded-2xl rounded-tr-sm shadow-sm text-sm leading-relaxed max-w-[90%]">
-                    Can you filter out the "Accessories" category?
+                <div id="query-status" class="text-xs text-gray-500">
+                    <span class="flex items-center gap-1">
+                        <div class="size-2 rounded-full bg-green-500"></div>
+                        Ready
+                    </span>
                 </div>
-<span class="text-[10px] text-gray-400 mr-1">10:45 AM</span>
-</div>
-<div class="flex gap-3">
-<div class="size-6 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0 shadow-sm mt-1">
-<span class="material-symbols-outlined text-primary text-[14px]">auto_awesome</span>
-</div>
-<div class="flex-1 space-y-2">
-<div class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed bg-white dark:bg-[#1a202c] p-3 rounded-2xl rounded-tl-sm border border-gray-100 dark:border-gray-800 shadow-sm">
-<p>Sure, I've updated the query in the editor to exclude 'Accessories'. You can execute it now.</p>
-<div class="flex gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-<button class="text-xs flex items-center gap-1 text-gray-500 hover:text-primary transition-colors">
-<span class="material-symbols-outlined text-[14px]">play_arrow</span> Run Query
-                            </button>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="p-4 bg-white dark:bg-[#101622] border-t border-gray-200 dark:border-gray-800">
-<div class="relative shadow-sm">
-<textarea class="w-full pl-3 pr-10 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-1 focus:ring-primary focus:border-primary resize-none text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 shadow-sm transition-all" placeholder="Ask Lunara..." rows="1" style="min-height: 48px;"></textarea>
-<div class="absolute right-2 bottom-2">
-<button class="p-1.5 text-primary hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors flex items-center justify-center">
-<span class="material-symbols-outlined text-[20px]">send</span>
-</button>
-</div>
-</div>
-<p class="text-[10px] text-center text-gray-400 dark:text-gray-600 mt-2">AI can make mistakes. Review generated SQL.</p>
-</div>
-</aside>
-</main>
-</body></html>
+            </div>
+
+            <!-- SQL Editor -->
+            <div class="flex-1 relative flex flex-col overflow-hidden bg-white dark:bg-[#0d1117]">
+                <textarea id="sql-editor"
+                    class="flex-1 w-full p-4 font-mono text-sm bg-transparent resize-none focus:outline-none dark:text-gray-300"
+                    placeholder="-- SQL will appear here when you ask a question..."></textarea>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="h-64 border-t border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-[#101622]">
+                <div
+                    class="flex items-center px-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#161b22]">
+                    <span class="px-4 py-2 text-xs font-semibold text-primary border-b-2 border-primary">Query
+                        Results</span>
+                    <div class="flex-1"></div>
+                    <button id="save-artifact-btn" onclick="saveAsArtifact()"
+                        class="hidden flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-primary text-xs font-semibold rounded transition-colors mr-3 border border-blue-100">
+                        <span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+                        Save as Artifact
+                    </button>
+                    <div id="results-meta" class="text-[10px] text-gray-400 px-2"></div>
+                </div>
+                <div id="results-container" class="flex-1 overflow-auto">
+                    <div class="flex items-center justify-center h-full text-gray-400 text-sm">
+                        Run a query to see results
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Chat Panel -->
+        <aside
+            class="w-96 bg-white dark:bg-[#101622] flex flex-col shrink-0 border-l border-gray-200 dark:border-gray-800 shadow-lg">
+            <div
+                class="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50/50">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
+                    <h3 class="font-semibold text-sm text-[#111318] dark:text-white">Lunara Assistant</h3>
+                </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-[#0d1117]">
+                <div class="text-center text-sm text-gray-400 py-8">
+                    <span class="material-symbols-outlined text-4xl mb-2 block">chat</span>
+                    Ask me anything about your data!
+                </div>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="p-4 bg-white dark:bg-[#101622] border-t border-gray-200 dark:border-gray-800">
+                <div class="relative shadow-sm">
+                    <textarea id="chat-input"
+                        class="w-full pl-3 pr-10 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-1 focus:ring-primary resize-none text-sm"
+                        placeholder="Ask Lunara..." rows="1"
+                        onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+                    <div class="absolute right-2 bottom-2">
+                        <button onclick="sendMessage()"
+                            class="p-1.5 text-primary hover:bg-blue-50 rounded-lg transition-colors">
+                            <span class="material-symbols-outlined text-[20px]">send</span>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-[10px] text-center text-gray-400 mt-2">AI can make mistakes. Review generated SQL.</p>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        const STORAGE_KEY = 'lunara_semantic_model';
+
+        let semanticModel = null;
+        let lastQueryResults = null;
+        let currentSQL = '';
+
+        // Load semantic model from localStorage
+        function loadSemanticModel() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
+                    const data = JSON.parse(stored);
+                    semanticModel = {
+                        tables: data.tables || [],
+                        relationships: data.relationships || []
+                    };
+                    renderModelsSidebar();
+                } catch (e) {
+                    console.error('Failed to load semantic model:', e);
+                    document.getElementById('models-list').innerHTML =
+                        '<p class="text-xs text-red-400 p-2">Failed to load models</p>';
+                }
+            } else {
+                document.getElementById('models-list').innerHTML =
+                    '<p class="text-xs text-gray-400 italic p-2">No semantic model found. <a href="semantic_layer_setup.html" class="text-primary hover:underline">Generate one</a></p>';
+            }
+        }
+
+        // Render models in sidebar
+        function renderModelsSidebar() {
+            const container = document.getElementById('models-list');
+            if (!semanticModel?.tables?.length) {
+                container.innerHTML = '<p class="text-xs text-gray-400 italic p-2">No tables in model</p>';
+                return;
+            }
+
+            container.innerHTML = semanticModel.tables.map(table => `
+                <div class="mb-2">
+                    <div class="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer">
+                        <span class="material-symbols-outlined text-primary text-[16px]">table_chart</span>
+                        ${table.name || table.table_id?.split('.').pop() || 'Unknown'}
+                    </div>
+                    <ul class="ml-6 mt-1 space-y-0.5 border-l border-gray-100 dark:border-gray-800 pl-2">
+                        ${table.columns.slice(0, 5).map(col => `
+                            <li class="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 py-0.5 px-1">
+                                <span>${col.name}</span>
+                                <span class="font-mono text-[9px] text-gray-400">${col.semantic_type?.toUpperCase().slice(0, 3) || 'DIM'}</span>
+                            </li>
+                        `).join('')}
+                        ${table.columns.length > 5 ? `<li class="text-[10px] text-gray-400 px-1">+${table.columns.length - 5} more</li>` : ''}
+                    </ul>
+                </div>
+            `).join('');
+        }
+
+        // Load artifacts from API
+        async function loadArtifacts() {
+            try {
+                const response = await fetch(`${API_BASE}/chat/artifacts`);
+                const artifacts = await response.json();
+                renderArtifacts(artifacts);
+            } catch (e) {
+                console.error('Failed to load artifacts:', e);
+            }
+        }
+
+        function renderArtifacts(artifacts) {
+            const container = document.getElementById('artifacts-list');
+            document.getElementById('artifacts-count').textContent = artifacts.length;
+
+            if (!artifacts.length) {
+                container.innerHTML = '<p class="text-xs text-gray-400 italic p-2">No artifacts saved</p>';
+                return;
+            }
+
+            container.innerHTML = artifacts.map(art => `
+                <div class="flex items-center gap-2 px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer group" onclick="loadArtifact('${art.id}', \`${art.sql.replace(/`/g, '\\`')}\`)">
+                    <span class="material-symbols-outlined text-blue-500 text-[18px]">table_chart</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">${art.title}</div>
+                        <div class="text-[10px] text-gray-400">${new Date(art.created_at).toLocaleDateString()}</div>
+                    </div>
+                    <button onclick="event.stopPropagation();deleteArtifact('${art.id}')" class="hidden group-hover:block text-gray-400 hover:text-red-500">
+                        <span class="material-symbols-outlined text-[14px]">delete</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function loadArtifact(id, sql) {
+            document.getElementById('sql-editor').value = sql;
+            currentSQL = sql;
+        }
+
+        async function deleteArtifact(id) {
+            if (!confirm('Delete this artifact?')) return;
+            try {
+                await fetch(`${API_BASE}/chat/artifacts/${id}`, { method: 'DELETE' });
+                loadArtifacts();
+            } catch (e) {
+                console.error('Failed to delete artifact:', e);
+            }
+        }
+
+        // Chat functionality
+        let currentStreamingId = null;  // Track current streaming message
+
+        function addMessage(content, isUser = false, isStreaming = false) {
+            const container = document.getElementById('chat-messages');
+            const id = isStreaming ? `streaming-${Date.now()}` : `msg-${Date.now()}`;
+
+            if (isUser) {
+                container.innerHTML += `
+                    <div class="flex flex-col items-end gap-1">
+                        <div class="bg-primary text-white px-4 py-2.5 rounded-2xl rounded-tr-sm shadow-sm text-sm max-w-[90%]">
+                            ${content}
+                        </div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML += `
+                    <div id="${id}" class="flex gap-3">
+                        <div class="size-6 rounded-full bg-white dark:bg-gray-800 border border-gray-200 flex items-center justify-center shrink-0 mt-1">
+                            <span class="material-symbols-outlined text-primary text-[14px]">auto_awesome</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-[#1a202c] p-3 rounded-2xl rounded-tl-sm border border-gray-100 shadow-sm">
+                                ${content}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                if (isStreaming) {
+                    currentStreamingId = id;  // Store the ID for updates
+                }
+            }
+            container.scrollTop = container.scrollHeight;
+            return id;
+        }
+
+        function updateStreamingMessage(content) {
+            if (currentStreamingId) {
+                const el = document.getElementById(currentStreamingId);
+                if (el) {
+                    el.querySelector('.text-sm').innerHTML = content;
+                }
+            }
+        }
+
+        function finalizeStreamingMessage() {
+            currentStreamingId = null;  // Clear so next message gets a new ID
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+            addMessage(message, true);
+
+            // Add streaming placeholder with unique ID
+            addMessage('<span class="text-gray-400">Thinking...</span>', false, true);
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        semantic_model: semanticModel
+                    })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = '';
+                let generatedSQL = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.type === 'text') {
+                                    fullText += data.content;
+                                    updateStreamingMessage(fullText.replace(/\n/g, '<br>'));
+                                } else if (data.type === 'sql') {
+                                    generatedSQL = data.content;
+                                    document.getElementById('sql-editor').value = generatedSQL;
+                                    currentSQL = generatedSQL;
+                                } else if (data.type === 'error') {
+                                    updateStreamingMessage(`<span class="text-red-500">${data.content}</span>`);
+                                }
+                            } catch (e) { }
+                        }
+                    }
+                }
+
+                // Finalize message
+                if (generatedSQL) {
+                    updateStreamingMessage(fullText.replace(/\n/g, '<br>') +
+                        '<div class="mt-2 pt-2 border-t border-gray-100"><span class="text-xs text-green-600">✓ SQL generated in editor</span></div>');
+                }
+                finalizeStreamingMessage();  // Clear the streaming ID
+
+            } catch (e) {
+                updateStreamingMessage(`<span class="text-red-500">Error: ${e.message}</span>`);
+                finalizeStreamingMessage();
+            }
+        }
+
+        // SQL execution
+        async function executeQuery() {
+            const sql = document.getElementById('sql-editor').value.trim();
+            if (!sql) return;
+
+            currentSQL = sql;
+            document.getElementById('query-status').innerHTML = '<span class="text-yellow-500">Running...</span>';
+            document.getElementById('results-container').innerHTML = '<div class="flex items-center justify-center h-full text-gray-400">Executing query...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sql })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    lastQueryResults = result.data;
+                    renderResults(result.data);
+                    document.getElementById('save-artifact-btn').classList.remove('hidden');
+                    document.getElementById('query-status').innerHTML = '<span class="flex items-center gap-1"><div class="size-2 rounded-full bg-green-500"></div>Complete</span>';
+                } else {
+                    const errorMsg = result.detail || result.error || 'Query failed';
+                    document.getElementById('results-container').innerHTML = `<div class="p-4 text-red-500">${errorMsg}</div>`;
+                    document.getElementById('query-status').innerHTML = '<span class="text-red-500">Error</span>';
+                }
+            } catch (e) {
+                document.getElementById('results-container').innerHTML = `<div class="p-4 text-red-500">${e.message}</div>`;
+                document.getElementById('query-status').innerHTML = '<span class="text-red-500">Error</span>';
+            }
+        }
+
+        function renderResults(data) {
+            if (!data || !data.length) {
+                document.getElementById('results-container').innerHTML = '<div class="p-4 text-gray-500">No results</div>';
+                return;
+            }
+
+            const columns = Object.keys(data[0]);
+            document.getElementById('results-meta').textContent = `${data.length} rows`;
+
+            document.getElementById('results-container').innerHTML = `
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-50 dark:bg-[#1a202c] sticky top-0">
+                        <tr>
+                            <th class="py-2 px-4 text-xs font-semibold text-gray-600 border-b w-12 text-center">#</th>
+                            ${columns.map(col => `<th class="py-2 px-4 text-xs font-semibold text-gray-600 border-b">${col}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 text-sm font-mono">
+                        ${data.slice(0, 100).map((row, i) => `
+                            <tr class="hover:bg-blue-50/50">
+                                <td class="py-1.5 px-4 text-xs text-gray-400 text-center">${i + 1}</td>
+                                ${columns.map(col => `<td class="py-1.5 px-4">${row[col] ?? ''}</td>`).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function clearEditor() {
+            document.getElementById('sql-editor').value = '';
+            currentSQL = '';
+        }
+
+        async function saveAsArtifact() {
+            if (!lastQueryResults || !currentSQL) return;
+
+            const title = prompt('Enter a name for this artifact:', 'Query Result');
+            if (!title) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/artifacts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title,
+                        sql: currentSQL,
+                        data: lastQueryResults
+                    })
+                });
+
+                if (response.ok) {
+                    loadArtifacts();
+                    alert('Artifact saved!');
+                }
+            } catch (e) {
+                console.error('Failed to save artifact:', e);
+            }
+        }
+
+        // Initialize
+        loadSemanticModel();
+        loadArtifacts();
+    </script>
+</body>
+
+</html>

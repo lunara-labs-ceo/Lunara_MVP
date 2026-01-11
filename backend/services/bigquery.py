@@ -200,3 +200,44 @@ class BigQueryService:
     def project_id(self) -> Optional[str]:
         """Get the connected project ID."""
         return self._project_id
+
+    def execute_query(self, sql: str) -> list:
+        """Execute a SQL query and return results as a list of dictionaries.
+        
+        Args:
+            sql: SQL query to execute.
+            
+        Returns:
+            List of row dictionaries.
+            
+        Raises:
+            Exception if not connected or query fails.
+        """
+        # If we have a client from UI-uploaded credentials, use it
+        if self._client is not None:
+            query_job = self._client.query(sql)
+            results = query_job.result()
+            rows = []
+            for row in results:
+                rows.append(dict(row.items()))
+            return rows
+        
+        # Fallback: use the service account JSON file in project root
+        project_root = Path(__file__).parent.parent.parent
+        credentials_path = project_root / "lunara-dev-094f5e9e682e.json"
+        
+        if not credentials_path.exists():
+            raise Exception("Not connected to BigQuery. Please connect via the UI or ensure lunara-dev-094f5e9e682e.json exists.")
+        
+        # Create a temporary client with the JSON file
+        credentials = service_account.Credentials.from_service_account_file(str(credentials_path))
+        client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+        
+        query_job = client.query(sql)
+        results = query_job.result()
+        
+        rows = []
+        for row in results:
+            rows.append(dict(row.items()))
+        
+        return rows
