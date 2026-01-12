@@ -8,7 +8,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
+    <!-- Markdown parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Drag and drop reordering -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -113,12 +117,19 @@
     </header>
 
     <div class="flex flex-1 overflow-hidden relative">
-        <!-- Left Sidebar: Artifacts -->
-        <aside
-            class="w-80 flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0 z-10">
-            <div class="p-4 border-b border-slate-200 dark:border-slate-800">
-                <h2 class="font-semibold text-slate-900 dark:text-white">Data Artifacts</h2>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Click to add to report</p>
+        <!-- Left Sidebar: Artifacts (Collapsible) -->
+        <aside id="artifacts-sidebar"
+            class="flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0 z-10 transition-all duration-300 w-72">
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div id="sidebar-header">
+                    <h2 class="font-semibold text-slate-900 dark:text-white">Data Artifacts</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Click to add to report</p>
+                </div>
+                <button onclick="toggleSidebar()"
+                    class="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                    title="Toggle sidebar">
+                    <span id="sidebar-toggle-icon" class="material-symbols-outlined text-[18px]">chevron_left</span>
+                </button>
             </div>
             <div id="artifacts-list" class="flex-1 overflow-y-auto p-4 space-y-3">
                 <div class="text-center py-8 text-slate-400">
@@ -158,29 +169,53 @@
                     </button>
                 </div>
                 <div class="flex-1"></div>
+                <!-- Zoom controls -->
+                <div class="flex items-center gap-1 px-2 border-r border-slate-200 dark:border-slate-700">
+                    <button onclick="zoomOut()"
+                        class="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                        title="Zoom Out">
+                        <span class="material-symbols-outlined text-[18px]">remove</span>
+                    </button>
+                    <span id="zoom-level" class="text-xs text-slate-500 w-12 text-center">100%</span>
+                    <button onclick="zoomIn()"
+                        class="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                        title="Zoom In">
+                        <span class="material-symbols-outlined text-[18px]">add</span>
+                    </button>
+                    <button onclick="resetZoom()"
+                        class="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                        title="Reset Zoom">
+                        <span class="material-symbols-outlined text-[18px]">fit_screen</span>
+                    </button>
+                </div>
                 <span class="text-xs text-slate-400" id="block-count">0 blocks</span>
             </div>
 
             <!-- Canvas Area -->
-            <div class="flex-1 overflow-auto p-8 bg-dot-pattern flex justify-center">
-                <div id="report-canvas"
-                    class="w-[800px] min-h-[600px] bg-white dark:bg-slate-850 shadow-xl dark:shadow-black/50 rounded-sm relative p-8 transition-colors ring-1 ring-slate-900/5">
-                    <!-- Empty state -->
-                    <div id="empty-state" class="flex flex-col items-center justify-center h-full text-slate-400 py-16">
-                        <span class="material-symbols-outlined text-6xl mb-4">description</span>
-                        <h3 class="text-lg font-semibold mb-2">Start Building Your Report</h3>
-                        <p class="text-sm text-center max-w-md mb-6">
-                            Ask the AI to generate charts and analysis, or click artifacts from the sidebar to add them.
-                        </p>
-                        <button onclick="document.getElementById('chat-input').focus()"
-                            class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-blue-600">
-                            Start with AI
-                        </button>
+            <div id="canvas-container"
+                class="flex-1 overflow-auto p-8 flex justify-center bg-slate-100 dark:bg-slate-950">
+                <div id="zoom-wrapper" class="transition-transform duration-200" style="transform-origin: top center;">
+                    <div id="report-canvas"
+                        class="w-[800px] bg-white dark:bg-slate-850 shadow-lg dark:shadow-black/50 rounded-sm relative p-8 transition-colors ring-1 ring-slate-900/5 h-fit">
+                        <!-- Empty state -->
+                        <div id="empty-state"
+                            class="flex flex-col items-center justify-center h-full text-slate-400 py-16">
+                            <span class="material-symbols-outlined text-6xl mb-4">description</span>
+                            <h3 class="text-lg font-semibold mb-2">Start Building Your Report</h3>
+                            <p class="text-sm text-center max-w-md mb-6">
+                                Ask the AI to generate charts and analysis, or click artifacts from the sidebar to add
+                                them.
+                            </p>
+                            <button onclick="document.getElementById('chat-input').focus()"
+                                class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-blue-600">
+                                Start with AI
+                            </button>
+                        </div>
+                        <!-- Blocks will be inserted here -->
+                        <div id="blocks-container" class="space-y-6 hidden"></div>
                     </div>
-                    <!-- Blocks will be inserted here -->
-                    <div id="blocks-container" class="space-y-6 hidden"></div>
-                </div>
-            </div>
+                </div><!-- zoom-wrapper -->
+            </div><!-- canvas-container -->
         </main>
 
         <!-- Right Sidebar: AI Chat -->
@@ -254,10 +289,97 @@
         let currentReportId = null;
         let reportBlocks = [];
 
+        // Sidebar state
+        let sidebarCollapsed = false;
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('artifacts-sidebar');
+            const header = document.getElementById('sidebar-header');
+            const artifactsList = document.getElementById('artifacts-list');
+            const toggleIcon = document.getElementById('sidebar-toggle-icon');
+
+            sidebarCollapsed = !sidebarCollapsed;
+
+            if (sidebarCollapsed) {
+                sidebar.classList.remove('w-72');
+                sidebar.classList.add('w-14');
+                header.classList.add('hidden');
+                artifactsList.classList.add('hidden');
+                toggleIcon.textContent = 'chevron_right';
+            } else {
+                sidebar.classList.remove('w-14');
+                sidebar.classList.add('w-72');
+                header.classList.remove('hidden');
+                artifactsList.classList.remove('hidden');
+                toggleIcon.textContent = 'chevron_left';
+            }
+        }
+
+        // Zoom state
+        let zoomLevel = 1;
+        const zoomStep = 0.1;
+        const minZoom = 0.5;
+        const maxZoom = 2;
+
+        function updateZoom() {
+            const wrapper = document.getElementById('zoom-wrapper');
+            const label = document.getElementById('zoom-level');
+            wrapper.style.transform = `scale(${zoomLevel})`;
+            label.textContent = `${Math.round(zoomLevel * 100)}%`;
+        }
+
+        function zoomIn() {
+            zoomLevel = Math.min(maxZoom, zoomLevel + zoomStep);
+            updateZoom();
+        }
+
+        function zoomOut() {
+            zoomLevel = Math.max(minZoom, zoomLevel - zoomStep);
+            updateZoom();
+        }
+
+        function resetZoom() {
+            zoomLevel = 1;
+            updateZoom();
+        }
+
+        // Sortable instance
+        let sortableInstance = null;
+
+        function initSortable() {
+            const container = document.getElementById('blocks-container');
+            if (container && typeof Sortable !== 'undefined') {
+                sortableInstance = new Sortable(container, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    ghostClass: 'opacity-50',
+                    onEnd: function (evt) {
+                        // Reorder the blocks array
+                        const item = reportBlocks.splice(evt.oldIndex, 1)[0];
+                        reportBlocks.splice(evt.newIndex, 0, item);
+                        // Re-assign IDs
+                        reportBlocks.forEach((block, i) => block.id = i + 1);
+                        // Save
+                        saveReport();
+                    }
+                });
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
             await loadArtifacts();
             await createOrLoadReport();
+            initSortable();
+
+            // Ctrl+Scroll to zoom
+            document.getElementById('canvas-container').addEventListener('wheel', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    if (e.deltaY < 0) zoomIn();
+                    else zoomOut();
+                }
+            }, { passive: false });
         });
 
         // Load artifacts from API
@@ -368,21 +490,36 @@
         }
 
         function renderBlock(block) {
+            const dragHandle = `<div class="drag-handle absolute top-2 left-2 opacity-0 group-hover:opacity-100 p-1 bg-slate-100 dark:bg-slate-700 text-slate-400 rounded cursor-grab hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"><span class="material-symbols-outlined text-[16px]">drag_indicator</span></div>`;
             const deleteBtn = `<button onclick="deleteBlock(${block.id})" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-red-100 text-red-500 rounded hover:bg-red-200 transition-all"><span class="material-symbols-outlined text-[16px]">delete</span></button>`;
 
             if (block.type === 'text') {
+                // Parse markdown to HTML
+                const htmlContent = typeof marked !== 'undefined' ? marked.parse(block.content || '') : block.content;
                 return `
-                    <div class="group relative border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-white dark:bg-slate-800">
+                    <div class="group relative border border-slate-200 dark:border-slate-700 rounded-lg p-4 pl-10 bg-white dark:bg-slate-800">
+                        ${dragHandle}
                         ${deleteBtn}
-                        <h4 class="font-semibold text-slate-800 dark:text-slate-200 mb-2">${block.title}</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed" contenteditable="true">${block.content}</p>
+                        ${block.title ? `<h4 class="font-semibold text-slate-800 dark:text-slate-200 mb-3">${block.title}</h4>` : ''}
+                        <div class="prose prose-sm dark:prose-invert max-w-none text-slate-600 dark:text-slate-400 leading-relaxed
+                            prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-headings:font-semibold
+                            prose-h3:text-lg prose-h3:mt-4 prose-h3:mb-2
+                            prose-p:my-2
+                            prose-ul:my-2 prose-ul:list-disc prose-ul:pl-5
+                            prose-ol:my-2 prose-ol:list-decimal prose-ol:pl-5
+                            prose-li:my-1
+                            prose-strong:text-slate-700 dark:prose-strong:text-slate-300
+                            prose-a:text-primary prose-a:no-underline hover:prose-a:underline">
+                            ${htmlContent}
+                        </div>
                     </div>
                 `;
             }
 
             if (block.type === 'kpi') {
                 return `
-                    <div class="group relative border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-white dark:bg-slate-800 w-64 inline-block mr-4">
+                    <div class="group relative border border-slate-200 dark:border-slate-700 rounded-lg p-4 pl-10 bg-white dark:bg-slate-800 w-64 inline-block mr-4">
+                        ${dragHandle}
                         ${deleteBtn}
                         <p class="text-sm font-medium text-slate-500">${block.subtitle || 'Metric'}</p>
                         <p class="text-3xl font-bold text-slate-900 dark:text-white mt-1">${block.content}</p>
@@ -400,8 +537,9 @@
                 const headers = Object.keys(data[0]);
                 return `
                     <div class="group relative border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-800">
+                        ${dragHandle}
                         ${deleteBtn}
-                        <div class="p-3 border-b border-slate-100 dark:border-slate-700">
+                        <div class="p-3 pl-10 border-b border-slate-100 dark:border-slate-700">
                             <h4 class="font-semibold text-slate-800 dark:text-slate-200">${block.title}</h4>
                         </div>
                         <div class="overflow-x-auto">
@@ -421,7 +559,8 @@
 
             if (block.type === 'chart' || block.type === 'image') {
                 return `
-                    <div class="group relative border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-white dark:bg-slate-800">
+                    <div class="group relative border border-slate-200 dark:border-slate-700 rounded-lg p-4 pl-10 bg-white dark:bg-slate-800">
+                        ${dragHandle}
                         ${deleteBtn}
                         <h4 class="font-semibold text-slate-800 dark:text-slate-200 mb-3">${block.title}</h4>
                         <img src="data:image/png;base64,${block.content}" alt="${block.title}" class="w-full rounded"/>

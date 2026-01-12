@@ -45,6 +45,7 @@ class ReportAgentService:
         self._session_id: Optional[str] = None
         self._user_id: str = "default"
         self._report_blocks: List[Dict] = []
+        self._seen_artifacts: set = set()  # Track artifacts we've already added
         
         # =====================================================
         # Agent 1: CodeExecutor (only has code execution)
@@ -84,14 +85,41 @@ For analysis:
 
 Available tools:
 - get_artifacts(): List all saved data artifacts
-- get_artifact_data(artifact_id): Get full data from a specific artifact
+- get_artifact_data(artifact_id): Get full data from a specific artifact  
 - add_block(block_type, content, title): Add content to the report canvas
 
 Block types:
+- 'text': For written analysis and summaries (supports markdown)
 - 'chart': For images (base64 encoded)
-- 'text': For written analysis and summaries
 - 'kpi': For key metrics (e.g. "Total Revenue: $1.2M")
 - 'table': For tabular data (JSON string)
+
+IMPORTANT formatting rules for 'text' blocks:
+- Use markdown formatting (headers, bold, lists)
+- Create SEPARATE blocks for each major section
+- For an executive summary, create ONE text block
+- For insights/analysis, create ANOTHER text block
+- Do NOT combine everything into one giant block
+- Use proper markdown:
+  * ## for section headers
+  * **bold** for emphasis
+  * - or * for bullet lists
+  * 1. 2. 3. for numbered lists
+
+Example text block content:
+'''
+## Key Findings
+
+The analysis reveals three major trends:
+
+1. **Revenue Growth**: 23% increase YoY
+2. **Top Performer**: Carhartt leads with $31.4K
+3. **Seasonal Peak**: December shows highest volume
+
+### Recommendations
+- Focus inventory on top 3 brands
+- Increase marketing spend in Q4
+'''
 
 Always call get_artifacts() first to see what data is available.""",
             tools=[
@@ -118,7 +146,16 @@ Workflow:
 1. Call DataAssistant to list available artifacts
 2. Call DataAssistant to get specific artifact data
 3. Call CodeExecutor with the data to create analysis/charts
-4. Call DataAssistant to add the results to the report
+4. Call DataAssistant to add the results as SEPARATE blocks
+
+IMPORTANT - Report Structure:
+- Create SEPARATE blocks for each section (don't dump everything in one block)
+- Use descriptive titles for each block
+- Structure a typical report as:
+  1. Executive Summary block (key highlights)
+  2. Chart block (visualization)
+  3. Analysis block (detailed insights)
+  4. Recommendations block (action items)
 
 Be helpful, insightful, and create professional visualizations.
 When the user asks for a report, coordinate between your assistants to build it.""",
@@ -327,7 +364,7 @@ When the user asks for a report, coordinate between your assistants to build it.
                 "content": str(e)
             }
         
-        # After generation, try to fetch any artifacts saved by CodeExecutor
+        # After generation, try to fetch any NEW artifacts saved by CodeExecutor
         try:
             if self._runner and self._runner.artifact_service:
                 artifact_names = await self._runner.artifact_service.list_artifact_keys(
@@ -337,6 +374,13 @@ When the user asks for a report, coordinate between your assistants to build it.
                 )
                 
                 for artifact_name in artifact_names:
+                    # Skip artifacts we've already processed
+                    if artifact_name in self._seen_artifacts:
+                        continue
+                    
+                    # Mark as seen
+                    self._seen_artifacts.add(artifact_name)
+                    
                     # Fetch the artifact
                     artifact_part = await self._runner.artifact_service.load_artifact(
                         app_name="lunara_reports",
@@ -358,11 +402,11 @@ When the user asks for a report, coordinate between your assistants to build it.
                             "filename": artifact_name,
                         }
                         
-                        # Add as a block
+                        # Add as a block with better title
                         self._report_blocks.append({
                             "id": len(self._report_blocks) + 1,
                             "type": "chart",
-                            "title": artifact_name,
+                            "title": "Generated Chart",  # Can be improved with context
                             "content": image_data,
                             "created_at": datetime.now().isoformat(),
                         })
