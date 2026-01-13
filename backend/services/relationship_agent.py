@@ -18,13 +18,17 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 
 # Set up service account credentials
+# Check if already set (e.g., by main.py on Render), otherwise look for local file
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 CREDENTIALS_PATH = PROJECT_ROOT / "lunara-dev-094f5e9e682e.json"
-if CREDENTIALS_PATH.exists():
+
+if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+    print(f"✓ Relationship Agent: Using credentials from env var")
+elif CREDENTIALS_PATH.exists():
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(CREDENTIALS_PATH)
     print(f"✓ Relationship Agent: Using credentials from {CREDENTIALS_PATH}")
 else:
-    print(f"⚠ Relationship Agent: Credentials file not found at {CREDENTIALS_PATH}")
+    print(f"⚠ Relationship Agent: No credentials found")
 
 from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner

@@ -23,11 +23,16 @@ from google.adk.code_executors import BuiltInCodeExecutor
 DB_PATH = Path(__file__).parent.parent / "lunara.db"
 
 # Service account for BigQuery
+# Check if already set (e.g., by main.py on Render), otherwise look for local file
 SERVICE_ACCOUNT_PATH = Path(__file__).parent.parent.parent / "lunara-dev-094f5e9e682e.json"
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(SERVICE_ACCOUNT_PATH)
-os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
-os.environ["GOOGLE_CLOUD_PROJECT"] = "lunara-dev"
-os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
+
+if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+    if SERVICE_ACCOUNT_PATH.exists():
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(SERVICE_ACCOUNT_PATH)
+
+os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "true")
+os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "lunara-dev")
+os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
 
 class ReportAgentService:

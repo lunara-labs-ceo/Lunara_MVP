@@ -222,15 +222,19 @@ class BigQueryService:
                 rows.append(dict(row.items()))
             return rows
         
-        # Fallback: use the service account JSON file in project root
+        # Fallback: check GOOGLE_APPLICATION_CREDENTIALS or use local file
+        creds_from_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         project_root = Path(__file__).parent.parent.parent
         credentials_path = project_root / "lunara-dev-094f5e9e682e.json"
         
-        if not credentials_path.exists():
-            raise Exception("Not connected to BigQuery. Please connect via the UI or ensure lunara-dev-094f5e9e682e.json exists.")
+        if creds_from_env and Path(creds_from_env).exists():
+            credentials = service_account.Credentials.from_service_account_file(creds_from_env)
+        elif credentials_path.exists():
+            credentials = service_account.Credentials.from_service_account_file(str(credentials_path))
+        else:
+            raise Exception("Not connected to BigQuery. Please connect via the UI or configure GOOGLE_APPLICATION_CREDENTIALS.")
         
-        # Create a temporary client with the JSON file
-        credentials = service_account.Credentials.from_service_account_file(str(credentials_path))
+        # Create client with the resolved credentials
         client = bigquery.Client(credentials=credentials, project=credentials.project_id)
         
         query_job = client.query(sql)
