@@ -99,14 +99,9 @@ Be concise. Process each table completely before moving to the next."""
             self._session_id = session.id
 
     def get_table_schema(self, table_id: str) -> dict:
-        """
-        Get the schema of a BigQuery table.
+        """Get the schema of a BigQuery table.
         
-        Args:
-            table_id: Full table reference in format 'dataset.table'
-            
-        Returns:
-            Dictionary with table schema information.
+        table_id: Full table reference in format 'dataset.table' (e.g., 'thelook_ecom.users')
         """
         if self.bq_service.client is None:
             return {"error": "Not connected to BigQuery"}
@@ -136,19 +131,10 @@ Be concise. Process each table completely before moving to the next."""
         table_id: str,
         columns: str
     ) -> dict:
-        """
-        Classify all columns in a table at once.
+        """Classify all columns in a table at once.
         
-        Args:
-            table_id: Full table identifier (e.g., 'thelook_ecom.users')
-            columns: JSON array of column classifications, each with:
-                     - name: column name
-                     - semantic_type: 'dimension', 'measure', or 'time'
-                     - description: human-readable description
-                     - aggregation: for measures, the aggregation function (optional)
-            
-        Returns:
-            Confirmation of classifications stored.
+        table_id: Full table identifier (e.g., 'thelook_ecom.users')
+        columns: JSON array of column classifications with name, semantic_type, description, aggregation
         """
         try:
             # Parse the JSON array of columns
