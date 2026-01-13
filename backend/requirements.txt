@@ -22,3 +22,6 @@ google-adk>=0.1.0
 
 # SSE streaming
 sse-starlette==2.2.1
+
+# Async file operations
+aiofiles==24.1.0

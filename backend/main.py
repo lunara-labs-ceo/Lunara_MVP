@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import base64
+import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -10,6 +12,8 @@ from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from api.v1 import connection
 from api.v1 import datasets
@@ -21,6 +25,26 @@ from services.bigquery import BigQueryService
 
 # Load environment variables
 load_dotenv()
+
+# Check if running on Render
+IS_RENDER = os.getenv("RENDER") == "true"
+
+# Handle GCP credentials from environment variable (for Render)
+def setup_gcp_credentials():
+    """Set up GCP credentials from base64-encoded env var."""
+    creds_json_b64 = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+    if creds_json_b64:
+        try:
+            # Decode base64 and write to temp file
+            creds_json = base64.b64decode(creds_json_b64).decode('utf-8')
+            creds_path = Path(tempfile.gettempdir()) / "gcp_credentials.json"
+            creds_path.write_text(creds_json)
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(creds_path)
+            print(f"✓ GCP credentials loaded from environment")
+        except Exception as e:
+            print(f"⚠ Failed to load GCP credentials: {e}")
+
+setup_gcp_credentials()
 
 
 # Global BigQuery service instance
@@ -92,16 +116,30 @@ app = FastAPI(
 
 
 # Configure CORS
+cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:5500",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5500",
+    "http://127.0.0.1:8000",
+    "null",  # For file:// URLs
+]
+
+# Add Render domain if set
+render_url = os.getenv("RENDER_EXTERNAL_URL")
+if render_url:
+    cors_origins.append(render_url)
+    cors_origins.append(render_url.replace("https://", "http://"))
+
+# For development/demo - allow all origins
+if IS_RENDER or os.getenv("ALLOW_ALL_ORIGINS") == "true":
+    cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5500",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5500",
-        "null",  # For file:// URLs
-    ],
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=True if cors_origins != ["*"] else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -121,11 +159,35 @@ async def health_check():
     return {"status": "healthy", "service": "lunara-backend"}
 
 
+# Static file serving for frontend pages
+FRONTEND_DIR = Path(__file__).parent.parent  # Parent of backend folder
+
 @app.get("/")
-async def root():
-    """Root endpoint with API info."""
-    return {
-        "name": "Lunara API",
-        "version": "0.1.0",
-        "docs": "/docs",
-    }
+async def serve_index():
+    """Serve the main BigQuery connection page."""
+    return FileResponse(FRONTEND_DIR / "bq_connection.html")
+
+@app.get("/bq_connection.html")
+async def serve_bq_connection():
+    """Serve BigQuery connection page."""
+    return FileResponse(FRONTEND_DIR / "bq_connection.html")
+
+@app.get("/schema_browser.html")
+async def serve_schema_browser():
+    """Serve schema browser page."""
+    return FileResponse(FRONTEND_DIR / "schema_browser.html")
+
+@app.get("/semantic_layer_setup.html")
+async def serve_semantic_layer():
+    """Serve semantic layer setup page."""
+    return FileResponse(FRONTEND_DIR / "semantic_layer_setup.html")
+
+@app.get("/chat_agent.html")
+async def serve_chat_agent():
+    """Serve chat agent page."""
+    return FileResponse(FRONTEND_DIR / "chat_agent.html")
+
+@app.get("/report_builder.html")
+async def serve_report_builder():
+    """Serve report builder page."""
+    return FileResponse(FRONTEND_DIR / "report_builder.html")
