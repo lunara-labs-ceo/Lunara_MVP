@@ -18,6 +18,7 @@ python-dotenv==1.0.1
 # CORS support
 
 # Google ADK for LLM agents
+deprecated>=1.2.0
 google-adk>=0.1.0
 
 # SSE streaming
