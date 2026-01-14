@@ -247,6 +247,25 @@ When the user asks for a report, coordinate between your assistants to build it.
         Returns:
             Confirmation with block ID.
         """
+        # For chart/image blocks: if content looks like a filename (not base64),
+        # store it for later resolution via artifact service
+        if block_type in ("chart", "image"):
+            # Check if content is a filename (short, ends with .png) vs base64 (long, starts with iVBOR)
+            is_filename = (
+                len(content) < 100 and 
+                (content.endswith('.png') or content.endswith('.jpg'))
+            )
+            if is_filename:
+                # Store the filename for later resolution - don't add broken block
+                if not hasattr(self, '_pending_chart_filenames'):
+                    self._pending_chart_filenames = []
+                self._pending_chart_filenames.append({
+                    "filename": content,
+                    "title": title or "Generated Chart"
+                })
+                print(f"📌 Stored pending chart: {content} (will resolve from artifacts)")
+                return {"status": "success", "message": "Chart will be added from artifact data"}
+        
         block = {
             "id": len(self._report_blocks) + 1,
             "type": block_type,
@@ -438,11 +457,19 @@ When the user asks for a report, coordinate between your assistants to build it.
                             "filename": artifact_name,
                         }
                         
-                        # Add as a block with better title
+                        # Add as a block - use pending chart title if available
+                        chart_title = "Generated Chart"
+                        if hasattr(self, '_pending_chart_filenames'):
+                            for pending in self._pending_chart_filenames:
+                                if pending["filename"] == artifact_name:
+                                    chart_title = pending["title"]
+                                    print(f"     📌 Using pending title: {chart_title}")
+                                    break
+                        
                         self._report_blocks.append({
                             "id": len(self._report_blocks) + 1,
                             "type": "chart",
-                            "title": "Generated Chart",  # Can be improved with context
+                            "title": chart_title,
                             "content": image_data,
                             "created_at": datetime.now().isoformat(),
                         })
