@@ -348,8 +348,22 @@ When the user asks for a report, coordinate between your assistants to build it.
                             # Handle generated images from code execution
                             import base64
                             image_data = part.inline_data.data
+                            
+                            # DEBUG: Log what we're getting
+                            print(f"🖼️ INLINE_DATA DEBUG:")
+                            print(f"   Type: {type(image_data)}")
+                            print(f"   Is bytes: {isinstance(image_data, bytes)}")
+                            if isinstance(image_data, bytes):
+                                print(f"   Bytes len: {len(image_data)}, preview: {image_data[:50]}")
+                            else:
+                                print(f"   String value: {str(image_data)[:100]}")
+                            print(f"   MIME: {part.inline_data.mime_type}")
+                            
                             if isinstance(image_data, bytes):
                                 image_data = base64.b64encode(image_data).decode()
+                            
+                            print(f"   Final data len: {len(image_data) if image_data else 0}")
+                            
                             yield {
                                 "type": "image",
                                 "mime_type": part.inline_data.mime_type,
