@@ -1,12 +1,12 @@
 # FastAPI and server
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
+fastapi==0.127.0
+uvicorn==0.34.0
 
 # Google Cloud
 google-cloud-bigquery==3.27.0
 
 # Data validation
-pydantic==2.10.4
+pydantic==2.12.5
 pydantic-settings==2.7.0
 
 # Security / encryption
@@ -15,14 +15,8 @@ cryptography==44.0.0
 # Environment management
 python-dotenv==1.0.1
 
-# CORS support
-
 # Google ADK for LLM agents
-deprecated>=1.2.0
 google-adk==1.18.0
 
 # SSE streaming
-sse-starlette==2.2.1
-
-# Async file operations
-aiofiles==24.1.0
+sse-starlette==3.1.2
