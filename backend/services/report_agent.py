@@ -378,9 +378,12 @@ When the user asks for a report, coordinate between your assistants to build it.
                     session_id=self._session_id,
                 )
                 
+                print(f"🎨 DEBUG: Found {len(artifact_names)} artifacts: {artifact_names}")
+                
                 for artifact_name in artifact_names:
                     # Skip artifacts we've already processed
                     if artifact_name in self._seen_artifacts:
+                        print(f"  ⏭️ Skipping already seen: {artifact_name}")
                         continue
                     
                     # Mark as seen
@@ -394,11 +397,25 @@ When the user asks for a report, coordinate between your assistants to build it.
                         filename=artifact_name,
                     )
                     
+                    print(f"  📦 Artifact: {artifact_name}")
+                    print(f"     Type: {type(artifact_part)}")
+                    print(f"     Has inline_data: {hasattr(artifact_part, 'inline_data')}")
+                    if hasattr(artifact_part, 'inline_data') and artifact_part.inline_data:
+                        print(f"     inline_data.data type: {type(artifact_part.inline_data.data)}")
+                        print(f"     inline_data.mime_type: {artifact_part.inline_data.mime_type}")
+                        data_sample = artifact_part.inline_data.data
+                        if isinstance(data_sample, bytes):
+                            print(f"     Data (bytes): len={len(data_sample)}, preview={data_sample[:50]}")
+                        else:
+                            print(f"     Data (other): {str(data_sample)[:100]}")
+                    
                     if artifact_part and hasattr(artifact_part, 'inline_data') and artifact_part.inline_data:
                         import base64
                         image_data = artifact_part.inline_data.data
                         if isinstance(image_data, bytes):
                             image_data = base64.b64encode(image_data).decode()
+                        
+                        print(f"     ✅ Final image_data length: {len(image_data) if image_data else 0}")
                         
                         yield {
                             "type": "image",
