@@ -19,7 +19,7 @@ python-dotenv==1.0.1
 
 # Google ADK for LLM agents
 deprecated>=1.2.0
-google-adk>=0.1.0
+google-adk==1.18.0
 
 # SSE streaming
 sse-starlette==2.2.1
