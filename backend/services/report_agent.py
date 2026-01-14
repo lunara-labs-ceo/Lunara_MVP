@@ -21,6 +21,8 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.code_executors import BuiltInCodeExecutor
+from google.adk.planners import BuiltInPlanner
+from google.genai import types
 
 # Database path
 DB_PATH = Path(__file__).parent.parent / "lunara.db"
@@ -136,6 +138,12 @@ Be concise and professional.""",
                 # Code execution via AgentTool (still needs LLM)
                 agent_tool.AgentTool(agent=self.code_executor),
             ],
+            # Enable thinking/reasoning output via BuiltInPlanner
+            planner=BuiltInPlanner(
+                thinking_config=types.ThinkingConfig(
+                    include_thoughts=True,
+                )
+            ),
         )
     
     # =========================================================
@@ -325,7 +333,17 @@ Be concise and professional.""",
             ):
                 if hasattr(event, 'content') and event.content:
                     for part in event.content.parts:
-                        if hasattr(part, 'text') and part.text:
+                        # Check if this is a thought part (thought flag is True)
+                        is_thought = getattr(part, 'thought', None) == True
+                        
+                        if is_thought and hasattr(part, 'text') and part.text:
+                            # This is a thought - yield the thought content
+                            yield {
+                                "type": "thought",
+                                "content": part.text
+                            }
+                        elif hasattr(part, 'text') and part.text and not is_thought:
+                            # Regular text response
                             yield {
                                 "type": "text",
                                 "content": part.text,

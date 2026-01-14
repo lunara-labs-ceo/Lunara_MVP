@@ -631,6 +631,12 @@
 
             input.value = '';
             addChatMessage(message, true);
+
+            // Start thinking timer
+            const thinkingStartTime = Date.now();
+            let thinkingContent = '';
+            let hasThoughts = false;
+
             addChatMessage('<span class="text-slate-400">Thinking...</span>', false, true);
 
             try {
@@ -682,10 +688,32 @@
                                     addBlock(data.block);
                                 } else if (data.type === 'status') {
                                     updateStreamingMessage(fullText + `<div class="text-xs text-slate-400 mt-2">${data.content}</div>`);
+                                } else if (data.type === 'thought') {
+                                    // Collect thoughts for collapsible display
+                                    hasThoughts = true;
+                                    thinkingContent += data.content + '\n';
                                 }
                             } catch (e) { }
                         }
                     }
+                }
+
+                // If we collected thoughts, show them in a collapsible section
+                const thinkingDuration = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
+                if (hasThoughts && thinkingContent) {
+                    const thoughtHtml = `
+                        <details class="mb-2 group">
+                            <summary class="cursor-pointer text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px] transition-transform group-open:rotate-90">chevron_right</span>
+                                Thought for ${thinkingDuration}s
+                            </summary>
+                            <div class="mt-2 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap border-l-2 border-slate-300 dark:border-slate-600">
+                                ${thinkingContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                            </div>
+                        </details>
+                    `;
+                    fullText = thoughtHtml + fullText;
+                    updateStreamingMessage(fullText);
                 }
 
                 currentStreamingId = null;
