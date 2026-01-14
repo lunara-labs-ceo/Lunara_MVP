@@ -665,8 +665,20 @@
                                     fullText += `<div class="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs mt-2">${data.output}</div>`;
                                     updateStreamingMessage(fullText);
                                 } else if (data.type === 'image') {
+                                    console.log('📸 IMAGE RECEIVED:', {
+                                        type: data.type,
+                                        mime: data.mime_type,
+                                        dataLength: data.data ? data.data.length : 0,
+                                        dataPreview: data.data ? data.data.slice(0, 100) : 'EMPTY'
+                                    });
                                     addBlock({ type: 'chart', title: 'Generated Chart', content: data.data });
                                 } else if (data.type === 'block') {
+                                    console.log('📦 BLOCK RECEIVED:', {
+                                        type: data.block?.type,
+                                        title: data.block?.title,
+                                        contentLength: data.block?.content ? data.block.content.length : 0,
+                                        contentPreview: data.block?.content ? data.block.content.slice(0, 100) : 'EMPTY'
+                                    });
                                     addBlock(data.block);
                                 } else if (data.type === 'status') {
                                     updateStreamingMessage(fullText + `<div class="text-xs text-slate-400 mt-2">${data.content}</div>`);
