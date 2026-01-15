@@ -55,6 +55,7 @@ class ReportAgentService:
         self._report_blocks: List[Dict] = []
         self._seen_artifacts: set = set()
         self._pending_chart_filenames: List[Dict] = []
+        self._generation_start: Optional[datetime] = None
         
         # =====================================================
         # CodeExecutor Agent (wrapped as AgentTool)
@@ -280,11 +281,29 @@ Be concise and professional.""",
         """Get all blocks added to the report."""
         return self._report_blocks
     
+    def get_new_blocks(self) -> List[Dict]:
+        """Get only blocks created during the most recent generation.
+        
+        This prevents old blocks from being re-added when user sends a new message.
+        """
+        if not hasattr(self, '_generation_start') or self._generation_start is None:
+            return self._report_blocks
+        
+        new_blocks = []
+        for block in self._report_blocks:
+            created = block.get("created_at")
+            if created:
+                # Compare ISO format timestamps
+                if created >= self._generation_start.isoformat():
+                    new_blocks.append(block)
+        return new_blocks
+    
     def clear_blocks(self):
         """Clear all report blocks."""
         self._report_blocks = []
         self._seen_artifacts = set()
         self._pending_chart_filenames = []
+        self._generation_start = None
     
     async def initialize(self, user_id: str = "default", force_new_session: bool = False):
         """Initialize runner and session.
@@ -330,9 +349,13 @@ Be concise and professional.""",
         
         Yields:
             Streaming response chunks with type and content.
+            Only yields blocks created during THIS generation (not old ones).
         """
         if not self._runner:
             await self.initialize()
+        
+        # Track when this generation started - only yield blocks created after this
+        self._generation_start = datetime.now()
         
         from google.genai import types
         

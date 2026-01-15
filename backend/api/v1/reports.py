@@ -209,8 +209,8 @@ async def generate_report_content(report_id: int, request: GenerateRequest):
             async for chunk in agent.generate(request.prompt):
                 yield f"data: {json.dumps(chunk)}\n\n"
             
-            # After generation, get any new blocks
-            blocks = agent.get_report_blocks()
+            # After generation, get only NEW blocks (not old accumulated ones)
+            blocks = agent.get_new_blocks()
             if blocks:
                 # Save blocks to report
                 conn = sqlite3.connect(str(DB_PATH))
