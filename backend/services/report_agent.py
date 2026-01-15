@@ -286,27 +286,43 @@ Be concise and professional.""",
         self._seen_artifacts = set()
         self._pending_chart_filenames = []
     
-    async def initialize(self, user_id: str = "default"):
-        """Initialize runner and session."""
+    async def initialize(self, user_id: str = "default", force_new_session: bool = False):
+        """Initialize runner and session.
+        
+        Args:
+            user_id: User identifier
+            force_new_session: If True, create a new session even if one exists
+        """
         self._user_id = user_id
+        
+        # Create runner only once (it holds the agent configuration)
         if self._runner is None:
-            session_service = InMemorySessionService()
-            artifact_service = InMemoryArtifactService()
+            self._session_service = InMemorySessionService()
+            self._artifact_service = InMemoryArtifactService()
             
             self._runner = Runner(
                 agent=self.report_builder,
                 app_name="lunara_reports",
-                session_service=session_service,
-                artifact_service=artifact_service,
+                session_service=self._session_service,
+                artifact_service=self._artifact_service,
             )
+        
+        # Always create a new session when force_new_session is True
+        # This gives each report/chat its own clean context
+        if force_new_session or self._session_id is None:
+            # Clear any existing state
+            self._report_blocks = []
+            self._seen_artifacts = set()
+            self._pending_chart_filenames = []
             
-            session = await session_service.create_session(
+            # Create new session
+            session = await self._session_service.create_session(
                 app_name="lunara_reports",
                 user_id=self._user_id,
                 state={"blocks": []}
             )
             self._session_id = session.id
-            print(f"✓ Report Agent v2: Created session {self._session_id} for user {self._user_id}")
+            print(f"✓ Report Agent v2: Created NEW session {self._session_id} for user {self._user_id}")
     
     async def generate(self, prompt: str) -> AsyncIterator[Dict]:
         """

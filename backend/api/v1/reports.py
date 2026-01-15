@@ -19,6 +19,7 @@ DB_PATH = Path(__file__).parent.parent.parent / "lunara.db"
 
 # Global report agent instance
 _report_agent: Optional[ReportAgentService] = None
+_current_report_id: Optional[int] = None
 
 
 def get_report_agent() -> ReportAgentService:
@@ -191,7 +192,17 @@ async def generate_report_content(report_id: int, request: GenerateRequest):
     
     Streams SSE events with generated content.
     """
+    global _current_report_id
+    
     agent = get_report_agent()
+    
+    # If switching to a different report, create a new session
+    # This prevents session creep between reports
+    force_new = _current_report_id != report_id
+    if force_new:
+        _current_report_id = report_id
+        
+    await agent.initialize(user_id=f"report_{report_id}", force_new_session=force_new)
     
     async def event_stream():
         try:
