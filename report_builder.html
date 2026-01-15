@@ -665,11 +665,9 @@
                                     fullText += data.content;
                                     updateStreamingMessage(fullText.replace(/\n/g, '<br>'));
                                 } else if (data.type === 'code') {
-                                    fullText += `<pre class="bg-slate-100 dark:bg-slate-900 p-2 rounded text-xs overflow-x-auto mt-2"><code>${data.content}</code></pre>`;
-                                    updateStreamingMessage(fullText);
+                                    // Don't show code during streaming - just keep going
                                 } else if (data.type === 'code_result') {
-                                    fullText += `<div class="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs mt-2">${data.output}</div>`;
-                                    updateStreamingMessage(fullText);
+                                    // Don't show code results during streaming
                                 } else if (data.type === 'image') {
                                     console.log('📸 IMAGE RECEIVED:', {
                                         type: data.type,
@@ -687,11 +685,28 @@
                                     });
                                     addBlock(data.block);
                                 } else if (data.type === 'status') {
-                                    updateStreamingMessage(fullText + `<div class="text-xs text-slate-400 mt-2">${data.content}</div>`);
+                                    // Hide tool calls - don't show "Calling CodeExecutor..." etc.
+                                    // Keep thoughts streaming instead
                                 } else if (data.type === 'thought') {
                                     // Collect thoughts for collapsible display
                                     hasThoughts = true;
                                     thinkingContent += data.content + '\n';
+
+                                    // Show last 3-4 lines of thoughts while streaming
+                                    const thoughtLines = thinkingContent.trim().split('\n');
+                                    const lastLines = thoughtLines.slice(-4).join('<br>');
+                                    const thinkingHtml = `
+                                        <div class="text-xs text-slate-400 italic animate-pulse">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="material-symbols-outlined text-[14px] animate-spin">sync</span>
+                                                <span>Thinking...</span>
+                                            </div>
+                                            <div class="pl-5 text-slate-500 dark:text-slate-400 leading-relaxed">
+                                                ${lastLines}
+                                            </div>
+                                        </div>
+                                    `;
+                                    updateStreamingMessage(thinkingHtml);
                                 }
                             } catch (e) { }
                         }
