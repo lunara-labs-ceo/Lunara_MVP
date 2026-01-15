@@ -108,7 +108,13 @@ For analysis:
 - `add_text_block(title, content)` - Add text/analysis (supports markdown)
 - `add_kpi_block(title, value)` - Add a metric card
 - `add_table_block(title, data)` - Add a data table
+- `add_chart_block(title)` - Add a chart to the report (MUST call after generating chart!)
 - `CodeExecutor` - For matplotlib charts and complex analysis
+
+**IMPORTANT - Chart Workflow:**
+1. Use CodeExecutor to generate the chart with matplotlib
+2. THEN immediately call add_chart_block(title) to add it to the report
+If you skip step 2, the chart won't appear in the report!
 
 **When creating charts:**
 - Use clean, professional styling (blues/teals work well)
@@ -123,6 +129,7 @@ For analysis:
                 self.add_text_block,
                 self.add_kpi_block,
                 self.add_table_block,
+                self.add_chart_block,  # For adding charts after generating with CodeExecutor
                 # Code execution via AgentTool (still needs LLM)
                 agent_tool.AgentTool(agent=self.code_executor),
             ],
@@ -259,6 +266,32 @@ For analysis:
         }
         self._report_blocks.append(block)
         return {"status": "success", "block_id": block["id"], "type": "table"}
+    
+    def add_chart_block(self, title: str, filename: str = "") -> dict:
+        """
+        Add a chart/visualization block to the report.
+        
+        Call this AFTER generating a chart with CodeExecutor to formally add it to the report.
+        If you just generated a chart, call this with the title to ensure it appears in the report.
+        
+        Args:
+            title (str): Title/caption for the chart.
+            filename (str): Optional filename of the generated chart image.
+            
+        Returns:
+            Confirmation that the chart will be added to the report.
+        """
+        # Store the pending chart - it will be resolved when we retrieve artifacts
+        self._pending_chart_filenames.append({
+            "title": title,
+            "filename": filename,
+            "created_at": datetime.now().isoformat(),
+        })
+        return {
+            "status": "success", 
+            "message": f"Chart '{title}' will be added to the report.",
+            "note": "The chart image will appear once code execution completes."
+        }
     
     # =========================================================
     # Service methods
