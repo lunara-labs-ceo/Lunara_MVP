@@ -430,17 +430,24 @@ If you skip step 2, the chart won't appear in the report!
                             if isinstance(image_data, bytes):
                                 image_data = base64.b64encode(image_data).decode()
                             
+                            # Get title from pending chart if available
+                            chart_title = "Generated Chart"
+                            if self._pending_chart_filenames:
+                                # Use the most recent pending chart title
+                                pending = self._pending_chart_filenames.pop(0)
+                                chart_title = pending.get("title", "Generated Chart")
+                            
                             yield {
                                 "type": "image",
                                 "mime_type": part.inline_data.mime_type,
                                 "data": image_data
                             }
                             
-                            # Add as a chart block
+                            # Add as a chart block with proper title
                             self._report_blocks.append({
                                 "id": len(self._report_blocks) + 1,
                                 "type": "chart",
-                                "title": "Generated Chart",
+                                "title": chart_title,
                                 "content": image_data,
                                 "created_at": datetime.now().isoformat(),
                             })
@@ -501,9 +508,11 @@ If you skip step 2, the chart won't appear in the report!
         except Exception as e:
             print(f"Warning: Failed to retrieve artifacts: {e}")
         
-        # Yield all blocks
+        # Yield only NEW blocks created during this generation
         for block in self._report_blocks:
-            yield {
-                "type": "block",
-                "block": block
-            }
+            created = block.get("created_at")
+            if created and created >= self._generation_start.isoformat():
+                yield {
+                    "type": "block",
+                    "block": block
+                }
