@@ -56,6 +56,7 @@ class ReportAgentService:
         self._seen_artifacts: set = set()
         self._pending_chart_filenames: List[Dict] = []
         self._generation_start: Optional[datetime] = None
+        self._unassigned_chart_images: List[str] = []  # Stores base64 images waiting for add_chart_block
         
         # =====================================================
         # CodeExecutor Agent (wrapped as AgentTool)
@@ -272,26 +273,42 @@ If you skip step 2, the chart won't appear in the report!
         Add a chart/visualization block to the report.
         
         Call this AFTER generating a chart with CodeExecutor to formally add it to the report.
-        If you just generated a chart, call this with the title to ensure it appears in the report.
+        The most recently generated chart image will be used.
         
         Args:
             title (str): Title/caption for the chart.
-            filename (str): Optional filename of the generated chart image.
+            filename (str): Optional filename (not typically needed).
             
         Returns:
-            Confirmation that the chart will be added to the report.
+            Confirmation that the chart was added.
         """
-        # Store the pending chart - it will be resolved when we retrieve artifacts
-        self._pending_chart_filenames.append({
-            "title": title,
-            "filename": filename,
-            "created_at": datetime.now().isoformat(),
-        })
-        return {
-            "status": "success", 
-            "message": f"Chart '{title}' will be added to the report.",
-            "note": "The chart image will appear once code execution completes."
-        }
+        # Use the most recent unassigned chart image
+        if self._unassigned_chart_images:
+            image_data = self._unassigned_chart_images.pop(0)
+            block = {
+                "id": len(self._report_blocks) + 1,
+                "type": "chart",
+                "title": title,
+                "content": image_data,
+                "created_at": datetime.now().isoformat(),
+            }
+            self._report_blocks.append(block)
+            return {
+                "status": "success",
+                "message": f"Chart '{title}' has been added to the report.",
+                "block_id": block["id"]
+            }
+        else:
+            # No image available yet - store as pending for artifact retrieval
+            self._pending_chart_filenames.append({
+                "title": title,
+                "filename": filename,
+                "created_at": datetime.now().isoformat(),
+            })
+            return {
+                "status": "pending",
+                "message": f"Chart '{title}' will be added when the image is ready."
+            }
     
     # =========================================================
     # Service methods
@@ -324,6 +341,7 @@ If you skip step 2, the chart won't appear in the report!
         self._seen_artifacts = set()
         self._pending_chart_filenames = []
         self._generation_start = None
+        self._unassigned_chart_images = []
     
     async def initialize(self, user_id: str = "default", force_new_session: bool = False):
         """Initialize runner and session.
@@ -430,27 +448,28 @@ If you skip step 2, the chart won't appear in the report!
                             if isinstance(image_data, bytes):
                                 image_data = base64.b64encode(image_data).decode()
                             
-                            # Get title from pending chart if available
-                            chart_title = "Generated Chart"
+                            # Check if there's a pending chart title (add_chart_block was called before)
                             if self._pending_chart_filenames:
-                                # Use the most recent pending chart title
+                                # Use the pending title and create block now
                                 pending = self._pending_chart_filenames.pop(0)
                                 chart_title = pending.get("title", "Generated Chart")
+                                self._report_blocks.append({
+                                    "id": len(self._report_blocks) + 1,
+                                    "type": "chart",
+                                    "title": chart_title,
+                                    "content": image_data,
+                                    "created_at": datetime.now().isoformat(),
+                                })
+                            else:
+                                # No pending title yet - store for add_chart_block to use later
+                                self._unassigned_chart_images.append(image_data)
                             
+                            # Still yield the image for real-time display
                             yield {
                                 "type": "image",
                                 "mime_type": part.inline_data.mime_type,
                                 "data": image_data
                             }
-                            
-                            # Add as a chart block with proper title
-                            self._report_blocks.append({
-                                "id": len(self._report_blocks) + 1,
-                                "type": "chart",
-                                "title": chart_title,
-                                "content": image_data,
-                                "created_at": datetime.now().isoformat(),
-                            })
         except Exception as e:
             yield {
                 "type": "error",
@@ -484,29 +503,31 @@ If you skip step 2, the chart won't appear in the report!
                         if isinstance(image_data, bytes):
                             image_data = base64.b64encode(image_data).decode()
                         
+                        # Store for add_chart_block() to use (don't create block directly)
+                        self._unassigned_chart_images.append(image_data)
+                        
                         yield {
                             "type": "image",
                             "mime_type": artifact_part.inline_data.mime_type,
                             "data": image_data,
                             "filename": artifact_name,
                         }
-                        
-                        # Check for pending title
-                        chart_title = "Generated Chart"
-                        for pending in self._pending_chart_filenames:
-                            if pending["filename"] == artifact_name:
-                                chart_title = pending["title"]
-                                break
-                        
-                        self._report_blocks.append({
-                            "id": len(self._report_blocks) + 1,
-                            "type": "chart",
-                            "title": chart_title,
-                            "content": image_data,
-                            "created_at": datetime.now().isoformat(),
-                        })
         except Exception as e:
             print(f"Warning: Failed to retrieve artifacts: {e}")
+        
+        # Match any pending chart titles with unassigned images
+        # This handles the case where add_chart_block was called before the image arrived
+        while self._pending_chart_filenames and self._unassigned_chart_images:
+            pending = self._pending_chart_filenames.pop(0)
+            image_data = self._unassigned_chart_images.pop(0)
+            block = {
+                "id": len(self._report_blocks) + 1,
+                "type": "chart",
+                "title": pending.get("title", "Generated Chart"),
+                "content": image_data,
+                "created_at": datetime.now().isoformat(),
+            }
+            self._report_blocks.append(block)
         
         # Yield only NEW blocks created during this generation
         for block in self._report_blocks:
