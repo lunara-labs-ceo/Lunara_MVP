@@ -164,8 +164,13 @@ FRONTEND_DIR = Path(__file__).parent.parent  # Parent of backend folder
 
 @app.get("/")
 async def serve_index():
-    """Serve the main BigQuery connection page."""
-    return FileResponse(FRONTEND_DIR / "bq_connection.html")
+    """Serve the landing page as homepage."""
+    return FileResponse(FRONTEND_DIR / "landing.html")
+
+@app.get("/landing.html")
+async def serve_landing():
+    """Serve landing page."""
+    return FileResponse(FRONTEND_DIR / "landing.html")
 
 @app.get("/bq_connection.html")
 async def serve_bq_connection():
