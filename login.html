@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunara - Sign In</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-stone: #EAE9E5;
+            --border-stone: #BAB8B0;
+            --electric-blue: #0033FF;
+            --electric-blue-hover: #0022CC;
+            --dark-text: #1A1A1A;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-stone);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .auth-container {
+            background: white;
+            border: 1px solid var(--border-stone);
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .auth-header {
+            padding: 32px 32px 0;
+            text-align: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--electric-blue);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 20px;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .auth-title {
+            font-size: 28px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+        }
+
+        .auth-subtitle {
+            color: var(--dark-text);
+            opacity: 0.6;
+            font-size: 14px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-stone);
+            margin-top: 24px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 16px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: var(--dark-text);
+            opacity: 0.5;
+            transition: opacity 0.2s, border-color 0.2s;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+
+        .auth-tab.active {
+            opacity: 1;
+            border-bottom-color: var(--electric-blue);
+        }
+
+        .auth-tab:hover {
+            opacity: 0.8;
+        }
+
+        .auth-form {
+            padding: 32px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            color: var(--dark-text);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid var(--border-stone);
+            font-family: inherit;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--electric-blue);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--electric-blue);
+            color: white;
+            border: none;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 8px;
+        }
+
+        .submit-btn:hover {
+            background: var(--electric-blue-hover);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .error-message {
+            background: #FEE2E2;
+            border: 1px solid #FECACA;
+            color: #DC2626;
+            padding: 12px 16px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #D1FAE5;
+            border: 1px solid #A7F3D0;
+            color: #059669;
+            padding: 12px 16px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            padding: 16px;
+            border-top: 1px solid var(--border-stone);
+            color: var(--dark-text);
+            text-decoration: none;
+            font-size: 14px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .back-link:hover {
+            opacity: 1;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <span class="logo-text">Lunara</span>
+            </div>
+            <h1 class="auth-title" id="authTitle">Welcome</h1>
+            <p class="auth-subtitle" id="authSubtitle">Sign in to access your dashboard</p>
+        </div>
+
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="loginTab">Log In</button>
+            <button class="auth-tab" id="signupTab">Sign Up</button>
+        </div>
+
+        <div class="auth-form">
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+
+            <!-- Login Form -->
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" placeholder="you@company.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="submit-btn" id="loginBtn">Log In</button>
+            </form>
+
+            <!-- Signup Form -->
+            <form id="signupForm" class="hidden">
+                <div class="form-group">
+                    <label for="signupEmail">Email</label>
+                    <input type="email" id="signupEmail" placeholder="you@company.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="signupPassword">Password</label>
+                    <input type="password" id="signupPassword" placeholder="Minimum 6 characters" required
+                        minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="signupConfirm">Confirm Password</label>
+                    <input type="password" id="signupConfirm" placeholder="••••••••" required minlength="6">
+                </div>
+                <button type="submit" class="submit-btn" id="signupBtn">Create Account</button>
+            </form>
+        </div>
+
+        <a href="/landing.html" class="back-link">← Back to home</a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Supabase configuration
+            const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
+            const SUPABASE_ANON_KEY = 'sb_publishable_X2ytecE_z1mq14Cw9T66MA_l0Fvn5KI';
+
+            const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+            // DOM Elements
+            const loginTab = document.getElementById('loginTab');
+            const signupTab = document.getElementById('signupTab');
+            const loginForm = document.getElementById('loginForm');
+            const signupForm = document.getElementById('signupForm');
+            const authTitle = document.getElementById('authTitle');
+            const authSubtitle = document.getElementById('authSubtitle');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.classList.add('show');
+                successMessage.classList.remove('show');
+            }
+
+            function showSuccess(message) {
+                successMessage.textContent = message;
+                successMessage.classList.add('show');
+                errorMessage.classList.remove('show');
+            }
+
+            function hideMessages() {
+                errorMessage.classList.remove('show');
+                successMessage.classList.remove('show');
+            }
+
+            function setLoading(button, loading) {
+                button.disabled = loading;
+                button.textContent = loading ? 'Please wait...' : button.dataset.text || button.textContent;
+                if (!button.dataset.text) button.dataset.text = button.textContent;
+            }
+
+            // Tab switching
+            loginTab.addEventListener('click', () => {
+                loginTab.classList.add('active');
+                signupTab.classList.remove('active');
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                authTitle.textContent = 'Welcome';
+                authSubtitle.textContent = 'Sign in to access your dashboard';
+                hideMessages();
+            });
+
+            signupTab.addEventListener('click', () => {
+                signupTab.classList.add('active');
+                loginTab.classList.remove('active');
+                signupForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+                authTitle.textContent = 'Get Started';
+                authSubtitle.textContent = 'Create your account in seconds';
+                hideMessages();
+            });
+
+            // Login form submission
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideMessages();
+
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                const btn = document.getElementById('loginBtn');
+
+                setLoading(btn, true);
+
+                try {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({
+                        email,
+                        password
+                    });
+
+                    if (error) throw error;
+
+                    // Redirect to callback to check org
+                    window.location.href = '/auth/callback.html';
+
+                } catch (err) {
+                    showError(err.message || 'Failed to sign in. Please check your credentials.');
+                    setLoading(btn, false);
+                }
+            });
+
+            // Signup form submission
+            signupForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideMessages();
+
+                const email = document.getElementById('signupEmail').value;
+                const password = document.getElementById('signupPassword').value;
+                const confirm = document.getElementById('signupConfirm').value;
+                const btn = document.getElementById('signupBtn');
+
+                if (password !== confirm) {
+                    showError('Passwords do not match');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    showError('Password must be at least 6 characters');
+                    return;
+                }
+
+                setLoading(btn, true);
+
+                try {
+                    const { data, error } = await supabaseClient.auth.signUp({
+                        email,
+                        password,
+                        options: {
+                            emailRedirectTo: `${window.location.origin}/auth/callback.html`
+                        }
+                    });
+
+                    if (error) throw error;
+
+                    // Check if email confirmation is required
+                    if (data.user && data.user.identities && data.user.identities.length === 0) {
+                        showError('This email is already registered. Please log in instead.');
+                        setLoading(btn, false);
+                        return;
+                    }
+
+                    if (data.session) {
+                        // Auto-confirmed, redirect to callback
+                        window.location.href = '/auth/callback.html';
+                    } else {
+                        // Email confirmation required
+                        showSuccess('Check your email for a confirmation link!');
+                        setLoading(btn, false);
+                    }
+
+                } catch (err) {
+                    showError(err.message || 'Failed to create account. Please try again.');
+                    setLoading(btn, false);
+                }
+            });
+
+            // Check if already logged in
+            async function checkSession() {
+                try {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (session) {
+                        window.location.href = '/auth/callback.html';
+                    }
+                } catch (err) {
+                    console.error('Session check error:', err);
+                }
+            }
+
+            checkSession();
+        });
+    </script>
+</body>
+
+</html>

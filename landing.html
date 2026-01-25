@@ -11,6 +11,7 @@
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -107,13 +108,19 @@
                 <a class="flex items-center px-8 border-r-stone text-sm font-medium hover:bg-white/50 hover:text-electric-blue transition-colors"
                     href="#">DOCS</a>
             </nav>
-            <div class="flex items-center ml-auto">
-                <a class="hidden md:flex items-center px-8 h-full border-l-stone text-sm font-medium hover:bg-white/50 transition-colors"
-                    href="#">LOG IN</a>
-                <a class="flex items-center px-8 h-full bg-electric-blue text-white text-sm font-bold tracking-wide hover:bg-electric-blue-hover transition-colors"
-                    href="#">
+            <div class="flex items-center ml-auto" id="authButtons">
+                <a class="hidden md:flex items-center px-8 h-full border-l-stone text-sm font-medium hover:bg-white/50 transition-colors cursor-pointer"
+                    id="loginBtn">LOG IN</a>
+                <a class="flex items-center px-8 h-full bg-electric-blue text-white text-sm font-bold tracking-wide hover:bg-electric-blue-hover transition-colors cursor-pointer"
+                    id="signupBtn">
                     GET ACCESS
                 </a>
+            </div>
+            <div class="hidden items-center ml-auto" id="userSection">
+                <a class="flex items-center px-8 h-full border-l-stone text-sm font-medium hover:bg-white/50 transition-colors"
+                    href="/dashboard.html">DASHBOARD</a>
+                <a class="flex items-center px-8 h-full text-sm font-medium hover:bg-white/50 transition-colors cursor-pointer"
+                    id="logoutBtn">LOG OUT</a>
             </div>
         </div>
     </header>
@@ -429,12 +436,12 @@
                     in minutes.
                 </p>
                 <div class="flex flex-col md:flex-row items-center justify-center gap-6">
-                    <a class="w-full md:w-auto px-10 py-5 bg-electric-blue text-white font-bold uppercase tracking-widest hover:bg-electric-blue-hover transition-colors shadow-xl"
-                        href="#">
+                    <a class="w-full md:w-auto px-10 py-5 bg-electric-blue text-white font-bold uppercase tracking-widest hover:bg-electric-blue-hover transition-colors shadow-xl cursor-pointer"
+                        id="ctaSignupBtn">
                         Get Access Now
                     </a>
                     <a class="w-full md:w-auto px-10 py-5 border border-dark-text text-dark-text font-bold uppercase tracking-widest hover:bg-white transition-colors"
-                        href="#">
+                        href="mailto:sales@lunara.ai">
                         Talk to Sales
                     </a>
                 </div>
@@ -470,6 +477,77 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Supabase configuration
+            const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
+            const SUPABASE_ANON_KEY = 'sb_publishable_X2ytecE_z1mq14Cw9T66MA_l0Fvn5KI';
+
+            const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+            // DOM Elements
+            const authButtons = document.getElementById('authButtons');
+            const userSection = document.getElementById('userSection');
+            const loginBtn = document.getElementById('loginBtn');
+            const signupBtn = document.getElementById('signupBtn');
+            const ctaSignupBtn = document.getElementById('ctaSignupBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+
+            // Check auth state on load
+            async function checkAuthState() {
+                try {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+
+                    if (session) {
+                        // User is logged in
+                        authButtons.classList.add('hidden');
+                        authButtons.classList.remove('flex');
+                        userSection.classList.remove('hidden');
+                        userSection.classList.add('flex');
+                    } else {
+                        // User is not logged in
+                        authButtons.classList.remove('hidden');
+                        authButtons.classList.add('flex');
+                        userSection.classList.add('hidden');
+                        userSection.classList.remove('flex');
+                    }
+                } catch (err) {
+                    console.error('Auth check error:', err);
+                }
+            }
+
+            // Sign up handler - redirect to login page
+            function handleSignup() {
+                window.location.href = '/login.html';
+            }
+
+            // Login handler - redirect to login page
+            function handleLogin() {
+                window.location.href = '/login.html';
+            }
+
+            // Logout handler
+            async function handleLogout() {
+                await supabaseClient.auth.signOut();
+                window.location.reload();
+            }
+
+            // Event listeners
+            loginBtn.addEventListener('click', handleLogin);
+            signupBtn.addEventListener('click', handleSignup);
+            ctaSignupBtn.addEventListener('click', handleSignup);
+            logoutBtn.addEventListener('click', handleLogout);
+
+            // Listen for auth state changes
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                checkAuthState();
+            });
+
+            // Initialize
+            checkAuthState();
+        });
+    </script>
 </body>
 
 </html>

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunara - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-stone: #EAE9E5;
+            --border-stone: #BAB8B0;
+            --electric-blue: #0033FF;
+            --electric-blue-hover: #0022CC;
+            --dark-text: #1A1A1A;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-stone);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-stone);
+            border-bottom: 1px solid var(--border-stone);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: stretch;
+            height: 64px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-stone);
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--electric-blue);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .org-name {
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-stone);
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--dark-text);
+            opacity: 0.7;
+        }
+
+        .header-spacer {
+            flex: 1;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            border-left: 1px solid var(--border-stone);
+            gap: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .user-menu:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--electric-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-email {
+            font-size: 14px;
+            color: var(--dark-text);
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            border-left: 1px solid var(--border-stone);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            background: none;
+            border-top: none;
+            border-bottom: none;
+            border-right: none;
+            color: var(--dark-text);
+            transition: background 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            padding: 48px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .welcome-section {
+            margin-bottom: 48px;
+        }
+
+        .welcome-section h1 {
+            font-size: 48px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
+        }
+
+        .welcome-section p {
+            font-size: 18px;
+            color: var(--dark-text);
+            opacity: 0.7;
+        }
+
+        /* Tools Grid */
+        .tools-section h2 {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--dark-text);
+            opacity: 0.5;
+            margin-bottom: 24px;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .tool-card {
+            background: white;
+            border: 1px solid var(--border-stone);
+            padding: 32px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .tool-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-stone);
+            border: 1px solid var(--border-stone);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .tool-icon .material-symbols-outlined {
+            font-size: 24px;
+            color: var(--electric-blue);
+        }
+
+        .tool-card h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .tool-card p {
+            font-size: 14px;
+            color: var(--dark-text);
+            opacity: 0.7;
+            line-height: 1.6;
+        }
+
+        .tool-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: var(--electric-blue);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 16px;
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border-stone);
+            border-top-color: var(--electric-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loading State -->
+    <div class="loading" id="loadingState">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Main App -->
+    <div id="appContent" class="hidden">
+        <header>
+            <div class="header-inner">
+                <div class="logo">
+                    <div class="logo-icon"></div>
+                    <span class="logo-text">Lunara</span>
+                </div>
+                <div class="org-name" id="orgName">Loading...</div>
+                <div class="header-spacer"></div>
+                <div class="user-menu">
+                    <div class="user-avatar" id="userAvatar">?</div>
+                    <span class="user-email" id="userEmail">Loading...</span>
+                </div>
+                <button class="logout-btn" id="logoutBtn">Log Out</button>
+            </div>
+        </header>
+
+        <main>
+            <div class="welcome-section">
+                <h1>Dashboard</h1>
+                <p>Welcome back! Select a tool below to get started.</p>
+            </div>
+
+            <section class="tools-section">
+                <h2>Your Tools</h2>
+                <div class="tools-grid">
+                    <a href="/bq_connection.html" class="tool-card">
+                        <div class="tool-icon">
+                            <span class="material-symbols-outlined">database</span>
+                        </div>
+                        <h3>BigQuery Connection</h3>
+                        <p>Connect to your BigQuery data warehouse and configure credentials.</p>
+                    </a>
+
+                    <a href="/schema_browser.html" class="tool-card">
+                        <div class="tool-icon">
+                            <span class="material-symbols-outlined">schema</span>
+                        </div>
+                        <h3>Schema Browser</h3>
+                        <p>Explore your database schema, tables, and columns.</p>
+                    </a>
+
+                    <a href="/semantic_layer_setup.html" class="tool-card">
+                        <div class="tool-icon">
+                            <span class="material-symbols-outlined">psychology</span>
+                        </div>
+                        <h3>Semantic Layer</h3>
+                        <p>Define business metrics and generate AI-powered semantic models.</p>
+                    </a>
+
+                    <a href="/chat_agent.html" class="tool-card">
+                        <div class="tool-icon">
+                            <span class="material-symbols-outlined">chat</span>
+                        </div>
+                        <h3>Chat Agent</h3>
+                        <p>Ask questions about your data in natural language.</p>
+                    </a>
+
+                    <a href="/report_builder.html" class="tool-card">
+                        <div class="tool-icon">
+                            <span class="material-symbols-outlined">monitoring</span>
+                        </div>
+                        <h3>Report Builder</h3>
+                        <p>Create interactive reports and dashboards with AI assistance.</p>
+                        <span class="tool-badge">New</span>
+                    </a>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Supabase configuration
+        const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_X2ytecE_z1mq14Cw9T66MA_l0Fvn5KI';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // DOM Elements
+        const loadingState = document.getElementById('loadingState');
+        const appContent = document.getElementById('appContent');
+        const orgNameEl = document.getElementById('orgName');
+        const userAvatarEl = document.getElementById('userAvatar');
+        const userEmailEl = document.getElementById('userEmail');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        async function initDashboard() {
+            try {
+                // Check session
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+                if (sessionError || !session) {
+                    console.log('No session, redirecting to landing');
+                    window.location.href = '/landing.html';
+                    return;
+                }
+
+                const user = session.user;
+                console.log('User authenticated:', user.email);
+
+                // Get profile with organization
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*, organizations(*)')
+                    .eq('id', user.id)
+                    .single();
+
+                if (profileError) {
+                    console.error('Profile error:', profileError);
+                    // Redirect to callback to create org
+                    window.location.href = '/auth/callback.html';
+                    return;
+                }
+
+                if (!profile.organization_id) {
+                    // No org, redirect to create one
+                    window.location.href = '/auth/callback.html';
+                    return;
+                }
+
+                // Update UI
+                userEmailEl.textContent = user.email;
+                userAvatarEl.textContent = user.email.charAt(0).toUpperCase();
+                orgNameEl.textContent = profile.organizations?.name || 'Unknown Org';
+
+                // Show app
+                loadingState.classList.add('hidden');
+                appContent.classList.remove('hidden');
+
+            } catch (err) {
+                console.error('Dashboard init error:', err);
+                window.location.href = '/landing.html';
+            }
+        }
+
+        // Logout handler
+        logoutBtn.addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            window.location.href = '/landing.html';
+        });
+
+        // Initialize
+        initDashboard();
+    </script>
+</body>
+
+</html>

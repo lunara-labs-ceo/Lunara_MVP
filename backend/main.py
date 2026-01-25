@@ -196,3 +196,18 @@ async def serve_chat_agent():
 async def serve_report_builder():
     """Serve report builder page."""
     return FileResponse(FRONTEND_DIR / "report_builder.html")
+
+@app.get("/dashboard.html")
+async def serve_dashboard():
+    """Serve dashboard page."""
+    return FileResponse(FRONTEND_DIR / "dashboard.html")
+
+@app.get("/auth/callback.html")
+async def serve_auth_callback():
+    """Serve auth callback page."""
+    return FileResponse(FRONTEND_DIR / "auth" / "callback.html")
+
+@app.get("/login.html")
+async def serve_login():
+    """Serve login page."""
+    return FileResponse(FRONTEND_DIR / "login.html")
