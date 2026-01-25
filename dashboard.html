@@ -345,77 +345,79 @@
     </div>
 
     <script>
-        // Supabase configuration
-        const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_X2ytecE_z1mq14Cw9T66MA_l0Fvn5KI';
+        document.addEventListener('DOMContentLoaded', function () {
+            // Supabase configuration
+            const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
+            const SUPABASE_ANON_KEY = 'sb_publishable_X2ytecE_z1mq14Cw9T66MA_l0Fvn5KI';
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // DOM Elements
-        const loadingState = document.getElementById('loadingState');
-        const appContent = document.getElementById('appContent');
-        const orgNameEl = document.getElementById('orgName');
-        const userAvatarEl = document.getElementById('userAvatar');
-        const userEmailEl = document.getElementById('userEmail');
-        const logoutBtn = document.getElementById('logoutBtn');
+            // DOM Elements
+            const loadingState = document.getElementById('loadingState');
+            const appContent = document.getElementById('appContent');
+            const orgNameEl = document.getElementById('orgName');
+            const userAvatarEl = document.getElementById('userAvatar');
+            const userEmailEl = document.getElementById('userEmail');
+            const logoutBtn = document.getElementById('logoutBtn');
 
-        async function initDashboard() {
-            try {
-                // Check session
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            async function initDashboard() {
+                try {
+                    // Check session
+                    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
-                if (sessionError || !session) {
-                    console.log('No session, redirecting to landing');
+                    if (sessionError || !session) {
+                        console.log('No session, redirecting to landing');
+                        window.location.href = '/landing.html';
+                        return;
+                    }
+
+                    const user = session.user;
+                    console.log('User authenticated:', user.email);
+
+                    // Get profile with organization
+                    const { data: profile, error: profileError } = await supabaseClient
+                        .from('profiles')
+                        .select('*, organizations(*)')
+                        .eq('id', user.id)
+                        .single();
+
+                    if (profileError) {
+                        console.error('Profile error:', profileError);
+                        // Redirect to callback to create org
+                        window.location.href = '/auth/callback.html';
+                        return;
+                    }
+
+                    if (!profile.organization_id) {
+                        // No org, redirect to create one
+                        window.location.href = '/auth/callback.html';
+                        return;
+                    }
+
+                    // Update UI
+                    userEmailEl.textContent = user.email;
+                    userAvatarEl.textContent = user.email.charAt(0).toUpperCase();
+                    orgNameEl.textContent = profile.organizations?.name || 'Unknown Org';
+
+                    // Show app
+                    loadingState.classList.add('hidden');
+                    appContent.classList.remove('hidden');
+
+                } catch (err) {
+                    console.error('Dashboard init error:', err);
                     window.location.href = '/landing.html';
-                    return;
                 }
-
-                const user = session.user;
-                console.log('User authenticated:', user.email);
-
-                // Get profile with organization
-                const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('*, organizations(*)')
-                    .eq('id', user.id)
-                    .single();
-
-                if (profileError) {
-                    console.error('Profile error:', profileError);
-                    // Redirect to callback to create org
-                    window.location.href = '/auth/callback.html';
-                    return;
-                }
-
-                if (!profile.organization_id) {
-                    // No org, redirect to create one
-                    window.location.href = '/auth/callback.html';
-                    return;
-                }
-
-                // Update UI
-                userEmailEl.textContent = user.email;
-                userAvatarEl.textContent = user.email.charAt(0).toUpperCase();
-                orgNameEl.textContent = profile.organizations?.name || 'Unknown Org';
-
-                // Show app
-                loadingState.classList.add('hidden');
-                appContent.classList.remove('hidden');
-
-            } catch (err) {
-                console.error('Dashboard init error:', err);
-                window.location.href = '/landing.html';
             }
-        }
 
-        // Logout handler
-        logoutBtn.addEventListener('click', async () => {
-            await supabase.auth.signOut();
-            window.location.href = '/landing.html';
+            // Logout handler
+            logoutBtn.addEventListener('click', async () => {
+                await supabaseClient.auth.signOut();
+                window.location.href = '/landing.html';
+            });
+
+            // Initialize
+            initDashboard();
         });
-
-        // Initialize
-        initDashboard();
     </script>
 </body>
 
