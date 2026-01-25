@@ -332,8 +332,23 @@
                 await createOrganization(orgName);
             });
 
-            // Initialize on page load
-            checkUserProfile();
+            // Listen for auth state changes (handles email confirmation redirects)
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                console.log('Auth state changed:', event, session?.user?.email);
+
+                if (event === 'SIGNED_IN' && session) {
+                    // User just signed in (including from email confirmation)
+                    checkUserProfile();
+                } else if (event === 'INITIAL_SESSION') {
+                    // Check if there's already a session
+                    if (session) {
+                        checkUserProfile();
+                    } else {
+                        // No session, redirect to login
+                        window.location.href = '/login.html';
+                    }
+                }
+            });
         });
     </script>
 </body>
