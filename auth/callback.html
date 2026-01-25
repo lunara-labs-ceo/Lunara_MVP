@@ -272,12 +272,17 @@
 
             async function createOrganization(orgName) {
                 try {
-                    // Get current user
-                    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+                    // Get current user and session
+                    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
-                    if (userError || !user) {
-                        throw new Error('Not authenticated');
+                    console.log('Session before insert:', session);
+                    console.log('Access token exists:', !!session?.access_token);
+
+                    if (sessionError || !session) {
+                        throw new Error('No session found');
                     }
+
+                    const user = session.user;
 
                     // Create organization
                     const { data: org, error: orgError } = await supabaseClient
