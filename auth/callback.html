@@ -282,8 +282,7 @@
                     // Get current user and session
                     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
-                    console.log('Session before insert:', session);
-                    console.log('Access token exists:', !!session?.access_token);
+                    console.log('Session before create:', session?.user?.email);
 
                     if (sessionError || !session) {
                         throw new Error('No session found');
@@ -291,43 +290,27 @@
 
                     const user = session.user;
 
-                    // Create organization - don't use select() to avoid needing SELECT policy during insert
-                    const { error: orgError } = await supabaseClient
-                        .from('organizations')
-                        .insert({ name: orgName });
+                    // Use backend API to create organization (bypasses RLS with service_role)
+                    const response = await fetch('/api/v1/auth/create-org', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`
+                        },
+                        body: JSON.stringify({
+                            org_name: orgName,
+                            user_id: user.id
+                        })
+                    });
 
-                    if (orgError) {
-                        console.error('Org insert error:', orgError);
-                        throw orgError;
+                    const result = await response.json();
+                    console.log('Create org result:', result);
+
+                    if (!result.success) {
+                        throw new Error(result.error || 'Failed to create organization');
                     }
 
-                    // Fetch the newly created org by name (since we just created it)
-                    const { data: org, error: fetchError } = await supabaseClient
-                        .from('organizations')
-                        .select('*')
-                        .eq('name', orgName)
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .single();
-
-                    if (fetchError || !org) {
-                        console.error('Org fetch error:', fetchError);
-                        throw fetchError || new Error('Could not fetch created org');
-                    }
-
-                    console.log('Created org:', org);
-
-                    // Update user's profile with organization_id
-                    const { error: updateError } = await supabaseClient
-                        .from('profiles')
-                        .update({ organization_id: org.id })
-                        .eq('id', user.id);
-
-                    if (updateError) {
-                        throw updateError;
-                    }
-
-                    console.log('Updated profile with org_id');
+                    console.log('Created org with id:', result.org_id);
 
                     // Redirect to dashboard
                     window.location.href = '/dashboard.html';
