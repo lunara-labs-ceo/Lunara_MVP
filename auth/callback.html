@@ -204,7 +204,14 @@
             const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
             const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1Zmhkb2psc2F5c3JraXZkZnltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzI4ODUsImV4cCI6MjA4NDk0ODg4NX0.MiYnxqdSXCV10LUqbBz2hTIyjcLhPy50X0xzYNacHtA';
 
-            const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            // Create client with explicit auth options per Supabase docs
+            const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: {
+                    autoRefreshToken: true,
+                    persistSession: true,
+                    detectSessionInUrl: true
+                }
+            });
 
             // DOM Elements
             const loadingContainer = document.getElementById('loadingContainer');
@@ -284,15 +291,28 @@
 
                     const user = session.user;
 
-                    // Create organization
-                    const { data: org, error: orgError } = await supabaseClient
+                    // Create organization - don't use select() to avoid needing SELECT policy during insert
+                    const { error: orgError } = await supabaseClient
                         .from('organizations')
-                        .insert({ name: orgName })
-                        .select()
-                        .single();
+                        .insert({ name: orgName });
 
                     if (orgError) {
+                        console.error('Org insert error:', orgError);
                         throw orgError;
+                    }
+
+                    // Fetch the newly created org by name (since we just created it)
+                    const { data: org, error: fetchError } = await supabaseClient
+                        .from('organizations')
+                        .select('*')
+                        .eq('name', orgName)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .single();
+
+                    if (fetchError || !org) {
+                        console.error('Org fetch error:', fetchError);
+                        throw fetchError || new Error('Could not fetch created org');
                     }
 
                     console.log('Created org:', org);
