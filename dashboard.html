@@ -662,7 +662,7 @@
                 projectsGrid.innerHTML = projects.map(project => {
                     const agentCount = agents.filter(a => a.project_id === project.id).length;
                     return `
-                        <a href="/project.html?id=${project.id}" class="project-card">
+                        <a href="/data_sources.html?project_id=${project.id}" class="project-card">
                             <h3>${escapeHtml(project.name)}</h3>
                             <p>${project.description ? escapeHtml(project.description) : 'No description'}</p>
                             <div class="project-meta">

@@ -6,6 +6,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Lunara - Connect BigQuery</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
@@ -204,8 +205,17 @@
         </div>
     </main>
     <script>
+        // Supabase configuration
+        const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1Zmhkb2psc2F5c3JraXZkZnltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzI4ODUsImV4cCI6MjA4NDk0ODg4NX0.MiYnxqdSXCV10LUqbBz2hTIyjcLhPy50X0xzYNacHtA';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         // API Configuration
         const API_BASE_URL = '';  // Use relative paths (works on localhost and Render)
+
+        // Get project_id from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('project_id');
 
         // DOM Elements
         const tabUpload = document.getElementById('tab-upload');
@@ -229,6 +239,7 @@
         let currentCredentials = null;
         let activeTab = 'upload';
         let isConnected = false;
+        let dataSourceId = null;
 
         // Tab switching
         function setActiveTab(tab) {
@@ -414,8 +425,38 @@
                 const data = await response.json();
 
                 if (data.status === 'connected') {
-                    showStatus('success', `Connected to ${data.project_id}! Found ${data.datasets_count} datasets. Click Next to continue.`);
                     isConnected = true;
+
+                    // Save to Supabase data_sources table if we have a project_id
+                    if (projectId) {
+                        try {
+                            const { data: savedSource, error: saveError } = await supabaseClient
+                                .from('data_sources')
+                                .insert({
+                                    project_id: projectId,
+                                    type: 'bigquery',
+                                    name: `BigQuery - ${data.project_id}`,
+                                    config: {
+                                        gcp_project_id: data.project_id,
+                                        datasets_count: data.datasets_count
+                                    },
+                                    status: 'connected'
+                                })
+                                .select()
+                                .single();
+
+                            if (saveError) {
+                                console.error('Error saving data source:', saveError);
+                            } else {
+                                dataSourceId = savedSource.id;
+                                console.log('Saved data source:', dataSourceId);
+                            }
+                        } catch (err) {
+                            console.error('Error saving to Supabase:', err);
+                        }
+                    }
+
+                    showStatus('success', `Connected to ${data.project_id}! Found ${data.datasets_count} datasets. Click Next to continue.`);
                     // Enable the Next button
                     nextBtn.disabled = false;
                     nextBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
@@ -450,7 +491,11 @@
         // Next button - navigate to schema browser
         nextBtn.addEventListener('click', () => {
             if (isConnected) {
-                window.location.href = 'schema_browser.html';
+                let url = 'schema_browser.html';
+                if (projectId) {
+                    url += `?project_id=${projectId}`;
+                }
+                window.location.href = url;
             }
         });
 

@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunara - Data Sources</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-stone: #EAE9E5;
+            --border-stone: #BAB8B0;
+            --electric-blue: #0033FF;
+            --electric-blue-hover: #0022CC;
+            --dark-text: #1A1A1A;
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --card-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-stone);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-stone);
+            border-bottom: 1px solid var(--border-stone);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: stretch;
+            height: 64px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-stone);
+            text-decoration: none;
+            color: var(--dark-text);
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--electric-blue);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--dark-text);
+        }
+
+        .breadcrumb a {
+            color: var(--dark-text);
+            text-decoration: none;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .breadcrumb a:hover {
+            opacity: 1;
+        }
+
+        .breadcrumb-separator {
+            opacity: 0.4;
+        }
+
+        .breadcrumb-current {
+            font-weight: 500;
+        }
+
+        .header-spacer {
+            flex: 1;
+        }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            padding: 48px 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .page-header {
+            margin-bottom: 48px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+        }
+
+        .page-description {
+            font-size: 16px;
+            color: var(--dark-text);
+            opacity: 0.7;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* Connector Grid */
+        .connectors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .connector-card {
+            background: white;
+            border: 1px solid var(--border-stone);
+            border-radius: 12px;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .connector-card:not(.disabled):hover {
+            box-shadow: var(--card-shadow-hover);
+            transform: translateY(-4px);
+            border-color: var(--electric-blue);
+        }
+
+        .connector-card.disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .connector-logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .connector-logo img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .connector-name {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .connector-description {
+            font-size: 14px;
+            color: var(--dark-text);
+            opacity: 0.6;
+            line-height: 1.5;
+        }
+
+        .coming-soon-badge {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--border-stone);
+            color: var(--dark-text);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+
+        .ready-badge {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: #059669;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+
+        /* Connected Sources Section */
+        .connected-section {
+            margin-top: 64px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: -0.01em;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title .material-symbols-outlined {
+            color: var(--electric-blue);
+        }
+
+        .empty-state {
+            background: white;
+            border: 2px dashed var(--border-stone);
+            border-radius: 12px;
+            padding: 48px;
+            text-align: center;
+            color: var(--dark-text);
+            opacity: 0.6;
+        }
+
+        .connected-sources-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .connected-source-item {
+            background: white;
+            border: 1px solid var(--border-stone);
+            border-radius: 8px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .connected-source-item .source-icon {
+            width: 40px;
+            height: 40px;
+        }
+
+        .connected-source-item .source-info {
+            flex: 1;
+        }
+
+        .connected-source-item .source-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .connected-source-item .source-meta {
+            font-size: 12px;
+            color: var(--dark-text);
+            opacity: 0.6;
+        }
+
+        .connected-source-item .status-badge {
+            background: #D1FAE5;
+            color: #065F46;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-inner">
+            <a href="/dashboard.html" class="logo">
+                <div class="logo-icon"></div>
+                <span class="logo-text">Lunara</span>
+            </a>
+            <div class="breadcrumb">
+                <a href="/dashboard.html">Dashboard</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current" id="projectName">Project</span>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current">Data Sources</span>
+            </div>
+            <div class="header-spacer"></div>
+        </div>
+    </header>
+
+    <main>
+        <div class="page-header">
+            <h1 class="page-title">Connect a Data Source</h1>
+            <p class="page-description">
+                Choose a data warehouse to connect. Lunara will scan your schema and help you build a semantic layer for
+                AI-powered analytics.
+            </p>
+        </div>
+
+        <div class="connectors-grid">
+            <!-- BigQuery - Ready -->
+            <div class="connector-card" id="bigquery-card">
+                <span class="ready-badge">Ready</span>
+                <div class="connector-logo">
+                    <img src="https://www.gstatic.com/devrel-devsite/prod/v0e0f589edd85502a40d78d7d0825db8ea5ef3b99ab4070381ee86977c9168730/cloud/images/cloud-logo.svg"
+                        alt="Google Cloud">
+                </div>
+                <h3 class="connector-name">BigQuery</h3>
+                <p class="connector-description">Connect to Google BigQuery using a service account</p>
+            </div>
+
+            <!-- PostgreSQL - Coming Soon -->
+            <div class="connector-card disabled">
+                <span class="coming-soon-badge">Coming Soon</span>
+                <div class="connector-logo">
+                    <img src="https://www.postgresql.org/media/img/about/press/elephant.png" alt="PostgreSQL">
+                </div>
+                <h3 class="connector-name">PostgreSQL</h3>
+                <p class="connector-description">Connect to PostgreSQL databases</p>
+            </div>
+
+            <!-- AWS Redshift - Coming Soon -->
+            <div class="connector-card disabled">
+                <span class="coming-soon-badge">Coming Soon</span>
+                <div class="connector-logo">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/7/73/Amazon-Redshift-Logo.svg"
+                        alt="AWS Redshift">
+                </div>
+                <h3 class="connector-name">AWS Redshift</h3>
+                <p class="connector-description">Connect to Amazon Redshift data warehouses</p>
+            </div>
+
+            <!-- Snowflake - Coming Soon -->
+            <div class="connector-card disabled">
+                <span class="coming-soon-badge">Coming Soon</span>
+                <div class="connector-logo">
+                    <img src="https://www.snowflake.com/wp-content/themes/snowflake/assets/img/brand-guidelines/logo-sno-blue-example.svg"
+                        alt="Snowflake">
+                </div>
+                <h3 class="connector-name">Snowflake</h3>
+                <p class="connector-description">Connect to Snowflake cloud data platform</p>
+            </div>
+        </div>
+
+        <!-- Connected Sources -->
+        <div class="connected-section">
+            <h2 class="section-title">
+                <span class="material-symbols-outlined">check_circle</span>
+                Connected Sources
+            </h2>
+            <div id="connectedSources">
+                <div class="empty-state">
+                    No data sources connected yet. Choose a connector above to get started.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Supabase configuration
+        const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1Zmhkb2psc2F5c3JraXZkZnltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzI4ODUsImV4cCI6MjA4NDk0ODg4NX0.MiYnxqdSXCV10LUqbBz2hTIyjcLhPy50X0xzYNacHtA';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Get project ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('project_id');
+
+        if (!projectId) {
+            alert('No project specified. Redirecting to dashboard.');
+            window.location.href = '/dashboard.html';
+        }
+
+        // DOM Elements
+        const projectNameEl = document.getElementById('projectName');
+        const connectedSourcesEl = document.getElementById('connectedSources');
+        const bigqueryCard = document.getElementById('bigquery-card');
+
+        // Initialize page
+        async function init() {
+            try {
+                // Check session
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) {
+                    window.location.href = '/landing.html';
+                    return;
+                }
+
+                // Load project details
+                const { data: project, error: projectError } = await supabaseClient
+                    .from('projects')
+                    .select('*')
+                    .eq('id', projectId)
+                    .single();
+
+                if (projectError || !project) {
+                    alert('Project not found. Redirecting to dashboard.');
+                    window.location.href = '/dashboard.html';
+                    return;
+                }
+
+                projectNameEl.textContent = project.name;
+                document.title = `Lunara - ${project.name} - Data Sources`;
+
+                // Load connected data sources
+                await loadConnectedSources();
+
+            } catch (err) {
+                console.error('Init error:', err);
+            }
+        }
+
+        // Load connected data sources
+        async function loadConnectedSources() {
+            const { data: sources, error } = await supabaseClient
+                .from('data_sources')
+                .select('*')
+                .eq('project_id', projectId)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error loading sources:', error);
+                return;
+            }
+
+            if (!sources || sources.length === 0) {
+                connectedSourcesEl.innerHTML = `
+                    <div class="empty-state">
+                        No data sources connected yet. Choose a connector above to get started.
+                    </div>
+                `;
+                return;
+            }
+
+            connectedSourcesEl.innerHTML = `
+                <div class="connected-sources-list">
+                    ${sources.map(source => `
+                        <div class="connected-source-item">
+                            <img class="source-icon" src="${getSourceLogo(source.type)}" alt="${source.type}">
+                            <div class="source-info">
+                                <div class="source-name">${escapeHtml(source.name)}</div>
+                                <div class="source-meta">${source.type.toUpperCase()} • Connected ${formatDate(source.created_at)}</div>
+                            </div>
+                            <span class="status-badge">${source.status}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function getSourceLogo(type) {
+            const logos = {
+                'bigquery': 'https://www.gstatic.com/devrel-devsite/prod/v0e0f589edd85502a40d78d7d0825db8ea5ef3b99ab4070381ee86977c9168730/cloud/images/cloud-logo.svg',
+                'postgres': 'https://www.postgresql.org/media/img/about/press/elephant.png',
+                'redshift': 'https://upload.wikimedia.org/wikipedia/commons/7/73/Amazon-Redshift-Logo.svg',
+                'snowflake': 'https://www.snowflake.com/wp-content/themes/snowflake/assets/img/brand-guidelines/logo-sno-blue-example.svg'
+            };
+            return logos[type] || '';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        // BigQuery card click handler
+        bigqueryCard.addEventListener('click', () => {
+            window.location.href = `/bq_connection.html?project_id=${projectId}`;
+        });
+
+        // Initialize
+        init();
+    </script>
+</body>
+
+</html>

@@ -213,3 +213,8 @@ async def serve_auth_callback():
 async def serve_login():
     """Serve login page."""
     return FileResponse(FRONTEND_DIR / "login.html")
+
+@app.get("/data_sources.html")
+async def serve_data_sources():
+    """Serve data sources page."""
+    return FileResponse(FRONTEND_DIR / "data_sources.html")
