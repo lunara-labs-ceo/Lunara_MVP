@@ -23,6 +23,9 @@
             --electric-blue: #0033FF;
             --electric-blue-hover: #0022CC;
             --dark-text: #1A1A1A;
+            --success-green: #059669;
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --card-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
         }
 
         body {
@@ -163,78 +166,306 @@
             opacity: 0.7;
         }
 
-        /* Tools Grid */
-        .tools-section h2 {
+        /* Dashboard Layout */
+        .dashboard-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 48px;
+        }
+
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .section-header h2 {
             font-size: 12px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.1em;
             color: var(--dark-text);
             opacity: 0.5;
-            margin-bottom: 24px;
         }
 
-        .tools-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 24px;
-        }
-
-        .tool-card {
-            background: white;
-            border: 1px solid var(--border-stone);
-            padding: 32px;
-            transition: transform 0.2s, box-shadow 0.2s;
-            cursor: pointer;
-            text-decoration: none;
-            color: inherit;
-            display: block;
-        }
-
-        .tool-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
-        }
-
-        .tool-icon {
-            width: 48px;
-            height: 48px;
-            background: var(--bg-stone);
-            border: 1px solid var(--border-stone);
+        .add-btn {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-bottom: 24px;
+            gap: 6px;
+            padding: 8px 16px;
+            background: var(--electric-blue);
+            color: white;
+            border: none;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
         }
 
-        .tool-icon .material-symbols-outlined {
-            font-size: 24px;
-            color: var(--electric-blue);
+        .add-btn:hover {
+            background: var(--electric-blue-hover);
         }
 
-        .tool-card h3 {
-            font-size: 20px;
+        .add-btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        /* Project Cards */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .project-card {
+            background: white;
+            border: 1px solid var(--border-stone);
+            padding: 24px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .project-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--card-shadow-hover);
+        }
+
+        .project-card h3 {
+            font-size: 18px;
             font-weight: 700;
             margin-bottom: 8px;
         }
 
-        .tool-card p {
+        .project-card p {
             font-size: 14px;
             color: var(--dark-text);
             opacity: 0.7;
-            line-height: 1.6;
+            line-height: 1.5;
+            margin-bottom: 16px;
         }
 
-        .tool-badge {
-            display: inline-block;
-            padding: 4px 8px;
+        .project-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--dark-text);
+            opacity: 0.5;
+        }
+
+        .project-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .project-meta .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        /* Agents Grid */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .agents-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .agent-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-stone);
+            border: 1px solid var(--border-stone);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .agent-item:hover {
+            background: #e0dfdb;
+        }
+
+        .agent-icon {
+            width: 40px;
+            height: 40px;
             background: var(--electric-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: white;
-            font-size: 10px;
-            font-weight: 700;
+        }
+
+        .agent-icon .material-symbols-outlined {
+            font-size: 20px;
+        }
+
+        .agent-info {
+            flex: 1;
+        }
+
+        .agent-info h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .agent-info span {
+            font-size: 12px;
+            color: var(--dark-text);
+            opacity: 0.5;
+        }
+
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            background: white;
+            border: 2px dashed var(--border-stone);
+        }
+
+        .empty-state .material-symbols-outlined {
+            font-size: 48px;
+            color: var(--border-stone);
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            color: var(--dark-text);
+            opacity: 0.6;
+            margin-bottom: 0;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 100;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: white;
+            padding: 32px;
+            max-width: 480px;
+            width: 90%;
+            border: 1px solid var(--border-stone);
+            transform: translateY(20px);
+            transition: transform 0.2s;
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+
+        .modal h2 {
+            font-size: 24px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-top: 16px;
+            margin-bottom: 8px;
+            color: var(--dark-text);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid var(--border-stone);
+            font-family: inherit;
+            font-size: 16px;
+            transition: border-color 0.2s;
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--electric-blue);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .modal-actions button {
+            flex: 1;
+            padding: 14px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--electric-blue);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: var(--electric-blue-hover);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--dark-text);
+            border: 1px solid var(--border-stone);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-stone);
         }
 
         /* Loading State */
@@ -262,6 +493,32 @@
 
         .hidden {
             display: none !important;
+        }
+
+        /* Skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, #e0dfdb 25%, #f0efec 50%, #e0dfdb 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .skeleton-card {
+            height: 140px;
+            border: 1px solid var(--border-stone);
+        }
+
+        .skeleton-agent {
+            height: 72px;
         }
     </style>
 </head>
@@ -293,55 +550,56 @@
         <main>
             <div class="welcome-section">
                 <h1>Dashboard</h1>
-                <p>Welcome back! Select a tool below to get started.</p>
+                <p>Manage your projects and agents</p>
             </div>
 
-            <section class="tools-section">
-                <h2>Your Tools</h2>
-                <div class="tools-grid">
-                    <a href="/bq_connection.html" class="tool-card">
-                        <div class="tool-icon">
-                            <span class="material-symbols-outlined">database</span>
-                        </div>
-                        <h3>BigQuery Connection</h3>
-                        <p>Connect to your BigQuery data warehouse and configure credentials.</p>
-                    </a>
+            <div class="dashboard-sections">
+                <!-- Projects Section -->
+                <section class="projects-section">
+                    <div class="section-header">
+                        <h2>Projects</h2>
+                        <button class="add-btn" id="newProjectBtn">
+                            <span class="material-symbols-outlined">add</span>
+                            New Project
+                        </button>
+                    </div>
+                    <div class="projects-grid" id="projectsGrid">
+                        <!-- Projects will be loaded here -->
+                    </div>
+                </section>
 
-                    <a href="/schema_browser.html" class="tool-card">
-                        <div class="tool-icon">
-                            <span class="material-symbols-outlined">schema</span>
-                        </div>
-                        <h3>Schema Browser</h3>
-                        <p>Explore your database schema, tables, and columns.</p>
-                    </a>
-
-                    <a href="/semantic_layer_setup.html" class="tool-card">
-                        <div class="tool-icon">
-                            <span class="material-symbols-outlined">psychology</span>
-                        </div>
-                        <h3>Semantic Layer</h3>
-                        <p>Define business metrics and generate AI-powered semantic models.</p>
-                    </a>
-
-                    <a href="/chat_agent.html" class="tool-card">
-                        <div class="tool-icon">
-                            <span class="material-symbols-outlined">chat</span>
-                        </div>
-                        <h3>Chat Agent</h3>
-                        <p>Ask questions about your data in natural language.</p>
-                    </a>
-
-                    <a href="/report_builder.html" class="tool-card">
-                        <div class="tool-icon">
-                            <span class="material-symbols-outlined">monitoring</span>
-                        </div>
-                        <h3>Report Builder</h3>
-                        <p>Create interactive reports and dashboards with AI assistance.</p>
-                        <span class="tool-badge">New</span>
-                    </a>
-                </div>
-            </section>
+                <!-- Agents Section -->
+                <section class="agents-section">
+                    <div class="section-header">
+                        <h2>Agents</h2>
+                    </div>
+                    <div class="agents-grid" id="agentsList">
+                        <!-- Agents will be loaded here -->
+                    </div>
+                </section>
+            </div>
         </main>
+    </div>
+
+    <!-- Create Project Modal -->
+    <div class="modal-overlay" id="projectModal">
+        <div class="modal">
+            <h2>New Project</h2>
+            <form id="projectForm">
+                <div class="form-group">
+                    <label for="projectName">Project Name</label>
+                    <input type="text" id="projectName" placeholder="e.g., Sales Analytics" required>
+                </div>
+                <div class="form-group">
+                    <label for="projectDesc">Description (optional)</label>
+                    <textarea id="projectDesc" placeholder="What is this project about?"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancelProjectBtn">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Project</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -359,7 +617,188 @@
             const userAvatarEl = document.getElementById('userAvatar');
             const userEmailEl = document.getElementById('userEmail');
             const logoutBtn = document.getElementById('logoutBtn');
+            const projectsGrid = document.getElementById('projectsGrid');
+            const agentsList = document.getElementById('agentsList');
 
+            // Modal elements
+            const projectModal = document.getElementById('projectModal');
+            const newProjectBtn = document.getElementById('newProjectBtn');
+            const cancelProjectBtn = document.getElementById('cancelProjectBtn');
+            const projectForm = document.getElementById('projectForm');
+
+            // State
+            let currentUser = null;
+            let currentProfile = null;
+            let projects = [];
+            let agents = [];
+
+            // Show skeleton loading
+            function showSkeletons() {
+                projectsGrid.innerHTML = `
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                `;
+                agentsList.innerHTML = `
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                `;
+            }
+
+            // Render projects
+            function renderProjects() {
+                if (projects.length === 0) {
+                    projectsGrid.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1 / -1;">
+                            <span class="material-symbols-outlined">folder_open</span>
+                            <h3>No projects yet</h3>
+                            <p>Create your first project to get started</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                projectsGrid.innerHTML = projects.map(project => {
+                    const agentCount = agents.filter(a => a.project_id === project.id).length;
+                    return `
+                        <a href="/project.html?id=${project.id}" class="project-card">
+                            <h3>${escapeHtml(project.name)}</h3>
+                            <p>${project.description ? escapeHtml(project.description) : 'No description'}</p>
+                            <div class="project-meta">
+                                <span>
+                                    <span class="material-symbols-outlined">smart_toy</span>
+                                    ${agentCount} agent${agentCount !== 1 ? 's' : ''}
+                                </span>
+                                <span>
+                                    <span class="material-symbols-outlined">schedule</span>
+                                    ${formatDate(project.created_at)}
+                                </span>
+                            </div>
+                        </a>
+                    `;
+                }).join('');
+            }
+
+            // Render agents
+            function renderAgents() {
+                if (agents.length === 0) {
+                    agentsList.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1 / -1;">
+                            <span class="material-symbols-outlined">smart_toy</span>
+                            <h3>No agents yet</h3>
+                            <p>Agents are created from the SQL Chat page within a project</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                agentsList.innerHTML = agents.map(agent => {
+                    const project = projects.find(p => p.id === agent.project_id);
+                    return `
+                        <a href="/chat_agent.html?agent=${agent.id}" class="project-card">
+                            <h3>${escapeHtml(agent.name)}</h3>
+                            <p>${agent.description ? escapeHtml(agent.description) : 'No description'}</p>
+                            <div class="project-meta">
+                                <span>
+                                    <span class="material-symbols-outlined">folder</span>
+                                    ${project ? escapeHtml(project.name) : 'No project'}
+                                </span>
+                                <span>
+                                    <span class="material-symbols-outlined">schedule</span>
+                                    ${formatDate(agent.created_at)}
+                                </span>
+                            </div>
+                        </a>
+                    `;
+                }).join('');
+            }
+
+            // Helper functions
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function formatDate(dateStr) {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }
+
+            // Load data
+            async function loadData() {
+                try {
+                    // Load projects
+                    const { data: projectsData, error: projectsError } = await supabaseClient
+                        .from('projects')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (projectsError) {
+                        console.error('Error loading projects:', projectsError);
+                        // Table might not exist yet - show empty state
+                        projects = [];
+                    } else {
+                        projects = projectsData || [];
+                    }
+
+                    // Load agents
+                    const { data: agentsData, error: agentsError } = await supabaseClient
+                        .from('agents')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (agentsError) {
+                        console.error('Error loading agents:', agentsError);
+                        agents = [];
+                    } else {
+                        agents = agentsData || [];
+                    }
+
+                    renderProjects();
+                    renderAgents();
+
+                } catch (err) {
+                    console.error('Error loading data:', err);
+                    projects = [];
+                    agents = [];
+                    renderProjects();
+                    renderAgents();
+                }
+            }
+
+            // Create project
+            async function createProject(name, description) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('projects')
+                        .insert({
+                            name,
+                            description,
+                            organization_id: currentProfile.organization_id,
+                            created_by: currentUser.id
+                        })
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    projects.unshift(data);
+                    renderProjects();
+                    renderAgents(); // Update agent counts
+                    projectModal.classList.remove('active');
+                    projectForm.reset();
+
+                } catch (err) {
+                    console.error('Error creating project:', err);
+                    alert('Failed to create project: ' + err.message);
+                }
+            }
+
+
+
+            // Initialize dashboard
             async function initDashboard() {
                 try {
                     // Check session
@@ -371,37 +810,43 @@
                         return;
                     }
 
-                    const user = session.user;
-                    console.log('User authenticated:', user.email);
+                    currentUser = session.user;
+                    console.log('User authenticated:', currentUser.email);
 
                     // Get profile with organization
                     const { data: profile, error: profileError } = await supabaseClient
                         .from('profiles')
                         .select('*, organizations(*)')
-                        .eq('id', user.id)
+                        .eq('id', currentUser.id)
                         .single();
 
                     if (profileError) {
                         console.error('Profile error:', profileError);
-                        // Redirect to callback to create org
                         window.location.href = '/auth/callback.html';
                         return;
                     }
 
                     if (!profile.organization_id) {
-                        // No org, redirect to create one
                         window.location.href = '/auth/callback.html';
                         return;
                     }
 
+                    currentProfile = profile;
+
                     // Update UI
-                    userEmailEl.textContent = user.email;
-                    userAvatarEl.textContent = user.email.charAt(0).toUpperCase();
+                    userEmailEl.textContent = currentUser.email;
+                    userAvatarEl.textContent = currentUser.email.charAt(0).toUpperCase();
                     orgNameEl.textContent = profile.organizations?.name || 'Unknown Org';
 
                     // Show app
                     loadingState.classList.add('hidden');
                     appContent.classList.remove('hidden');
+
+                    // Show skeletons while loading data
+                    showSkeletons();
+
+                    // Load data
+                    await loadData();
 
                 } catch (err) {
                     console.error('Dashboard init error:', err);
@@ -409,10 +854,38 @@
                 }
             }
 
-            // Logout handler
+            // Event listeners
             logoutBtn.addEventListener('click', async () => {
                 await supabaseClient.auth.signOut();
                 window.location.href = '/landing.html';
+            });
+
+            // Project modal
+            newProjectBtn.addEventListener('click', () => {
+                projectModal.classList.add('active');
+                document.getElementById('projectName').focus();
+            });
+
+            cancelProjectBtn.addEventListener('click', () => {
+                projectModal.classList.remove('active');
+                projectForm.reset();
+            });
+
+            projectForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('projectName').value.trim();
+                const description = document.getElementById('projectDesc').value.trim();
+                if (name) {
+                    await createProject(name, description || null);
+                }
+            });
+
+            // Close modals on overlay click
+            projectModal.addEventListener('click', (e) => {
+                if (e.target === projectModal) {
+                    projectModal.classList.remove('active');
+                    projectForm.reset();
+                }
             });
 
             // Initialize
