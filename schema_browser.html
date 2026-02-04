@@ -2,319 +2,623 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Lunara - Dataset Browser &amp; Table Selection</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-        rel="stylesheet" />
-    <link href="https://fonts.googleapis.com" rel="preconnect" />
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
-        rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script id="tailwind-config">
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#135bec", // Bright Blue
-                        "primary-hover": "#1d4ed8",
-                        "background-light": "#f8fafc", // Clean light blue-grey
-                        "background-dark": "#101622",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"]
-                    },
-                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
-                },
-            },
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunara - Schema Browser</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-    </script>
+
+        :root {
+            --bg-stone: #EAE9E5;
+            --border-stone: #BAB8B0;
+            --electric-blue: #0033FF;
+            --electric-blue-hover: #0022CC;
+            --dark-text: #1A1A1A;
+            --success-green: #059669;
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-stone);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-stone);
+            border-bottom: 1px solid var(--border-stone);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            flex-shrink: 0;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: stretch;
+            height: 64px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-stone);
+            text-decoration: none;
+            color: var(--dark-text);
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--electric-blue);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--dark-text);
+        }
+
+        .breadcrumb a {
+            color: var(--dark-text);
+            text-decoration: none;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .breadcrumb a:hover {
+            opacity: 1;
+        }
+
+        .breadcrumb-separator {
+            opacity: 0.4;
+        }
+
+        .breadcrumb-current {
+            font-weight: 500;
+        }
+
+        .header-spacer {
+            flex: 1;
+        }
+
+        /* Layout */
+        .layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid var(--border-stone);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-stone);
+        }
+
+        .sidebar-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .sidebar-title h2 {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--dark-text);
+            opacity: 0.6;
+        }
+
+        .count-badge {
+            background: rgba(0, 51, 255, 0.1);
+            color: var(--electric-blue);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+
+        .filter-input {
+            width: 100%;
+            padding: 10px 12px 10px 36px;
+            border: 1px solid var(--border-stone);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg-stone);
+            position: relative;
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: var(--electric-blue);
+        }
+
+        .filter-wrapper {
+            position: relative;
+        }
+
+        .filter-wrapper .material-symbols-outlined {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            color: var(--dark-text);
+            opacity: 0.4;
+        }
+
+        .datasets-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .dataset-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border: none;
+            background: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--dark-text);
+            opacity: 0.7;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .dataset-item:hover {
+            background: var(--bg-stone);
+            opacity: 1;
+        }
+
+        .dataset-item.active {
+            background: rgba(0, 51, 255, 0.08);
+            color: var(--electric-blue);
+            opacity: 1;
+        }
+
+        .dataset-item .material-symbols-outlined {
+            font-size: 20px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .content-header {
+            padding: 32px 32px 16px;
+            flex-shrink: 0;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+        }
+
+        .page-description {
+            font-size: 14px;
+            color: var(--dark-text);
+            opacity: 0.6;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .search-wrapper {
+            position: relative;
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .search-wrapper .material-symbols-outlined {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            color: var(--dark-text);
+            opacity: 0.4;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            border: 1px solid var(--border-stone);
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--electric-blue);
+        }
+
+        .table-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tables-count {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--electric-blue);
+            background: rgba(0, 51, 255, 0.08);
+            padding: 6px 14px;
+            border-radius: 16px;
+        }
+
+        .action-link {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--electric-blue);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .action-link:hover {
+            text-decoration: underline;
+        }
+
+        .action-link.secondary {
+            color: var(--dark-text);
+            opacity: 0.5;
+        }
+
+        .separator {
+            color: var(--border-stone);
+        }
+
+        /* Table */
+        .table-container {
+            flex: 1;
+            overflow: auto;
+            padding: 0 32px 120px;
+        }
+
+        .data-table {
+            width: 100%;
+            background: white;
+            border: 1px solid var(--border-stone);
+            border-radius: 12px;
+            border-collapse: collapse;
+            overflow: hidden;
+        }
+
+        .data-table thead {
+            background: var(--bg-stone);
+        }
+
+        .data-table th {
+            padding: 14px 16px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--dark-text);
+            opacity: 0.6;
+            border-bottom: 1px solid var(--border-stone);
+        }
+
+        .data-table td {
+            padding: 14px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(186, 184, 176, 0.3);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(0, 51, 255, 0.02);
+        }
+
+        .data-table tbody tr.selected {
+            background: rgba(0, 51, 255, 0.05);
+        }
+
+        .table-checkbox {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--electric-blue);
+            cursor: pointer;
+        }
+
+        .table-name-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .table-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 51, 255, 0.08);
+            color: var(--electric-blue);
+        }
+
+        .table-icon.view {
+            background: rgba(147, 51, 234, 0.08);
+            color: #9333EA;
+        }
+
+        .table-icon .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .table-name {
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: var(--bg-stone);
+            color: var(--dark-text);
+            opacity: 0.7;
+        }
+
+        .type-badge.view {
+            background: rgba(147, 51, 234, 0.1);
+            color: #9333EA;
+            opacity: 1;
+        }
+
+        .mono {
+            font-family: 'Courier New', monospace;
+        }
+
+        .muted {
+            opacity: 0.5;
+        }
+
+        /* Footer */
+        .footer-bar {
+            position: fixed;
+            bottom: 0;
+            left: 280px;
+            right: 0;
+            background: white;
+            border-top: 1px solid var(--border-stone);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 40;
+        }
+
+        .selection-info {
+            font-size: 14px;
+            color: var(--dark-text);
+        }
+
+        .selection-info strong {
+            font-weight: 700;
+        }
+
+        .footer-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: white;
+            border: 1px solid var(--border-stone);
+            color: var(--dark-text);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-stone);
+        }
+
+        .btn-primary {
+            background: var(--electric-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--electric-blue-hover);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border-stone);
+            color: var(--dark-text);
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        /* Empty/Loading states */
+        .empty-state {
+            padding: 48px;
+            text-align: center;
+            color: var(--dark-text);
+            opacity: 0.5;
+        }
+    </style>
 </head>
 
-<body class="font-display bg-background-light text-slate-900 overflow-hidden h-screen flex flex-col antialiased">
-    <header
-        class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 bg-white px-6 py-3 h-16 shrink-0 z-20 shadow-sm">
-        <div class="flex items-center gap-4 text-slate-900">
-            <div class="size-8 text-primary flex items-center justify-center">
-                <svg class="w-full h-full" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                    <path clip-rule="evenodd"
-                        d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z"
-                        fill="currentColor" fill-rule="evenodd"></path>
-                    <path clip-rule="evenodd"
-                        d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z"
-                        fill="currentColor" fill-rule="evenodd"></path>
-                </svg>
+<body>
+    <header>
+        <div class="header-inner">
+            <a href="/dashboard.html" class="logo">
+                <div class="logo-icon"></div>
+                <span class="logo-text">Lunara</span>
+            </a>
+            <div class="breadcrumb">
+                <a href="/dashboard.html">Dashboard</a>
+                <span class="breadcrumb-separator">/</span>
+                <a id="projectLink" href="#">Data Sources</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current">Schema Browser</span>
             </div>
-            <h2 class="text-slate-900 text-xl font-bold leading-tight tracking-[-0.015em]">Lunara</h2>
-        </div>
-        <div class="flex flex-1 justify-end gap-6 items-center">
-            <div class="flex gap-2">
-                <button
-                    class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-primary transition-colors">
-                    <span class="material-symbols-outlined text-[20px]">notifications</span>
-                </button>
-                <button
-                    class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-primary transition-colors">
-                    <span class="material-symbols-outlined text-[20px]">settings</span>
-                </button>
-            </div>
-            <div class="bg-center bg-no-repeat bg-cover rounded-full size-10 ring-2 ring-slate-100"
-                data-alt="User profile avatar"
-                style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDC087hmovjVEy_kTZM491_XmKAt7kIT5rh9XTZcLGk8mo7EZ4bk3MzyNz0UkL8UmQxjLLGjdt1Oqrat7zw6x10nP7IoqoRgKGB6Z3oy9XcwOvFjv5VxhN-SHKJuHQ8kTsw2hteorpsDReXoiH8IYKkkGH9ocLclSK0-sTSa1OMoMZUSvK_qwJOXK4shAfPCncDQzFsYihC9fWlWxfzGt1PezkK6doDMd_EMxkd32ATBQMlzxYX84TuN8AqDVzScn7YXZnfNeWiMWim");'>
-            </div>
+            <div class="header-spacer"></div>
         </div>
     </header>
-    <div class="flex flex-1 overflow-hidden">
-        <aside class="w-80 flex flex-col border-r border-slate-200 bg-white z-10 shrink-0">
-            <div class="p-4 border-b border-slate-100">
-                <div class="flex items-center justify-between mb-3">
-                    <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Datasets</h2>
-                    <span id="datasets-count"
-                        class="bg-blue-50 text-primary text-xs px-2 py-0.5 rounded-full font-medium border border-blue-100">0</span>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <h2>Datasets</h2>
+                    <span id="datasets-count" class="count-badge">0</span>
                 </div>
-                <div class="relative">
-                    <input id="dataset-filter"
-                        class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-900 placeholder:text-slate-400"
-                        placeholder="Filter datasets..." type="text" />
-                    <span
-                        class="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 text-[18px]">search</span>
+                <div class="filter-wrapper">
+                    <span class="material-symbols-outlined">search</span>
+                    <input id="dataset-filter" type="text" class="filter-input" placeholder="Filter datasets...">
                 </div>
             </div>
-            <div id="datasets-container" class="flex-1 overflow-y-auto p-2 space-y-1">
-                <!-- Datasets loaded dynamically -->
-                <div class="p-4 text-center text-slate-400 text-sm">Loading datasets...</div>
-            </div>
-            <div class="p-4 border-t border-slate-100">
-                <button
-                    class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-primary transition-colors">
-                    <span class="material-symbols-outlined text-[18px]">add_circle</span>
-                    Add new source
-                </button>
+            <div id="datasets-container" class="datasets-list">
+                <div class="empty-state">Loading datasets...</div>
             </div>
         </aside>
-        <main class="flex-1 flex flex-col relative bg-background-light overflow-hidden">
-            <div class="flex-shrink-0 px-8 py-6 pb-2">
-                <nav class="flex items-center text-sm font-medium text-slate-500 mb-4">
-                    <a class="hover:text-primary transition-colors" href="#">BigQuery Project</a>
-                    <span class="material-symbols-outlined text-[16px] mx-2 text-slate-400">chevron_right</span>
-                    <span id="breadcrumb-dataset" class="text-slate-900 font-semibold">Select a dataset</span>
-                </nav>
-                <div class="flex flex-wrap justify-between items-end gap-4 mb-6">
-                    <div>
-                        <h1 id="current-dataset-name" class="text-3xl font-bold text-slate-900 tracking-tight mb-1">
-                            Select a dataset</h1>
-                        <p class="text-slate-500">Select tables to include in your semantic layer.</p>
+
+        <main class="main-content">
+            <div class="content-header">
+                <h1 id="current-dataset-name" class="page-title">Select a dataset</h1>
+                <p class="page-description">Select tables to include in your semantic layer.</p>
+                <div class="toolbar">
+                    <div class="search-wrapper">
+                        <span class="material-symbols-outlined">search</span>
+                        <input id="table-search" type="text" class="search-input" placeholder="Search tables...">
                     </div>
-                    <div class="flex items-center gap-3 w-full md:w-auto">
-                        <div class="relative group min-w-[320px]">
-                            <input id="table-search"
-                                class="w-full bg-white border border-slate-200 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-900 shadow-sm placeholder:text-slate-400"
-                                placeholder="Search tables..." type="text" />
-                            <span
-                                class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
-                        </div>
-                        <button
-                            class="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-primary hover:border-slate-300 transition-all shadow-sm">
-                            <span class="material-symbols-outlined text-[20px]">filter_list</span>
-                            Filter
-                        </button>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between mb-2">
-                    <span id="tables-count"
-                        class="text-sm font-semibold text-primary bg-blue-50 px-3 py-1 rounded-full border border-blue-100">0
-                        tables found</span>
-                    <div class="flex items-center gap-2">
-                        <button id="select-all-btn"
-                            class="text-xs font-medium text-primary hover:text-blue-700 hover:underline">Select
-                            All</button>
-                        <span class="text-slate-300">|</span>
-                        <button id="deselect-all-btn"
-                            class="text-xs font-medium text-slate-500 hover:text-slate-700">Deselect All</button>
+                    <div class="table-actions">
+                        <span id="tables-count" class="tables-count">0 tables</span>
+                        <button id="select-all-btn" class="action-link">Select All</button>
+                        <span class="separator">|</span>
+                        <button id="deselect-all-btn" class="action-link secondary">Deselect All</button>
                     </div>
                 </div>
             </div>
-            <div class="flex-1 overflow-y-auto px-8 pb-24">
-                <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-slate-50 text-xs uppercase text-slate-500 font-semibold sticky top-0 z-10">
-                            <tr>
-                                <th class="p-4 w-12 border-b border-slate-200">
-                                    <input
-                                        class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer"
-                                        type="checkbox" />
-                                </th>
-                                <th class="p-4 border-b border-slate-200">Table Name</th>
-                                <th class="p-4 border-b border-slate-200 w-32">Type</th>
-                                <th class="p-4 border-b border-slate-200 w-32">Rows</th>
-                                <th class="p-4 border-b border-slate-200 w-48">Last Modified</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tables-container" class="divide-y divide-slate-100">
-                            <tr class="group hover:bg-slate-50 transition-colors bg-blue-50/60">
-                                <td class="p-4">
-                                    <input checked=""
-                                        class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer"
-                                        type="checkbox" />
-                                </td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div
-                                            class="size-8 rounded flex items-center justify-center bg-white border border-blue-100 text-primary shadow-sm">
-                                            <span class="material-symbols-outlined text-[18px]">table_chart</span>
-                                        </div>
-                                        <div>
-                                            <p class="text-sm font-semibold text-slate-900 font-mono">orders_fact</p>
-                                            <p class="text-xs text-slate-500">Core transactions table</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span
-                                        class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">Table</span>
-                                </td>
-                                <td class="p-4 text-sm text-slate-600 font-mono">1.2M</td>
-                                <td class="p-4 text-sm text-slate-500">2 mins ago</td>
-                            </tr>
-                            <tr class="group hover:bg-slate-50 transition-colors bg-blue-50/60">
-                                <td class="p-4">
-                                    <input checked=""
-                                        class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer"
-                                        type="checkbox" />
-                                </td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div
-                                            class="size-8 rounded flex items-center justify-center bg-white border border-blue-100 text-primary shadow-sm">
-                                            <span class="material-symbols-outlined text-[18px]">table_chart</span>
-                                        </div>
-                                        <div>
-                                            <p class="text-sm font-semibold text-slate-900 font-mono">customers_dim</p>
-                                            <p class="text-xs text-slate-500">Customer details and demographics</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span
-                                        class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">Table</span>
-                                </td>
-                                <td class="p-4 text-sm text-slate-600 font-mono">50.4K</td>
-                                <td class="p-4 text-sm text-slate-500">4 hours ago</td>
-                            </tr>
-                            <tr class="group hover:bg-slate-50 transition-colors">
-                                <td class="p-4">
-                                    <input
-                                        class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer"
-                                        type="checkbox" />
-                                </td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div
-                                            class="size-8 rounded flex items-center justify-center bg-purple-50 border border-purple-100 text-purple-600">
-                                            <span class="material-symbols-outlined text-[18px]">visibility</span>
-                                        </div>
-                                        <div>
-                                            <p class="text-sm font-semibold text-slate-900 font-mono">daily_revenue</p>
-                                            <p class="text-xs text-slate-500">Aggregated daily view</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span
-                                        class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">View</span>
-                                </td>
-                                <td class="p-4 text-sm text-slate-600 font-mono">--</td>
-                                <td class="p-4 text-sm text-slate-500">1 day ago</td>
-                            </tr>
-                            <tr class="group hover:bg-slate-50 transition-colors">
-                                <td class="p-4">
-                                    <input
-                                        class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer"
-                                        type="checkbox" />
-                                </td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div
-                                            class="size-8 rounded flex items-center justify-center bg-slate-100 text-slate-500">
-                                            <span class="material-symbols-outlined text-[18px]">table_chart</span>
-                                        </div>
-                                        <div>
-                                            <p class="text-sm font-semibold text-slate-900 font-mono">products_catalog
-                                            </p>
-                                            <p class="text-xs text-slate-500">Global SKU list</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span
-                                        class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">Table</span>
-                                </td>
-                                <td class="p-4 text-sm text-slate-600 font-mono">8.2K</td>
-                                <td class="p-4 text-sm text-slate-500">3 days ago</td>
-                            </tr>
-                            <tr class="group hover:bg-slate-50 transition-colors">
-                                <td class="p-4">
-                                    <input
-                                        class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer"
-                                        type="checkbox" />
-                                </td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div
-                                            class="size-8 rounded flex items-center justify-center bg-slate-100 text-slate-500">
-                                            <span class="material-symbols-outlined text-[18px]">table_chart</span>
-                                        </div>
-                                        <div>
-                                            <p class="text-sm font-semibold text-slate-900 font-mono">web_events_log</p>
-                                            <p class="text-xs text-slate-500">Raw clickstream data</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span
-                                        class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">Table</span>
-                                </td>
-                                <td class="p-4 text-sm text-slate-600 font-mono">15.8M</td>
-                                <td class="p-4 text-sm text-slate-500">1 min ago</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div id="footer-bar"
-                class="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 p-4 px-8 z-30 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="flex -space-x-2">
-                        <div
-                            class="size-8 rounded-full border-2 border-white bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
-                            DB</div>
-                        <div
-                            class="size-8 rounded-full border-2 border-white bg-purple-500 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
-                            BQ</div>
-                    </div>
-                    <span id="selection-info" class="text-sm font-medium text-slate-600"><strong
-                            class="text-slate-900">0 tables</strong> selected</span>
-                </div>
-                <div class="flex gap-4">
-                    <button id="back-btn"
-                        class="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-bold hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
-                        Back
-                    </button>
-                    <button id="generate-btn"
-                        class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-gray-300 text-gray-500 text-sm font-bold cursor-not-allowed transition-all"
-                        disabled>
-                        <span class="material-symbols-outlined text-[20px]">auto_awesome</span>
-                        Generate Semantic Layer
-                    </button>
-                </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 48px;"></th>
+                            <th>Table Name</th>
+                            <th style="width: 100px;">Type</th>
+                            <th style="width: 100px;">Rows</th>
+                            <th style="width: 140px;">Last Modified</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tables-container">
+                        <tr>
+                            <td colspan="5" class="empty-state">Select a dataset to view tables</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </main>
     </div>
+
+    <div class="footer-bar">
+        <span id="selection-info" class="selection-info"><strong>0 tables</strong> selected</span>
+        <div class="footer-actions">
+            <button id="back-btn" class="btn btn-secondary">Back</button>
+            <button id="generate-btn" class="btn btn-primary" disabled>
+                <span class="material-symbols-outlined">auto_awesome</span>
+                Generate Semantic Layer
+            </button>
+        </div>
+    </div>
+
     <script>
         // API Configuration
-        const API_BASE_URL = '';  // Use relative paths (works on localhost and Render)
+        const API_BASE_URL = '';
+
+        // Get project_id from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('project_id');
+
+        // Update breadcrumb links
+        if (projectId) {
+            document.getElementById('projectLink').href = `/data_sources.html?project_id=${projectId}`;
+        }
 
         // State
         let datasets = [];
@@ -330,21 +634,11 @@
         const tablesCount = document.getElementById('tables-count');
         const tableSearch = document.getElementById('table-search');
         const currentDatasetName = document.getElementById('current-dataset-name');
-        const breadcrumbDataset = document.getElementById('breadcrumb-dataset');
         const selectAllBtn = document.getElementById('select-all-btn');
         const deselectAllBtn = document.getElementById('deselect-all-btn');
         const selectionInfo = document.getElementById('selection-info');
         const generateBtn = document.getElementById('generate-btn');
         const backBtn = document.getElementById('back-btn');
-        const loadingOverlay = document.getElementById('loading-overlay');
-
-        // Format bytes to human readable
-        function formatBytes(bytes) {
-            if (!bytes) return '--';
-            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(1024));
-            return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
-        }
 
         // Format number with K/M suffix
         function formatNumber(num) {
@@ -376,8 +670,9 @@
                 const response = await fetch(`${API_BASE_URL}/api/v1/datasets`);
                 if (!response.ok) {
                     if (response.status === 400) {
-                        // Not connected - redirect to connection page
-                        window.location.href = 'bq_connection.html';
+                        let redirectUrl = 'bq_connection.html';
+                        if (projectId) redirectUrl += `?project_id=${projectId}`;
+                        window.location.href = redirectUrl;
                         return;
                     }
                     throw new Error('Failed to load datasets');
@@ -387,17 +682,14 @@
                 datasetsCount.textContent = data.count;
                 renderDatasets();
 
-                // Auto-select first dataset
                 if (datasets.length > 0) {
                     selectDataset(datasets[0].dataset_id);
                 }
             } catch (err) {
                 console.error('Error loading datasets:', err);
                 datasetsContainer.innerHTML = `
-                <div class="p-4 text-center text-red-500 text-sm">
-                    Failed to load datasets. Is the backend running?
-                </div>
-            `;
+                    <div class="empty-state">Failed to load datasets. Is the backend running?</div>
+                `;
             }
         }
 
@@ -408,16 +700,12 @@
             );
 
             datasetsContainer.innerHTML = filtered.map(d => `
-            <button onclick="selectDataset('${d.dataset_id}')" 
-                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all border
-                    ${selectedDatasetId === d.dataset_id
-                    ? 'bg-blue-50 border-blue-100 text-primary'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-transparent hover:border-slate-100'}">
-                <span class="material-symbols-outlined text-[20px] ${selectedDatasetId === d.dataset_id ? '' : 'text-slate-400'}">dataset</span>
-                <span class="text-sm font-${selectedDatasetId === d.dataset_id ? 'semibold' : 'medium'} truncate">${d.dataset_id}</span>
-                ${selectedDatasetId === d.dataset_id ? '<span class="material-symbols-outlined text-[16px] ml-auto">check</span>' : ''}
-            </button>
-        `).join('');
+                <button onclick="selectDataset('${d.dataset_id}')" 
+                    class="dataset-item ${selectedDatasetId === d.dataset_id ? 'active' : ''}">
+                    <span class="material-symbols-outlined">dataset</span>
+                    <span>${d.dataset_id}</span>
+                </button>
+            `).join('');
         }
 
         // Select a dataset and load its tables
@@ -428,7 +716,6 @@
             updateSelectionUI();
 
             currentDatasetName.textContent = datasetId;
-            breadcrumbDataset.textContent = datasetId;
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/v1/datasets/${datasetId}/tables`);
@@ -436,13 +723,13 @@
 
                 const data = await response.json();
                 tables = data.tables;
-                tablesCount.textContent = `${data.count} tables found`;
+                tablesCount.textContent = `${data.count} tables`;
                 renderTables();
             } catch (err) {
                 console.error('Error loading tables:', err);
                 tablesContainer.innerHTML = `
-                <tr><td colspan="5" class="p-8 text-center text-red-500">Failed to load tables</td></tr>
-            `;
+                    <tr><td colspan="5" class="empty-state">Failed to load tables</td></tr>
+                `;
             }
         }
 
@@ -457,30 +744,27 @@
                 const isView = t.table_type === 'VIEW';
 
                 return `
-                <tr class="group hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50/60' : ''}">
-                    <td class="p-4">
-                        <input type="checkbox" ${isSelected ? 'checked' : ''} 
-                            onchange="toggleTable('${t.table_id}')"
-                            class="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 size-4 cursor-pointer" />
-                    </td>
-                    <td class="p-4">
-                        <div class="flex items-center gap-3">
-                            <div class="size-8 rounded flex items-center justify-center ${isView ? 'bg-purple-50 border-purple-100 text-purple-600' : 'bg-white border border-blue-100 text-primary'} ${isSelected ? 'shadow-sm' : ''}">
-                                <span class="material-symbols-outlined text-[18px]">${isView ? 'visibility' : 'table_chart'}</span>
+                    <tr class="${isSelected ? 'selected' : ''}">
+                        <td>
+                            <input type="checkbox" ${isSelected ? 'checked' : ''} 
+                                onchange="toggleTable('${t.table_id}')"
+                                class="table-checkbox">
+                        </td>
+                        <td>
+                            <div class="table-name-cell">
+                                <div class="table-icon ${isView ? 'view' : ''}">
+                                    <span class="material-symbols-outlined">${isView ? 'visibility' : 'table_chart'}</span>
+                                </div>
+                                <span class="table-name">${t.table_id}</span>
                             </div>
-                            <div>
-                                <p class="text-sm font-semibold text-slate-900 font-mono">${t.table_id}</p>
-                                <p class="text-xs text-slate-500">${t.description || ''}</p>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="p-4">
-                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ${isView ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-slate-100 text-slate-600 border border-slate-200'}">${t.table_type}</span>
-                    </td>
-                    <td class="p-4 text-sm text-slate-600 font-mono">${formatNumber(t.row_count)}</td>
-                    <td class="p-4 text-sm text-slate-500">${formatRelativeTime(t.last_modified)}</td>
-                </tr>
-            `;
+                        </td>
+                        <td>
+                            <span class="type-badge ${isView ? 'view' : ''}">${t.table_type}</span>
+                        </td>
+                        <td class="mono muted">${formatNumber(t.row_count)}</td>
+                        <td class="muted">${formatRelativeTime(t.last_modified)}</td>
+                    </tr>
+                `;
             }).join('');
         }
 
@@ -512,17 +796,9 @@
         // Update selection UI
         function updateSelectionUI() {
             const count = selectedTables.size;
-            selectionInfo.innerHTML = `<strong class="text-slate-900">${count} table${count !== 1 ? 's' : ''}</strong> selected`;
+            selectionInfo.innerHTML = `<strong>${count} table${count !== 1 ? 's' : ''}</strong> selected`;
 
-            if (count > 0) {
-                generateBtn.disabled = false;
-                generateBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
-                generateBtn.classList.add('bg-primary', 'hover:bg-primary-hover', 'text-white', 'shadow-lg', 'shadow-primary/20');
-            } else {
-                generateBtn.disabled = true;
-                generateBtn.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
-                generateBtn.classList.remove('bg-primary', 'hover:bg-primary-hover', 'text-white', 'shadow-lg', 'shadow-primary/20');
-            }
+            generateBtn.disabled = count === 0;
         }
 
         // Event listeners
@@ -530,13 +806,19 @@
         tableSearch.addEventListener('input', (e) => renderTables(e.target.value));
         selectAllBtn.addEventListener('click', selectAllTables);
         deselectAllBtn.addEventListener('click', deselectAllTables);
-        backBtn.addEventListener('click', () => window.location.href = 'bq_connection.html');
+
+        backBtn.addEventListener('click', () => {
+            let url = 'bq_connection.html';
+            if (projectId) url += `?project_id=${projectId}`;
+            window.location.href = url;
+        });
 
         generateBtn.addEventListener('click', () => {
             if (selectedTables.size > 0) {
-                // Store selection for next page
                 localStorage.setItem('lunara_selected_tables', JSON.stringify([...selectedTables]));
-                window.location.href = 'semantic_layer_setup.html';
+                let url = 'semantic_layer_setup.html';
+                if (projectId) url += `?project_id=${projectId}`;
+                window.location.href = url;
             }
         });
 

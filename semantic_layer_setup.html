@@ -1,236 +1,792 @@
 <!DOCTYPE html>
-<html class="light" lang="en">
+<html lang="en">
 
 <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lunara - Semantic Layer Generation</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;display=swap"
-        rel="stylesheet" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-        rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#135bec",
-                        "background-light": "#f6f6f8",
-                        "background-dark": "#101622",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"],
-                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
-                    },
-                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
-                },
-            },
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-    </script>
+
+        :root {
+            --bg-stone: #EAE9E5;
+            --border-stone: #BAB8B0;
+            --electric-blue: #0033FF;
+            --electric-blue-hover: #0022CC;
+            --dark-text: #1A1A1A;
+            --success-green: #059669;
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-stone);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-stone);
+            border-bottom: 1px solid var(--border-stone);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            flex-shrink: 0;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: stretch;
+            height: 64px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-stone);
+            text-decoration: none;
+            color: var(--dark-text);
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--electric-blue);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--dark-text);
+        }
+
+        .breadcrumb a {
+            color: var(--dark-text);
+            text-decoration: none;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .breadcrumb a:hover {
+            opacity: 1;
+        }
+
+        .breadcrumb-separator {
+            opacity: 0.4;
+        }
+
+        .breadcrumb-current {
+            font-weight: 500;
+        }
+
+        .header-spacer {
+            flex: 1;
+        }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            padding: 32px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+        }
+
+        .page-description {
+            font-size: 14px;
+            color: var(--dark-text);
+            opacity: 0.6;
+        }
+
+        .page-description code {
+            background: rgba(0, 0, 0, 0.08);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: white;
+            border: 1px solid var(--border-stone);
+            color: var(--dark-text);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-stone);
+        }
+
+        .btn-primary {
+            background: var(--electric-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--electric-blue-hover);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border-stone);
+            color: var(--dark-text);
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background: var(--success-green);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #047857;
+        }
+
+        .btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        /* AI Panel */
+        .ai-panel {
+            background: white;
+            border: 1px solid var(--border-stone);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .ai-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 51, 255, 0.08);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--electric-blue);
+        }
+
+        .ai-title {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .ai-status {
+            font-size: 13px;
+            color: var(--dark-text);
+            opacity: 0.6;
+        }
+
+        .ai-header-spacer {
+            flex: 1;
+        }
+
+        .chat-output {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 16px;
+            height: 280px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .chat-messages {
+            color: #a0a0a0;
+        }
+
+        .chat-messages .placeholder {
+            color: #666;
+            font-style: italic;
+        }
+
+        .chat-message {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .chat-message.error {
+            color: #f87171;
+        }
+
+        .chat-message.status {
+            color: #fbbf24;
+        }
+
+        .chat-message.done {
+            color: #4ade80;
+        }
+
+        .chat-message.phase {
+            color: #60a5fa;
+        }
+
+        .cursor {
+            color: #4ade80;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            50% {
+                opacity: 1;
+            }
+
+            51%,
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* Layout */
+        .content-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 24px;
+            min-height: 500px;
+        }
+
+        /* Sidebar */
+        .sidebar-card {
+            background: white;
+            border: 1px solid var(--border-stone);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-stone);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .count-badge {
+            font-size: 12px;
+            color: var(--dark-text);
+            opacity: 0.6;
+        }
+
+        .models-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .model-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid transparent;
+            background: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        .model-item:hover {
+            background: var(--bg-stone);
+        }
+
+        .model-item.active {
+            background: rgba(0, 51, 255, 0.08);
+            border-color: rgba(0, 51, 255, 0.2);
+        }
+
+        .model-item .material-symbols-outlined {
+            font-size: 20px;
+            color: var(--border-stone);
+        }
+
+        .model-item.active .material-symbols-outlined {
+            color: var(--electric-blue);
+        }
+
+        .model-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .model-name {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .model-meta {
+            font-size: 11px;
+            color: var(--dark-text);
+            opacity: 0.5;
+        }
+
+        .empty-state {
+            padding: 32px;
+            text-align: center;
+            color: var(--dark-text);
+            opacity: 0.5;
+        }
+
+        .empty-state .material-symbols-outlined {
+            font-size: 40px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        /* Detail Panel */
+        .detail-card {
+            background: white;
+            border: 1px solid var(--border-stone);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .detail-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-stone);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .detail-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-stone);
+            border: 1px solid var(--border-stone);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--electric-blue);
+        }
+
+        .detail-table-name {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .detail-table-id {
+            font-size: 12px;
+            color: var(--dark-text);
+            opacity: 0.5;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-stone);
+            padding: 0 24px;
+            background: white;
+        }
+
+        .tab {
+            padding: 14px 4px;
+            margin-right: 24px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--dark-text);
+            opacity: 0.5;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            opacity: 0.8;
+        }
+
+        .tab.active {
+            opacity: 1;
+            color: var(--electric-blue);
+            border-bottom-color: var(--electric-blue);
+        }
+
+        .tab-count {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--bg-stone);
+        }
+
+        .tab.active .tab-count {
+            background: rgba(0, 51, 255, 0.1);
+            color: var(--electric-blue);
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .tab-content.hidden {
+            display: none;
+        }
+
+        /* Column Cards */
+        .column-card {
+            background: var(--bg-stone);
+            border: 1px solid var(--border-stone);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+
+        .column-card:hover {
+            border-color: var(--electric-blue);
+        }
+
+        .column-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .column-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .column-type {
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--dark-text);
+            opacity: 0.7;
+        }
+
+        .column-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border-stone);
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            margin-bottom: 10px;
+            background: white;
+        }
+
+        .column-input:focus {
+            outline: none;
+            border-color: var(--electric-blue);
+        }
+
+        .column-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .column-select {
+            padding: 6px 10px;
+            border: 1px solid var(--border-stone);
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: inherit;
+            background: white;
+            cursor: pointer;
+        }
+
+        .column-select:focus {
+            outline: none;
+            border-color: var(--electric-blue);
+        }
+
+        /* Relationship Card */
+        .relationship-card {
+            background: var(--bg-stone);
+            border: 1px solid var(--border-stone);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+
+        .relationship-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .relationship-type {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .confidence-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .confidence-high {
+            background: rgba(5, 150, 105, 0.1);
+            color: var(--success-green);
+        }
+
+        .confidence-medium {
+            background: rgba(245, 158, 11, 0.1);
+            color: #D97706;
+        }
+
+        .confidence-low {
+            background: var(--bg-stone);
+            color: var(--dark-text);
+            opacity: 0.6;
+        }
+
+        .relationship-path {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: var(--dark-text);
+        }
+
+        .relationship-path .table-name {
+            color: var(--electric-blue);
+        }
+
+        .relationship-path .arrow {
+            margin: 0 8px;
+            opacity: 0.4;
+        }
+    </style>
 </head>
 
-<body
-    class="bg-background-light dark:bg-background-dark text-[#111318] dark:text-white font-display overflow-x-hidden flex flex-col min-h-screen">
-    <header
-        class="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e5e7eb] dark:border-gray-800 bg-white dark:bg-[#101622] px-6 py-3 shadow-sm">
-        <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2">
-                <div class="size-8 text-primary">
-                    <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                        <path clip-rule="evenodd"
-                            d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z"
-                            fill="currentColor" fill-rule="evenodd"></path>
-                        <path clip-rule="evenodd"
-                            d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z"
-                            fill="currentColor" fill-rule="evenodd"></path>
-                    </svg>
-                </div>
-                <h2 class="text-[#111318] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Lunara
-                </h2>
+<body>
+    <header>
+        <div class="header-inner">
+            <a href="/dashboard.html" class="logo">
+                <div class="logo-icon"></div>
+                <span class="logo-text">Lunara</span>
+            </a>
+            <div class="breadcrumb">
+                <a href="/dashboard.html">Dashboard</a>
+                <span class="breadcrumb-separator">/</span>
+                <a id="schemaLink" href="#">Schema Browser</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current">Generate Layer</span>
             </div>
-        </div>
-        <div class="flex items-center gap-4">
-            <button
-                class="flex items-center justify-center rounded-lg size-10 bg-transparent hover:bg-[#f0f2f4] dark:hover:bg-gray-800 text-[#111318] dark:text-white transition-colors">
-                <span class="material-symbols-outlined text-[24px]">notifications</span>
-            </button>
-            <button
-                class="flex items-center justify-center rounded-lg size-10 bg-transparent hover:bg-[#f0f2f4] dark:hover:bg-gray-800 text-[#111318] dark:text-white transition-colors">
-                <span class="material-symbols-outlined text-[24px]">settings</span>
-            </button>
-            <div class="h-10 w-10 rounded-full bg-cover bg-center border border-gray-200 dark:border-gray-700"
-                data-alt="User profile avatar"
-                style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBvcWPaJ8XiFeNWDlBQxI2oxsQ0jDX_Lgvrq3b9Zh55fwelAzmzuUUMxbSPZhQ7uiWrHuEYutr05jf8g-O-PuxU5nP1A_VXfrTKfoDbOL4wfrlKqGLSBRqUrgHGnRxb1nHwvJtII2zZ4WgRnQ2TD-251D_2v28kAqZBZXg0I4AORjSOwG2R04llGITJ0deqUowHRLnKz-o41XdkxWiZEBEpVBLYINZkSCwio-43PO3GBxxvIu4IJzBUtyb97PQMXoSqNfRc2hZWU0dj");'>
-            </div>
+            <div class="header-spacer"></div>
         </div>
     </header>
-    <main class="flex-1 px-4 sm:px-8 py-6 w-full max-w-[1280px] mx-auto flex flex-col gap-6">
-        <nav class="flex items-center text-sm font-medium text-[#616f89] dark:text-gray-400">
-            <a class="hover:text-primary transition-colors" href="#">Data Sources</a>
-            <span class="mx-2 text-gray-300 dark:text-gray-600">/</span>
-            <a class="hover:text-primary transition-colors" href="#">BigQuery</a>
-            <span class="mx-2 text-gray-300 dark:text-gray-600">/</span>
-            <span class="text-[#111318] dark:text-white font-semibold">Generate Layer</span>
-        </nav>
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+    <main>
+        <div class="page-header">
             <div>
-                <h1 class="text-3xl font-bold tracking-tight text-[#111318] dark:text-white">Semantic Layer Generation
-                </h1>
-                <p class="mt-1 text-[#616f89] dark:text-gray-400">Generating models from <span
-                        class="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-800 dark:text-gray-200">bigquery-public-data</span>.
-                    Review and configure the output below.</p>
+                <h1 class="page-title">Semantic Layer Generation</h1>
+                <p class="page-description">Generating models from your selected tables. Review and configure the output
+                    below.</p>
             </div>
-            <div class="flex items-center gap-3">
-                <button
-                    class="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    Cancel
-                </button>
-                <button
-                    class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-primary rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
-                    <span class="material-symbols-outlined text-[20px]">rocket_launch</span>
-                    Deploy Layer
-                </button>
-                <button onclick="window.location.href='chat_agent.html'"
-                    class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                    <span class="material-symbols-outlined text-[20px]">chat</span>
-                    Query
+            <div class="header-actions">
+                <button onclick="window.location.href='chat_agent.html'" class="btn btn-success">
+                    <span class="material-symbols-outlined">chat</span>
+                    Query Agent
                 </button>
             </div>
         </div>
-        <!-- Chat-style Agent Output -->
-        <div id="agent-output-card"
-            class="bg-white dark:bg-[#1a202c] rounded-xl border border-[#e5e7eb] dark:border-gray-800 p-6 shadow-sm">
-            <div class="flex items-center gap-3 mb-4">
-                <div class="p-2 bg-primary/10 rounded-lg">
-                    <span class="material-symbols-outlined text-primary">auto_awesome</span>
+
+        <!-- AI Panel -->
+        <div class="ai-panel">
+            <div class="ai-header">
+                <div class="ai-icon">
+                    <span class="material-symbols-outlined">auto_awesome</span>
                 </div>
                 <div>
-                    <h3 class="font-semibold text-[#111318] dark:text-white">AI Analysis</h3>
-                    <p id="agent-status" class="text-sm text-[#616f89] dark:text-gray-400">Waiting to start...</p>
+                    <div class="ai-title">AI Analysis</div>
+                    <div id="agent-status" class="ai-status">Waiting to start...</div>
                 </div>
-                <button id="start-btn"
-                    class="ml-auto flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
-                    <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                <div class="ai-header-spacer"></div>
+                <button id="save-btn" class="btn btn-secondary" disabled>
+                    <span class="material-symbols-outlined">save</span>
+                    Save Layer
+                </button>
+                <button id="start-btn" class="btn btn-primary">
+                    <span class="material-symbols-outlined">play_arrow</span>
                     Start Generation
                 </button>
             </div>
 
-            <!-- Chat output area -->
-            <div id="chat-output"
-                class="bg-gray-900 dark:bg-gray-950 rounded-xl p-4 h-80 overflow-y-auto font-mono text-sm leading-relaxed">
-                <div id="chat-messages" class="space-y-2 text-gray-300">
-                    <div class="text-gray-500 italic">Click "Start Generation" to begin analyzing your tables...</div>
+            <div class="chat-output" id="chat-output">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="placeholder">Click "Start Generation" to begin analyzing your tables...</div>
                 </div>
-                <span id="cursor" class="hidden text-green-400 animate-pulse">█</span>
+                <span id="cursor" class="cursor hidden">█</span>
             </div>
         </div>
-        <div class="flex flex-col lg:flex-row gap-6 mt-2 h-full min-h-[600px]">
-            <div class="w-full lg:w-1/4 flex flex-col gap-4">
-                <div
-                    class="bg-white dark:bg-[#1a202c] rounded-xl border border-[#e5e7eb] dark:border-gray-800 shadow-sm overflow-hidden flex flex-col h-full">
-                    <div
-                        class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-                        <h3 class="font-semibold text-sm text-[#111318] dark:text-white">Generated Models</h3>
-                        <span id="models-count"
-                            class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full">0
-                            tables</span>
-                    </div>
-                    <div id="models-list" class="overflow-y-auto flex-1 p-2 space-y-1">
-                        <!-- Empty state -->
-                        <div id="models-empty" class="flex flex-col items-center justify-center py-8 text-center">
-                            <span
-                                class="material-symbols-outlined text-gray-300 dark:text-gray-600 text-4xl mb-2">table_chart</span>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">No models generated yet</p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Run generation to analyze tables
-                            </p>
-                        </div>
+
+        <!-- Content Layout -->
+        <div class="content-layout">
+            <!-- Sidebar -->
+            <div class="sidebar-card">
+                <div class="sidebar-header">
+                    <span class="sidebar-title">Generated Models</span>
+                    <span id="models-count" class="count-badge">0 tables</span>
+                </div>
+                <div id="models-list" class="models-list">
+                    <div id="models-empty" class="empty-state">
+                        <span class="material-symbols-outlined">table_chart</span>
+                        <p>No models generated yet</p>
                     </div>
                 </div>
             </div>
-            <div id="detail-panel"
-                class="flex-1 bg-white dark:bg-[#1a202c] rounded-xl border border-[#e5e7eb] dark:border-gray-800 shadow-sm flex flex-col overflow-hidden">
-                <!-- Empty state when no table selected -->
-                <div id="detail-empty" class="flex-1 flex flex-col items-center justify-center text-center p-8">
-                    <span
-                        class="material-symbols-outlined text-gray-300 dark:text-gray-600 text-6xl mb-4">analytics</span>
-                    <h3 class="text-lg font-semibold text-gray-500 dark:text-gray-400 mb-2">No Table Selected</h3>
-                    <p class="text-sm text-gray-400 dark:text-gray-500 max-w-xs">Run generation to analyze your tables,
-                        then select one from the sidebar to view details</p>
+
+            <!-- Detail Panel -->
+            <div class="detail-card">
+                <div id="detail-empty" class="empty-state"
+                    style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span class="material-symbols-outlined" style="font-size: 60px;">analytics</span>
+                    <h3 style="font-size: 18px; font-weight: 600; margin: 16px 0 8px;">No Table Selected</h3>
+                    <p style="font-size: 14px;">Run generation to analyze your tables, then select one from the sidebar
+                    </p>
                 </div>
 
-                <!-- Table detail view (hidden initially) -->
-                <div id="detail-content" class="hidden flex flex-col h-full">
-                    <div
-                        class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 shadow-sm">
-                                <span class="material-symbols-outlined text-primary">table_chart</span>
-                            </div>
-                            <div>
-                                <h2 id="detail-table-name" class="text-lg font-bold text-[#111318] dark:text-white">-
-                                </h2>
-                                <p id="detail-table-id" class="text-xs text-[#616f89] dark:text-gray-400 font-mono">-
-                                </p>
-                            </div>
+                <div id="detail-content" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+                    <div class="detail-header">
+                        <div class="detail-icon">
+                            <span class="material-symbols-outlined">table_chart</span>
+                        </div>
+                        <div>
+                            <div id="detail-table-name" class="detail-table-name">-</div>
+                            <div id="detail-table-id" class="detail-table-id">-</div>
                         </div>
                     </div>
-                    <div class="flex-1 overflow-y-auto">
-                        <!-- Tabs -->
-                        <div
-                            class="px-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a202c] sticky top-0 z-10">
-                            <nav aria-label="Tabs" class="-mb-px flex space-x-6">
-                                <button data-tab="dimensions"
-                                    class="tab-btn group inline-flex items-center py-4 px-1 border-b-2 border-primary font-medium text-sm text-primary">
-                                    Dimensions
-                                    <span id="dimensions-count"
-                                        class="ml-2.5 py-0.5 px-2 rounded-full text-xs font-medium bg-primary/10 text-primary">0</span>
-                                </button>
-                                <button data-tab="measures"
-                                    class="tab-btn group inline-flex items-center py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 transition-colors">
-                                    Measures
-                                    <span id="measures-count"
-                                        class="ml-2.5 py-0.5 px-2 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">0</span>
-                                </button>
-                                <button data-tab="time"
-                                    class="tab-btn group inline-flex items-center py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 transition-colors">
-                                    Time
-                                    <span id="time-count"
-                                        class="ml-2.5 py-0.5 px-2 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">0</span>
-                                </button>
-                                <button data-tab="relationships"
-                                    class="tab-btn group inline-flex items-center py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 transition-colors">
-                                    <span class="material-symbols-outlined text-[16px] mr-1">link</span>
-                                    Relationships
-                                    <span id="relationships-count"
-                                        class="ml-2.5 py-0.5 px-2 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">0</span>
-                                </button>
-                            </nav>
-                        </div>
 
-                        <!-- Tab content -->
-                        <div id="tab-dimensions" class="tab-content p-6">
-                            <div id="dimensions-list" class="space-y-2">
-                                <p class="text-sm text-gray-500 dark:text-gray-400 italic">No dimensions found</p>
-                            </div>
+                    <div class="tabs">
+                        <button data-tab="dimensions" class="tab active">
+                            Dimensions
+                            <span id="dimensions-count" class="tab-count">0</span>
+                        </button>
+                        <button data-tab="measures" class="tab">
+                            Measures
+                            <span id="measures-count" class="tab-count">0</span>
+                        </button>
+                        <button data-tab="time" class="tab">
+                            Time
+                            <span id="time-count" class="tab-count">0</span>
+                        </button>
+                        <button data-tab="relationships" class="tab">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">link</span>
+                            Relationships
+                            <span id="relationships-count" class="tab-count">0</span>
+                        </button>
+                    </div>
+
+                    <div id="tab-dimensions" class="tab-content">
+                        <div id="dimensions-list">
+                            <p class="empty-state">No dimensions found</p>
                         </div>
-                        <div id="tab-measures" class="tab-content hidden p-6">
-                            <div id="measures-list" class="space-y-2">
-                                <p class="text-sm text-gray-500 dark:text-gray-400 italic">No measures found</p>
-                            </div>
+                    </div>
+                    <div id="tab-measures" class="tab-content hidden">
+                        <div id="measures-list">
+                            <p class="empty-state">No measures found</p>
                         </div>
-                        <div id="tab-time" class="tab-content hidden p-6">
-                            <div id="time-list" class="space-y-2">
-                                <p class="text-sm text-gray-500 dark:text-gray-400 italic">No time columns found</p>
-                            </div>
+                    </div>
+                    <div id="tab-time" class="tab-content hidden">
+                        <div id="time-list">
+                            <p class="empty-state">No time columns found</p>
                         </div>
-                        <div id="tab-relationships" class="tab-content hidden p-6">
-                            <div id="relationships-list" class="space-y-3">
-                                <p class="text-sm text-gray-500 dark:text-gray-400 italic">No relationships detected</p>
-                            </div>
+                    </div>
+                    <div id="tab-relationships" class="tab-content hidden">
+                        <div id="relationships-list">
+                            <p class="empty-state">No relationships detected</p>
                         </div>
                     </div>
                 </div>
@@ -240,11 +796,32 @@
 
     <script>
         // API Configuration
-        const API_BASE_URL = '';  // Use relative paths (works on localhost and Render)
+        const API_BASE_URL = '';
         const STORAGE_KEY = 'lunara_semantic_model';
+
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1Zmhkb2psc2F5c3JraXZkZnltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzI4ODUsImV4cCI6MjA4NDk0ODg4NX0.MiYnxqdSXCV10LUqbBz2hTIyjcLhPy50X0xzYNacHtA';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                autoRefreshToken: true,
+                persistSession: true,
+                detectSessionInUrl: true
+            }
+        });
+
+        // Get project_id from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('project_id');
+
+        // Update breadcrumb links
+        if (projectId) {
+            document.getElementById('schemaLink').href = `/schema_browser.html?project_id=${projectId}`;
+        }
 
         // DOM Elements
         const startBtn = document.getElementById('start-btn');
+        const saveBtn = document.getElementById('save-btn');
         const agentStatus = document.getElementById('agent-status');
         const chatOutput = document.getElementById('chat-output');
         const chatMessages = document.getElementById('chat-messages');
@@ -262,13 +839,12 @@
         let detectedRelationships = [];
         let currentTableIndex = 0;
 
-        // Load selected tables from localStorage (set by schema_browser.html)
+        // Load selected tables from localStorage
         function loadSelectedTables() {
             const stored = localStorage.getItem('lunara_selected_tables');
             if (stored) {
                 try {
                     selectedTables = JSON.parse(stored);
-                    console.log('Loaded selected tables:', selectedTables);
                 } catch (e) {
                     console.error('Failed to parse selected tables:', e);
                 }
@@ -277,13 +853,14 @@
             if (selectedTables.length === 0) {
                 agentStatus.textContent = 'No tables selected. Go back to Schema Browser.';
                 startBtn.disabled = true;
-                startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                startBtn.style.opacity = '0.5';
+                startBtn.style.cursor = 'not-allowed';
             } else {
                 agentStatus.textContent = `${selectedTables.length} tables ready for analysis`;
             }
         }
 
-        // LocalStorage functions for semantic model
+        // LocalStorage functions
         function saveSemanticModel() {
             const data = {
                 tables: semanticModel?.tables || [],
@@ -291,7 +868,6 @@
                 savedAt: new Date().toISOString()
             };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            console.log('Saved semantic model to localStorage');
         }
 
         function loadSemanticModel() {
@@ -301,7 +877,6 @@
                     const data = JSON.parse(stored);
                     semanticModel = { tables: data.tables };
                     detectedRelationships = data.relationships || [];
-                    console.log('Loaded semantic model from localStorage');
                     renderModels();
                     if (semanticModel.tables.length > 0) {
                         selectTable(0);
@@ -312,7 +887,6 @@
             }
         }
 
-        // Update a column property and save
         function updateColumn(columnName, field, value) {
             if (!semanticModel?.tables?.[currentTableIndex]) return;
 
@@ -323,7 +897,6 @@
                 const oldValue = column[field];
                 column[field] = value;
 
-                // If changing semantic type, handle aggregation
                 if (field === 'semantic_type') {
                     if (value === 'measure' && !column.aggregation) {
                         column.aggregation = 'SUM';
@@ -332,26 +905,20 @@
                     }
                 }
 
-                // Save to localStorage
                 saveSemanticModel();
 
-                // Visual feedback - flash the card
                 const card = document.querySelector(`[data-col-name="${columnName}"]`);
                 if (card) {
-                    card.classList.add('ring-2', 'ring-green-500');
-                    setTimeout(() => card.classList.remove('ring-2', 'ring-green-500'), 500);
+                    card.style.borderColor = 'var(--success-green)';
+                    setTimeout(() => card.style.borderColor = '', 500);
                 }
 
-                // If semantic type changed, re-render to move column to correct tab
                 if (field === 'semantic_type' && oldValue !== value) {
                     renderTableDetail(table);
                 }
-
-                console.log(`Updated ${columnName}.${field} = ${value}`);
             }
         }
 
-        // Render models in sidebar
         function renderModels() {
             if (!semanticModel?.tables?.length) {
                 modelsEmpty.classList.remove('hidden');
@@ -362,125 +929,92 @@
             modelsEmpty.classList.add('hidden');
             modelsCount.textContent = `${semanticModel.tables.length} tables`;
 
-            // Clear and rebuild list
             modelsList.innerHTML = '';
 
             semanticModel.tables.forEach((table, index) => {
                 const btn = document.createElement('button');
-                btn.className = index === currentTableIndex
-                    ? 'w-full text-left flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-lg transition-all'
-                    : 'w-full text-left flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 rounded-lg transition-all';
+                btn.className = `model-item ${index === currentTableIndex ? 'active' : ''}`;
 
                 const tableName = table.name || table.table_id.split('.').pop();
                 btn.innerHTML = `
-                    <span class="material-symbols-outlined ${index === currentTableIndex ? 'text-primary' : 'text-gray-400'}">table_chart</span>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium ${index === currentTableIndex ? 'text-[#111318] dark:text-white font-semibold' : 'text-gray-600 dark:text-gray-300'} truncate">${tableName}</p>
-                        <p class="text-xs ${index === currentTableIndex ? 'text-primary' : 'text-gray-400'} truncate">${table.columns?.length || 0} columns</p>
+                    <span class="material-symbols-outlined">table_chart</span>
+                    <div class="model-info">
+                        <div class="model-name">${tableName}</div>
+                        <div class="model-meta">${table.columns?.length || 0} columns</div>
                     </div>
-                    ${index === currentTableIndex ? '<span class="material-symbols-outlined text-primary text-[18px]">chevron_right</span>' : ''}
                 `;
                 btn.onclick = () => selectTable(index);
                 modelsList.appendChild(btn);
             });
         }
 
-        // Select a table to show details
         function selectTable(index) {
             currentTableIndex = index;
             renderModels();
             renderTableDetail();
         }
 
-        // Render table detail panel
         function renderTableDetail() {
             if (!semanticModel?.tables?.length) {
                 detailEmpty.classList.remove('hidden');
                 detailContent.classList.add('hidden');
+                detailContent.style.display = 'none';
                 return;
             }
 
             detailEmpty.classList.add('hidden');
             detailContent.classList.remove('hidden');
+            detailContent.style.display = 'flex';
 
             const table = semanticModel.tables[currentTableIndex];
             document.getElementById('detail-table-name').textContent = table.name || table.table_id.split('.').pop();
             document.getElementById('detail-table-id').textContent = table.table_id;
 
-            // Categorize columns
             const dimensions = table.columns?.filter(c => c.semantic_type === 'dimension') || [];
             const measures = table.columns?.filter(c => c.semantic_type === 'measure') || [];
             const timeColumns = table.columns?.filter(c => c.semantic_type === 'time') || [];
-
-            // Filter relationships for this table
             const tableRelationships = detectedRelationships.filter(
                 r => r.from_table === table.table_id || r.to_table === table.table_id
             );
 
-            // Update counts
             document.getElementById('dimensions-count').textContent = dimensions.length;
             document.getElementById('measures-count').textContent = measures.length;
             document.getElementById('time-count').textContent = timeColumns.length;
             document.getElementById('relationships-count').textContent = tableRelationships.length;
 
-            // Render lists
             renderColumnList('dimensions-list', dimensions, 'dimension');
             renderColumnList('measures-list', measures, 'measure');
             renderColumnList('time-list', timeColumns, 'time');
             renderRelationshipsList(tableRelationships);
         }
 
-        // Render a list of columns with edit controls
         function renderColumnList(containerId, columns, type) {
             const container = document.getElementById(containerId);
             if (!columns.length) {
-                container.innerHTML = `<p class="text-sm text-gray-500 dark:text-gray-400 italic">No ${type}s found</p>`;
+                container.innerHTML = `<p class="empty-state">No ${type}s found</p>`;
                 return;
             }
-
-            const typeColors = {
-                dimension: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-                measure: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-                time: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-            };
 
             const aggregationOptions = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX', 'COUNT_DISTINCT'];
 
             container.innerHTML = columns.map(col => `
-                <div class="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-all hover:shadow-md" data-col-name="${col.name}">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm font-semibold text-[#111318] dark:text-white">${col.name}</span>
-                            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">${col.type}</span>
-                        </div>
+                <div class="column-card" data-col-name="${col.name}">
+                    <div class="column-header">
+                        <span class="column-name">${col.name}</span>
+                        <span class="column-type">${col.type}</span>
                     </div>
-                    
-                    <!-- Editable description -->
-                    <div class="mb-2">
-                        <input type="text" 
-                            class="w-full px-2 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                            placeholder="Add description..."
-                            value="${col.description || ''}"
-                            onchange="updateColumn('${col.name}', 'description', this.value)"
-                        />
-                    </div>
-                    
-                    <!-- Type and Aggregation controls -->
-                    <div class="flex items-center gap-2">
-                        <select 
-                            class="px-2 py-1 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary/50 transition-all"
-                            onchange="updateColumn('${col.name}', 'semantic_type', this.value)"
-                        >
+                    <input type="text" class="column-input"
+                        placeholder="Add description..."
+                        value="${col.description || ''}"
+                        onchange="updateColumn('${col.name}', 'description', this.value)">
+                    <div class="column-controls">
+                        <select class="column-select" onchange="updateColumn('${col.name}', 'semantic_type', this.value)">
                             <option value="dimension" ${col.semantic_type === 'dimension' ? 'selected' : ''}>Dimension</option>
                             <option value="measure" ${col.semantic_type === 'measure' ? 'selected' : ''}>Measure</option>
                             <option value="time" ${col.semantic_type === 'time' ? 'selected' : ''}>Time</option>
                         </select>
-                        
                         ${col.semantic_type === 'measure' || type === 'measure' ? `
-                            <select 
-                                class="px-2 py-1 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary/50 transition-all"
-                                onchange="updateColumn('${col.name}', 'aggregation', this.value)"
-                            >
+                            <select class="column-select" onchange="updateColumn('${col.name}', 'aggregation', this.value)">
                                 ${aggregationOptions.map(agg => `
                                     <option value="${agg}" ${col.aggregation === agg ? 'selected' : ''}>${agg}</option>
                                 `).join('')}
@@ -491,95 +1025,77 @@
             `).join('');
         }
 
-        // Render relationships list
         function renderRelationshipsList(relationships) {
             const container = document.getElementById('relationships-list');
             if (!relationships.length) {
-                container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 italic">No relationships detected</p>';
+                container.innerHTML = '<p class="empty-state">No relationships detected</p>';
                 return;
             }
 
-            const confidenceColors = {
-                high: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-                medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-                low: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-            };
-
             container.innerHTML = relationships.map(rel => `
-                <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div class="flex items-center gap-2 mb-2">
-                        <span class="material-symbols-outlined text-primary text-[18px]">link</span>
-                        <span class="text-sm font-semibold text-[#111318] dark:text-white">${rel.relationship_type}</span>
-                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${confidenceColors[rel.confidence] || confidenceColors.low}">${rel.confidence}</span>
+                <div class="relationship-card">
+                    <div class="relationship-header">
+                        <span class="material-symbols-outlined" style="color: var(--electric-blue);">link</span>
+                        <span class="relationship-type">${rel.relationship_type}</span>
+                        <span class="confidence-badge confidence-${rel.confidence}">${rel.confidence}</span>
                     </div>
-                    <div class="text-sm text-gray-600 dark:text-gray-300 font-mono">
-                        <span class="text-primary">${rel.from_table.split('.').pop()}</span>.<span class="font-semibold">${rel.from_column}</span>
-                        <span class="mx-2 text-gray-400">→</span>
-                        <span class="text-primary">${rel.to_table.split('.').pop()}</span>.<span class="font-semibold">${rel.to_column}</span>
+                    <div class="relationship-path">
+                        <span class="table-name">${rel.from_table.split('.').pop()}</span>.<strong>${rel.from_column}</strong>
+                        <span class="arrow">→</span>
+                        <span class="table-name">${rel.to_table.split('.').pop()}</span>.<strong>${rel.to_column}</strong>
                     </div>
-                    ${rel.reasoning ? `<p class="text-xs text-gray-500 mt-2 italic">${rel.reasoning}</p>` : ''}
+                    ${rel.reasoning ? `<p style="font-size: 12px; opacity: 0.6; margin-top: 8px; font-style: italic;">${rel.reasoning}</p>` : ''}
                 </div>
             `).join('');
         }
 
         // Tab switching
-        document.querySelectorAll('.tab-btn').forEach(btn => {
+        document.querySelectorAll('.tab').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tab = btn.dataset.tab;
 
-                // Update button styles
-                document.querySelectorAll('.tab-btn').forEach(b => {
-                    b.classList.remove('border-primary', 'text-primary');
-                    b.classList.add('border-transparent', 'text-gray-500');
-                });
-                btn.classList.remove('border-transparent', 'text-gray-500');
-                btn.classList.add('border-primary', 'text-primary');
+                document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
 
-                // Show/hide tab content
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
                 document.getElementById(`tab-${tab}`).classList.remove('hidden');
             });
         });
 
-        // Append message to chat output
         function appendMessage(content, type = 'text') {
-            const placeholder = chatMessages.querySelector('.italic');
+            const placeholder = chatMessages.querySelector('.placeholder');
             if (placeholder) placeholder.remove();
 
             const msgDiv = document.createElement('div');
-            msgDiv.className = 'flex items-start gap-2';
+            msgDiv.className = `chat-message ${type}`;
 
             const icons = {
-                error: { icon: '❌', color: 'text-red-300' },
-                status: { icon: '⚙️', color: 'text-yellow-400' },
-                done: { icon: '✅', color: 'text-green-300' },
-                complete: { icon: '🎉', color: 'text-green-300' },
-                phase: { icon: '📍', color: 'text-blue-300' },
-                text: { icon: '🤖', color: 'text-gray-200' }
+                error: '❌',
+                status: '⚙️',
+                done: '✅',
+                complete: '🎉',
+                phase: '📍',
+                text: '🤖'
             };
 
-            const { icon, color } = icons[type] || icons.text;
-            msgDiv.innerHTML = `<span class="${type === 'error' ? 'text-red-400' : type === 'phase' ? 'text-blue-400' : 'text-green-400'}">${icon}</span><span class="${color}">${content}</span>`;
-
+            msgDiv.innerHTML = `<span>${icons[type] || icons.text}</span><span>${content}</span>`;
             chatMessages.appendChild(msgDiv);
             chatOutput.scrollTop = chatOutput.scrollHeight;
         }
 
-        // Start semantic layer generation
         async function startGeneration() {
             if (isGenerating || selectedTables.length === 0) return;
 
             isGenerating = true;
             startBtn.disabled = true;
             startBtn.innerHTML = `
-                <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                <span class="material-symbols-outlined" style="animation: spin 1s linear infinite;">progress_activity</span>
                 Generating...
             `;
             agentStatus.textContent = 'Processing...';
             cursor.classList.remove('hidden');
             chatMessages.innerHTML = '';
 
-            // Reset state
             semanticModel = null;
             detectedRelationships = [];
 
@@ -618,9 +1134,9 @@
                     }
                 }
 
-                // Save to localStorage
                 saveSemanticModel();
                 agentStatus.textContent = 'Generation complete!';
+                updateSaveButtonState();
 
             } catch (err) {
                 console.error('Generation error:', err);
@@ -631,13 +1147,12 @@
                 cursor.classList.add('hidden');
                 startBtn.disabled = false;
                 startBtn.innerHTML = `
-                    <span class="material-symbols-outlined text-[18px]">refresh</span>
+                    <span class="material-symbols-outlined">refresh</span>
                     Regenerate
                 `;
             }
         }
 
-        // Handle SSE stream events
         function handleStreamEvent(data) {
             switch (data.type) {
                 case 'text':
@@ -676,12 +1191,101 @@
             }
         }
 
+        // Add spin animation
+        const style = document.createElement('style');
+        style.textContent = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
+        document.head.appendChild(style);
+
         // Event listeners
         startBtn.addEventListener('click', startGeneration);
+        saveBtn.addEventListener('click', saveToSupabase);
+
+        // Save to Supabase
+        async function saveToSupabase() {
+            if (!semanticModel?.tables?.length) {
+                alert('No semantic model to save. Run generation first.');
+                return;
+            }
+
+            if (!projectId) {
+                alert('No project ID found. Please go back to the data sources page.');
+                return;
+            }
+
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `
+                <span class="material-symbols-outlined" style="animation: spin 1s linear infinite;">progress_activity</span>
+                Saving...
+            `;
+
+            try {
+                // Get current user
+                const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+                if (authError || !user) {
+                    throw new Error('Not authenticated. Please log in.');
+                }
+
+                // Prepare the model data
+                const modelData = {
+                    project_id: projectId,
+                    name: `Semantic Model - ${new Date().toLocaleDateString()}`,
+                    description: `Generated from ${semanticModel.tables.length} tables`,
+                    model: {
+                        tables: semanticModel.tables,
+                        relationships: detectedRelationships
+                    },
+                    source_type: 'bigquery',
+                    table_count: semanticModel.tables.length,
+                    created_by: user.id
+                };
+
+                // Insert into Supabase
+                const { data, error } = await supabaseClient
+                    .from('semantic_models')
+                    .insert([modelData])
+                    .select();
+
+                if (error) throw error;
+
+                appendMessage('✅ Semantic model saved to database!', 'done');
+                agentStatus.textContent = 'Saved to database!';
+
+                saveBtn.innerHTML = `
+                    <span class="material-symbols-outlined">check_circle</span>
+                    Saved!
+                `;
+                setTimeout(() => {
+                    saveBtn.innerHTML = `
+                        <span class="material-symbols-outlined">save</span>
+                        Save Layer
+                    `;
+                    saveBtn.disabled = false;
+                }, 2000);
+
+            } catch (err) {
+                console.error('Save error:', err);
+                appendMessage(`Failed to save: ${err.message}`, 'error');
+                saveBtn.innerHTML = `
+                    <span class="material-symbols-outlined">save</span>
+                    Save Layer
+                `;
+                saveBtn.disabled = false;
+            }
+        }
+
+        // Enable save button when model is available
+        function updateSaveButtonState() {
+            if (semanticModel?.tables?.length > 0) {
+                saveBtn.disabled = false;
+            } else {
+                saveBtn.disabled = true;
+            }
+        }
 
         // Initialize
         loadSelectedTables();
         loadSemanticModel();
+        updateSaveButtonState();
     </script>
 </body>
 

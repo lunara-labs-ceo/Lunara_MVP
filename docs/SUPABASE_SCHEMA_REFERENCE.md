@@ -258,12 +258,12 @@ The JSONB column gives flexibility - each artifact type can have its own structu
 
 ## Other Future Tables
 
-| Table | Purpose |
-|-------|---------|
-| `data_sources` | Store BQ/Postgres/AWS connections per project |
-| `semantic_models` | Store semantic layer definitions per project |
-| `agent_sessions` | Store chat history per agent |
-| `artifact_versions` | Track version history of reports/slides (optional) |
+| Table | Purpose | Status |
+|-------|---------|--------|
+| `data_sources` | Store BQ/Postgres/AWS connections per project | ✅ Implemented |
+| `semantic_models` | Store semantic layer definitions per project | ✅ Implemented |
+| `agent_sessions` | Store chat history per agent | Planned |
+| `artifact_versions` | Track version history of reports/slides (optional) | Planned |
 
 ---
 
