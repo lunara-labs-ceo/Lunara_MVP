@@ -370,19 +370,6 @@
                 <p class="connector-description">Connect to Snowflake cloud data platform</p>
             </div>
         </div>
-
-        <!-- Connected Sources -->
-        <div class="connected-section">
-            <h2 class="section-title">
-                <span class="material-symbols-outlined">check_circle</span>
-                Connected Sources
-            </h2>
-            <div id="connectedSources">
-                <div class="empty-state">
-                    No data sources connected yet. Choose a connector above to get started.
-                </div>
-            </div>
-        </div>
     </main>
 
     <script>
@@ -402,7 +389,6 @@
 
         // DOM Elements
         const projectNameEl = document.getElementById('projectName');
-        const connectedSourcesEl = document.getElementById('connectedSources');
         const bigqueryCard = document.getElementById('bigquery-card');
 
         // Initialize page
@@ -431,71 +417,9 @@
                 projectNameEl.textContent = project.name;
                 document.title = `Lunara - ${project.name} - Data Sources`;
 
-                // Load connected data sources
-                await loadConnectedSources();
-
             } catch (err) {
                 console.error('Init error:', err);
             }
-        }
-
-        // Load connected data sources
-        async function loadConnectedSources() {
-            const { data: sources, error } = await supabaseClient
-                .from('data_sources')
-                .select('*')
-                .eq('project_id', projectId)
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('Error loading sources:', error);
-                return;
-            }
-
-            if (!sources || sources.length === 0) {
-                connectedSourcesEl.innerHTML = `
-                    <div class="empty-state">
-                        No data sources connected yet. Choose a connector above to get started.
-                    </div>
-                `;
-                return;
-            }
-
-            connectedSourcesEl.innerHTML = `
-                <div class="connected-sources-list">
-                    ${sources.map(source => `
-                        <div class="connected-source-item">
-                            <img class="source-icon" src="${getSourceLogo(source.type)}" alt="${source.type}">
-                            <div class="source-info">
-                                <div class="source-name">${escapeHtml(source.name)}</div>
-                                <div class="source-meta">${source.type.toUpperCase()} • Connected ${formatDate(source.created_at)}</div>
-                            </div>
-                            <span class="status-badge">${source.status}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        function getSourceLogo(type) {
-            const logos = {
-                'bigquery': 'https://www.gstatic.com/devrel-devsite/prod/v0e0f589edd85502a40d78d7d0825db8ea5ef3b99ab4070381ee86977c9168730/cloud/images/cloud-logo.svg',
-                'postgres': 'https://www.postgresql.org/media/img/about/press/elephant.png',
-                'redshift': 'https://upload.wikimedia.org/wikipedia/commons/7/73/Amazon-Redshift-Logo.svg',
-                'snowflake': 'https://www.snowflake.com/wp-content/themes/snowflake/assets/img/brand-guidelines/logo-sno-blue-example.svg'
-            };
-            return logos[type] || '';
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function formatDate(dateStr) {
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
 
         // BigQuery card click handler
