@@ -838,6 +838,7 @@
         let semanticModel = null;
         let detectedRelationships = [];
         let currentTableIndex = 0;
+        let existingModelId = null; // Track if model already exists in Supabase
 
         // Load selected tables from localStorage
         function loadSelectedTables() {
@@ -884,6 +885,66 @@
                 } catch (e) {
                     console.error('Failed to load semantic model:', e);
                 }
+            }
+        }
+
+        // Load semantic model from Supabase (primary) with localStorage fallback
+        async function loadSemanticModelFromSupabase() {
+            if (!projectId) {
+                // No project ID, fall back to localStorage
+                loadSemanticModel();
+                return;
+            }
+
+            try {
+                agentStatus.textContent = 'Loading saved model...';
+
+                const { data, error } = await supabaseClient
+                    .from('semantic_models')
+                    .select('*')
+                    .eq('project_id', projectId)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const savedModel = data[0];
+                    existingModelId = savedModel.id;
+
+                    // Load from Supabase
+                    semanticModel = { tables: savedModel.model.tables || [] };
+                    detectedRelationships = savedModel.model.relationships || [];
+
+                    renderModels();
+                    if (semanticModel.tables.length > 0) {
+                        selectTable(0);
+                    }
+
+                    agentStatus.textContent = `Loaded saved model (${semanticModel.tables.length} tables)`;
+
+                    // Update button to show "Update Layer"
+                    saveBtn.innerHTML = `
+                        <span class="material-symbols-outlined">save</span>
+                        Update Layer
+                    `;
+                    updateSaveButtonState();
+
+                    console.log('Loaded semantic model from Supabase:', savedModel.id);
+                } else {
+                    // No model in Supabase, try localStorage
+                    loadSemanticModel();
+                    if (semanticModel?.tables?.length > 0) {
+                        agentStatus.textContent = `${semanticModel.tables.length} tables loaded from local cache`;
+                    } else {
+                        agentStatus.textContent = `${selectedTables.length} tables ready for analysis`;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load from Supabase:', err);
+                // Fall back to localStorage
+                loadSemanticModel();
+                agentStatus.textContent = `${selectedTables.length} tables ready for analysis`;
             }
         }
 
@@ -1227,7 +1288,6 @@
 
                 // Prepare the model data
                 const modelData = {
-                    project_id: projectId,
                     name: `Semantic Model - ${new Date().toLocaleDateString()}`,
                     description: `Generated from ${semanticModel.tables.length} tables`,
                     model: {
@@ -1235,29 +1295,45 @@
                         relationships: detectedRelationships
                     },
                     source_type: 'bigquery',
-                    table_count: semanticModel.tables.length,
-                    created_by: user.id
+                    table_count: semanticModel.tables.length
                 };
 
-                // Insert into Supabase
-                const { data, error } = await supabaseClient
-                    .from('semantic_models')
-                    .insert([modelData])
-                    .select();
+                let result;
+                if (existingModelId) {
+                    // UPDATE existing model
+                    result = await supabaseClient
+                        .from('semantic_models')
+                        .update(modelData)
+                        .eq('id', existingModelId)
+                        .select();
+                } else {
+                    // INSERT new model
+                    result = await supabaseClient
+                        .from('semantic_models')
+                        .insert([{ ...modelData, project_id: projectId, created_by: user.id }])
+                        .select();
+                }
 
+                const { data, error } = result;
                 if (error) throw error;
 
-                appendMessage('✅ Semantic model saved to database!', 'done');
-                agentStatus.textContent = 'Saved to database!';
+                // Set existingModelId if this was a new insert
+                if (!existingModelId && data && data.length > 0) {
+                    existingModelId = data[0].id;
+                }
+
+                const action = existingModelId ? 'updated' : 'saved';
+                appendMessage(`✅ Semantic model ${action} to database!`, 'done');
+                agentStatus.textContent = `Model ${action}!`;
 
                 saveBtn.innerHTML = `
                     <span class="material-symbols-outlined">check_circle</span>
-                    Saved!
+                    ${existingModelId ? 'Updated!' : 'Saved!'}
                 `;
                 setTimeout(() => {
                     saveBtn.innerHTML = `
                         <span class="material-symbols-outlined">save</span>
-                        Save Layer
+                        Update Layer
                     `;
                     saveBtn.disabled = false;
                 }, 2000);
@@ -1267,7 +1343,7 @@
                 appendMessage(`Failed to save: ${err.message}`, 'error');
                 saveBtn.innerHTML = `
                     <span class="material-symbols-outlined">save</span>
-                    Save Layer
+                    ${existingModelId ? 'Update Layer' : 'Save Layer'}
                 `;
                 saveBtn.disabled = false;
             }
@@ -1284,8 +1360,7 @@
 
         // Initialize
         loadSelectedTables();
-        loadSemanticModel();
-        updateSaveButtonState();
+        loadSemanticModelFromSupabase(); // Load from Supabase first, then localStorage
     </script>
 </body>
 
