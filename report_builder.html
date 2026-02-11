@@ -476,6 +476,17 @@
             padding-left: 8px;
         }
 
+        /* Streaming cursor animation */
+        .streaming-cursor {
+            animation: blink 1s infinite;
+            color: var(--accent-color);
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
         /* Loading Indicator */
         .loading-dots {
             display: inline-flex;
@@ -664,8 +675,11 @@
             document.getElementById('sendBtn').disabled = true;
             setStatus('Generating...');
             
-            // Show loading message
-            const loadingId = addChatMessage('Thinking', 'status', true);
+            // Create streaming AI message
+            const streamingId = 'streaming-' + Date.now();
+            addStreamingMessage(streamingId);
+            
+            let fullText = '';
             
             try {
                 const response = await fetch(`${API_BASE}/reports/${reportId}/generate`, {
@@ -690,38 +704,46 @@
                         if (line.startsWith('data: ')) {
                             try {
                                 const data = JSON.parse(line.slice(6));
-                                handleStreamEvent(data, loadingId);
+                                
+                                // Handle text streaming like chat agent
+                                if (data.type === 'text' && data.content) {
+                                    fullText += data.content;
+                                    updateStreamingMessage(streamingId, fullText);
+                                }
+                                // Handle other events
+                                else {
+                                    handleStreamEvent(data, streamingId);
+                                }
                             } catch (e) {
                                 console.error('Failed to parse event:', e);
                             }
                         }
                     }
                 }
+                
+                // Finalize the streaming message
+                finalizeStreamingMessage(streamingId, fullText);
+                
             } catch (e) {
                 console.error('Generation failed:', e);
-                addChatMessage(`Error: ${e.message}`, 'ai');
+                updateStreamingMessage(streamingId, `Error: ${e.message}`);
+                finalizeStreamingMessage(streamingId, `Error: ${e.message}`);
             } finally {
                 isGenerating = false;
                 document.getElementById('sendBtn').disabled = false;
                 setStatus('Ready to help');
-                removeLoadingMessage(loadingId);
             }
         }
 
-        // Handle SSE stream events
-        function handleStreamEvent(data, loadingId) {
+        // Handle SSE stream events (non-text events)
+        function handleStreamEvent(data, streamingId) {
             switch (data.type) {
-                case 'text':
-                    // Update loading message with AI's thinking
-                    updateLoadingMessage(loadingId, data.content);
-                    break;
-                    
                 case 'status':
                     setStatus(data.content);
                     break;
                     
                 case 'code':
-                    // Optionally show code in debug mode
+                    // Code being executed
                     break;
                     
                 case 'code_result':
@@ -729,7 +751,7 @@
                     break;
                     
                 case 'chart':
-                    // Chart generated
+                    // Chart generated - add to document
                     addContentItem({
                         type: 'chart',
                         title: 'Generated Chart',
@@ -738,20 +760,55 @@
                     break;
                     
                 case 'content_item':
-                    // New content item added
+                    // New content item added - add to document
                     addContentItem(data.item);
                     break;
                     
                 case 'done':
-                    removeLoadingMessage(loadingId);
+                    // Generation complete
                     if (data.items_added > 0) {
+                        // Add a summary message
                         addChatMessage(`Added ${data.items_added} section(s) to your report!`, 'ai');
                     }
                     break;
                     
                 case 'error':
-                    addChatMessage(`Error: ${data.content}`, 'ai');
+                    // Show error in the streaming message
+                    updateStreamingMessage(streamingId, `Error: ${data.content}`);
                     break;
+            }
+        }
+
+        // Add a streaming message placeholder
+        function addStreamingMessage(id) {
+            const container = document.getElementById('chatMessages');
+            const msg = document.createElement('div');
+            msg.className = 'message message-ai';
+            msg.id = id;
+            msg.innerHTML = '<span class="streaming-cursor">▋</span>';
+            container.appendChild(msg);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Update streaming message content
+        function updateStreamingMessage(id, content) {
+            const msg = document.getElementById(id);
+            if (msg) {
+                // Convert newlines to breaks and escape HTML
+                const formatted = escapeHtml(content).replace(/\n/g, '<br>');
+                msg.innerHTML = formatted + '<span class="streaming-cursor">▋</span>';
+                
+                const container = document.getElementById('chatMessages');
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        // Finalize streaming message (remove cursor)
+        function finalizeStreamingMessage(id, content) {
+            const msg = document.getElementById(id);
+            if (msg) {
+                const formatted = escapeHtml(content).replace(/\n/g, '<br>');
+                msg.innerHTML = formatted;
             }
         }
 

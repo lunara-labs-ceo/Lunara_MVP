@@ -1,9 +1,9 @@
-"""Clean Report Agent Service - Document Copilot Architecture.
+"""Clean Report Agent Service - Document Copilot.
 
-Like Word with Copilot:
-- User chats naturally
-- AI picks artifacts and generates content
-- Content appears as sections in a document
+Simple architecture like the chat agent:
+- Single agent with tools
+- Streams text responses
+- Adds content via tool calls
 """
 from __future__ import annotations
 
@@ -15,8 +15,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, AsyncIterator, Any
 
-from google.adk.agents import LlmAgent
-from google.adk.tools import agent_tool
+from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.code_executors import BuiltInCodeExecutor
@@ -37,10 +36,7 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
 
 class ReportAgentService:
-    """Clean report agent - request-scoped, no shared state.
-    
-    Each request creates a fresh instance, eliminating race conditions.
-    """
+    """Clean report agent - request-scoped, no shared state."""
     
     def __init__(self, report_id: int):
         """Initialize service for a specific report.
@@ -50,100 +46,50 @@ class ReportAgentService:
         """
         self.report_id = report_id
         self._content_items: List[Dict[str, Any]] = []
+        self._runner: Optional[Runner] = None
+        self._session_id: Optional[str] = None
         
-        # Create sub-agents
-        self._create_agents()
-    
-    def _create_agents(self) -> None:
-        """Create the agent hierarchy."""
-        
-        # Agent 1: Data Assistant - fetches artifacts
-        self.data_assistant = LlmAgent(
-            model="gemini-2.0-flash",
-            name="DataAssistant",
-            description="Fetches data artifacts when requested by the ReportWriter.",
-            instruction="""You fetch artifact data from the database.
+        # Create the agent with all tools
+        self.agent = Agent(
+            model="gemini-3-flash-preview",
+            name="report_copilot",
+            description="Document copilot that generates report content from data artifacts",
+            instruction="""You are a document copilot for Lunara BI. You help users create reports from their saved data artifacts.
+
+Your job is to:
+1. Understand what content the user wants to create
+2. Fetch relevant artifacts using list_artifacts and get_artifact_data
+3. Generate appropriate content using the add_* tools
 
 Available tools:
-- list_artifacts(): Get list of all saved artifacts
+- list_artifacts(): Get list of all saved artifacts with IDs and titles
 - get_artifact_data(artifact_id): Get full data from a specific artifact
+- add_text_content(title, markdown_content): Add formatted text analysis
+- add_table_content(title, data_json): Add a data table (pass artifact data as JSON string)
 
-When asked for data:
-1. Use list_artifacts() to see what's available
-2. Use get_artifact_data() to fetch specific artifact data
-3. Return the data as JSON
+When the user asks for:
+- "Summary", "analysis", "insights" → Use add_text_content with markdown
+- "Chart", "graph", "visualization" → Write Python code with matplotlib, it will auto-execute
+- "Table", "show data", "raw data" → Use add_table_content with the artifact data
 
-Be concise - just return the data, no extra commentary.""",
+Workflow:
+1. Call list_artifacts() to see what's available
+2. Call get_artifact_data() to fetch relevant data
+3. Generate content using the appropriate add_* tool
+
+Be conversational in your text responses. Use markdown formatting for text content.
+When creating charts via code, use professional styling with clear labels.""",
             tools=[
                 self._list_artifacts,
                 self._get_artifact_data,
-            ],
-        )
-        
-        # Agent 2: Code Executor - creates charts
-        self.code_executor = LlmAgent(
-            model="gemini-2.0-flash",
-            name="CodeExecutor",
-            description="Creates data visualizations using Python and matplotlib.",
-            instruction="""You create professional data visualizations.
-
-When given data:
-1. Write Python code using matplotlib to create the chart
-2. Use professional styling (colors, labels, titles)
-3. Execute the code to generate the chart
-4. The chart will be automatically captured and added to the report
-
-Chart guidelines:
-- Use plt.figure(figsize=(10, 6)) for good size
-- Use modern color schemes (blues, teals)
-- Always add clear titles and labels
-- Call plt.show() to render the chart
-
-For analysis:
-- Use pandas for data manipulation
-- Print key insights""",
-            code_executor=BuiltInCodeExecutor(),
-        )
-        
-        # Agent 3: Report Writer - orchestrates everything
-        self.report_writer = LlmAgent(
-            model="gemini-2.0-flash",
-            name="ReportWriter",
-            description="Document copilot that generates report content from artifacts.",
-            instruction="""You are a document copilot for Lunara BI. You help users create reports from their data artifacts.
-
-Your job:
-1. Understand what the user wants to create
-2. Fetch relevant artifacts using DataAssistant
-3. Generate appropriate content:
-   - **Text summaries**: Use add_text_content() for analysis and insights
-   - **Charts**: Use CodeExecutor to create visualizations
-   - **Tables**: Use add_table_content() to display data
-
-Workflow:
-1. Ask DataAssistant to list available artifacts
-2. Fetch the relevant artifact data
-3. Based on user request, generate appropriate content:
-   - For "summarize" → add_text_content()
-   - For "chart" or "visualization" → CodeExecutor (chart auto-captured)
-   - For "table" or "show data" → add_table_content()
-
-Content types:
-- **Text**: Markdown-formatted analysis (headers, bold, lists)
-- **Charts**: Generated via CodeExecutor (automatically captured)
-- **Tables**: JSON data formatted as clean tables
-
-Always be helpful and create professional, insightful content.""",
-            tools=[
-                agent_tool.AgentTool(agent=self.data_assistant),
-                agent_tool.AgentTool(agent=self.code_executor),
                 self._add_text_content,
                 self._add_table_content,
             ],
+            code_executor=BuiltInCodeExecutor(),
         )
     
     # ========================================================================
-    # Tools for DataAssistant
+    # Tools
     # ========================================================================
     
     def _list_artifacts(self) -> str:
@@ -194,17 +140,8 @@ Always be helpful and create professional, insightful content.""",
         except Exception as e:
             return json.dumps({"error": str(e)})
     
-    # ========================================================================
-    # Tools for ReportWriter
-    # ========================================================================
-    
     def _add_text_content(self, title: str, markdown_content: str) -> str:
-        """Add formatted text content to the report.
-        
-        Args:
-            title: Section title
-            markdown_content: Markdown-formatted text
-        """
+        """Add formatted text content to the report."""
         item = {
             "id": len(self._content_items) + 1,
             "type": "text",
@@ -216,12 +153,7 @@ Always be helpful and create professional, insightful content.""",
         return f"Added text section: {title}"
     
     def _add_table_content(self, title: str, data_json: str) -> str:
-        """Add a data table to the report.
-        
-        Args:
-            title: Table title
-            data_json: JSON array of objects (artifact data)
-        """
+        """Add a data table to the report."""
         try:
             data = json.loads(data_json) if isinstance(data_json, str) else data_json
             item = {
@@ -245,26 +177,27 @@ Always be helpful and create professional, insightful content.""",
         """Get all content items generated so far."""
         return self._content_items.copy()
     
+    async def initialize(self):
+        """Initialize runner and session."""
+        if self._runner is None:
+            session_service = InMemorySessionService()
+            
+            self._runner = Runner(
+                agent=self.agent,
+                app_name="lunara_reports",
+                session_service=session_service,
+            )
+            
+            session = await session_service.create_session(
+                app_name="lunara_reports",
+                user_id=f"report_{self.report_id}",
+                state={"content_items": []}
+            )
+            self._session_id = session.id
+    
     async def generate_content(self, prompt: str) -> AsyncIterator[Dict[str, Any]]:
-        """Generate content based on user prompt.
-        
-        Yields streaming events with agent progress and final content.
-        """
-        # Create fresh services for this request
-        session_service = InMemorySessionService()
-        
-        runner = Runner(
-            agent=self.report_writer,
-            app_name="lunara_reports",
-            session_service=session_service,
-        )
-        
-        # Create session
-        session = await session_service.create_session(
-            app_name="lunara_reports",
-            user_id=f"report_{self.report_id}",
-            state={"content_items": []}
-        )
+        """Generate content based on user prompt."""
+        await self.initialize()
         
         # Create message
         content = types.Content(
@@ -272,28 +205,35 @@ Always be helpful and create professional, insightful content.""",
             parts=[types.Part(text=prompt)]
         )
         
-        # Stream events
+        # Stream events like the chat agent
         try:
-            async for event in runner.run_async(
+            async for event in self._runner.run_async(
+                session_id=self._session_id,
                 user_id=f"report_{self.report_id}",
-                session_id=session.id,
                 new_message=content
             ):
                 if event.content and event.content.parts:
                     for part in event.content.parts:
-                        # Text content
+                        # Text response from agent
                         if hasattr(part, 'text') and part.text:
                             yield {
                                 "type": "text",
                                 "content": part.text
                             }
                         
-                        # Function calls (status updates)
+                        # Function calls
                         elif hasattr(part, 'function_call') and part.function_call:
-                            yield {
-                                "type": "status",
-                                "content": f"🔄 {part.function_call.name}..."
-                            }
+                            fn_name = part.function_call.name
+                            if fn_name.startswith("add_"):
+                                yield {
+                                    "type": "status",
+                                    "content": f"✨ Creating content..."
+                                }
+                            else:
+                                yield {
+                                    "type": "status",
+                                    "content": f"🔍 {fn_name}..."
+                                }
                         
                         # Executable code (chart generation)
                         elif hasattr(part, 'executable_code') and part.executable_code:
@@ -302,14 +242,14 @@ Always be helpful and create professional, insightful content.""",
                                 "content": part.executable_code.code
                             }
                         
-                        # Code execution results
+                        # Code execution result
                         elif hasattr(part, 'code_execution_result') and part.code_execution_result:
                             yield {
                                 "type": "code_result",
                                 "output": part.code_execution_result.output
                             }
                         
-                        # Inline data (generated images)
+                        # Inline data (generated images/charts)
                         elif hasattr(part, 'inline_data') and part.inline_data:
                             image_data = part.inline_data.data
                             if isinstance(image_data, bytes):
@@ -332,13 +272,15 @@ Always be helpful and create professional, insightful content.""",
                                 "mime_type": part.inline_data.mime_type
                             }
             
-            # Yield all content items at the end
+            # Yield final content items
             for item in self._content_items:
                 yield {
                     "type": "content_item",
                     "item": item
                 }
                 
+            yield {"type": "done", "items_added": len(self._content_items)}
+            
         except Exception as e:
             yield {
                 "type": "error",
