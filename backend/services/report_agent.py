@@ -1,9 +1,9 @@
-"""Clean Report Agent Service - Document Copilot Architecture.
+"""Clean Report Agent Service - Document Copilot.
 
-Uses ADK pattern from codelab:
-- Main agent with data tools (no code executor)
-- Separate code executor agent for charts
-- Main agent calls code executor via AgentTool when needed
+Simplified architecture:
+- Single agent for data fetching and text generation (no code executor)
+- Backend explicitly calls chart generation when needed
+- No sub-agents, no AgentTool complexity
 """
 from __future__ import annotations
 
@@ -37,97 +37,81 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
 
 class ReportAgentService:
-    """Clean report agent - request-scoped, no shared state.
-    
-    Architecture:
-    - ReportWriter (main agent) - has data tools, orchestrates
-      └── AgentTool(CodeExecutor) - for charts only
-    """
+    """Clean report agent - request-scoped, no shared state."""
     
     def __init__(self, report_id: int):
-        """Initialize service for a specific report.
-        
-        Args:
-            report_id: The report ID this agent instance is working on.
-        """
+        """Initialize service for a specific report."""
         self.report_id = report_id
         self._content_items: List[Dict[str, Any]] = []
         
-        # Create agents
-        self._create_agents()
-    
-    def _create_agents(self) -> None:
-        """Create the agent hierarchy following ADK best practices."""
-        
-        # Agent 1: Code Executor - ONLY has code executor, no other tools
-        self.code_executor = LlmAgent(
-            model="gemini-3-flash-preview",
-            name="CodeExecutor",
-            description="Creates data visualizations using matplotlib. Call this when you need a chart.",
-            instruction="""You are a data visualization specialist.
-
-When given data, create professional charts using matplotlib:
-1. Analyze the data structure
-2. Choose appropriate chart type (bar, pie, line, etc.)
-3. Write and execute Python code with matplotlib
-4. Use professional styling:
-   - plt.figure(figsize=(10, 6))
-   - Clear titles and labels
-   - Professional color schemes
-   - Always call plt.show()
-
-You have NO other tools - only code execution. Use it to create charts.""",
-            code_executor=BuiltInCodeExecutor(),
-        )
-        
-        # Agent 2: Report Writer (main) - has tools + CodeExecutor as sub-agent
-        # Using sub_agents instead of AgentTool due to ADK bug #729
-        # (AgentTool doesn't propagate multimodal content properly)
-        self.report_writer = LlmAgent(
+        # Create agent (NO code executor - charts handled separately)
+        self.agent = LlmAgent(
             model="gemini-3-flash-preview",
             name="ReportWriter",
             description="Document copilot that generates report content from data artifacts.",
             instruction="""You are a document copilot for Lunara BI.
 
-Your job:
-1. Understand what content the user wants
-2. Fetch artifacts using list_artifacts() and get_artifact_data()
-3. Generate content:
-   - Text analysis → use add_text_content()
-   - Data table → use add_table_content()
-   - Charts/visualizations → transfer to CodeExecutor sub-agent
+Your job is to help users create reports from their saved data artifacts.
 
-Workflow for charts (IMPORTANT - FOLLOW EXACTLY):
-1. First, get the artifact data using get_artifact_data(artifact_id)
-2. Then transfer to CodeExecutor using transfer_to_agent function with:
-   - agent_name: "CodeExecutor"
-   - request: Include the data and describe what chart to create (e.g., "Create a bar chart from this data showing brands by revenue")
-3. The CodeExecutor will generate the chart and return it
-4. The chart will be automatically captured and added to the report
-
-To transfer to CodeExecutor, you MUST call transfer_to_agent with agent_name="CodeExecutor".
+You can:
+1. List available artifacts
+2. Fetch artifact data
+3. Add text analysis/summaries
+4. Add data tables
+5. REQUEST chart generation (the backend will handle this)
 
 Available tools:
-- list_artifacts(): Get available artifacts
-- get_artifact_data(id): Fetch specific artifact data  
-- add_text_content(title, markdown): Add text section
-- add_table_content(title, data_json): Add table
+- list_artifacts(): Get list of saved artifacts
+- get_artifact_data(id): Fetch full data from an artifact
+- add_text_content(title, markdown): Add formatted text section
+- add_table_content(title, data_json): Add data table
 
-You also have a sub-agent:
-- CodeExecutor: Use transfer_to_agent(agent_name="CodeExecutor", request="...") for charts
+For CHARTS:
+When the user wants a chart, do this:
+1. Fetch the artifact data using get_artifact_data()
+2. Add a text note saying "CHART_REQUEST: [description]" using add_text_content
+3. The backend will see this and generate the chart automatically
 
-Be conversational and helpful. Use markdown for text content.""",
+Example workflow for charts:
+User: "Create a bar chart of sales"
+You: 
+  1. list_artifacts() to find sales data
+  2. get_artifact_data(id) to fetch the data
+  3. add_text_content(title="Chart Request", markdown="CHART_REQUEST: Create a bar chart from this data showing...")
+  4. add_table_content(title="Sales Data", data_json=...) to show the raw data too
+
+Be conversational and helpful.""",
             tools=[
                 FunctionTool(self._list_artifacts),
                 FunctionTool(self._get_artifact_data),
                 FunctionTool(self._add_text_content),
                 FunctionTool(self._add_table_content),
             ],
-            sub_agents=[self.code_executor],
+        )
+        
+        # Separate chart generator (called explicitly by backend, not as agent tool)
+        self.chart_generator = LlmAgent(
+            model="gemini-3-flash-preview",
+            name="ChartGenerator",
+            description="Creates data visualizations using matplotlib",
+            instruction="""You are a data visualization specialist.
+
+Create professional charts using matplotlib:
+1. Analyze the data provided
+2. Choose appropriate chart type (bar, pie, line, etc.)
+3. Write and execute Python code
+4. Use professional styling:
+   - plt.figure(figsize=(10, 6))
+   - Clear titles, labels, legend
+   - Professional colors
+   - Always call plt.show()
+
+The chart will be automatically captured and added to the report.""",
+            code_executor=BuiltInCodeExecutor(),
         )
     
     # ========================================================================
-    # Tools for ReportWriter
+    # Tools
     # ========================================================================
     
     def _list_artifacts(self) -> str:
@@ -208,6 +192,70 @@ Be conversational and helpful. Use markdown for text content.""",
             return f"Error adding table: {str(e)}"
     
     # ========================================================================
+    # Chart Generation (called explicitly by backend)
+    # ========================================================================
+    
+    async def generate_chart(self, description: str, data: List[Dict]) -> Optional[str]:
+        """Generate a chart using the standalone chart generator.
+        
+        Args:
+            description: What chart to create
+            data: The data to visualize
+            
+        Returns:
+            Base64 encoded chart image or None if failed
+        """
+        session_service = InMemorySessionService()
+        
+        runner = Runner(
+            agent=self.chart_generator,
+            app_name="lunara_charts",
+            session_service=session_service,
+        )
+        
+        session = await session_service.create_session(
+            app_name="lunara_charts",
+            user_id=f"chart_{self.report_id}",
+            state={}
+        )
+        
+        # Create prompt with data
+        prompt = f"""{description}
+
+Data:
+{json.dumps(data, indent=2)}
+
+Create a professional chart using matplotlib. Call plt.show() to render it."""
+        
+        content = types.Content(
+            role="user",
+            parts=[types.Part(text=prompt)]
+        )
+        
+        chart_data = None
+        
+        try:
+            async for event in runner.run_async(
+                user_id=f"chart_{self.report_id}",
+                session_id=session.id,
+                new_message=content
+            ):
+                if event.content and event.content.parts:
+                    for part in event.content.parts:
+                        # Capture inline data (chart image)
+                        if hasattr(part, 'inline_data') and part.inline_data:
+                            image_data = part.inline_data.data
+                            if isinstance(image_data, bytes):
+                                chart_data = base64.b64encode(image_data).decode()
+                            else:
+                                chart_data = image_data
+                            break
+        except Exception as e:
+            print(f"Chart generation error: {e}")
+        
+        return chart_data
+    
+    # ========================================================================
     # Public API
     # ========================================================================
     
@@ -217,29 +265,29 @@ Be conversational and helpful. Use markdown for text content.""",
     
     async def generate_content(self, prompt: str) -> AsyncIterator[Dict[str, Any]]:
         """Generate content based on user prompt."""
-        # Create fresh services for this request
         session_service = InMemorySessionService()
         
         runner = Runner(
-            agent=self.report_writer,
+            agent=self.agent,
             app_name="lunara_reports",
             session_service=session_service,
         )
         
-        # Create session
         session = await session_service.create_session(
             app_name="lunara_reports",
             user_id=f"report_{self.report_id}",
             state={"content_items": []}
         )
         
-        # Create message
         content = types.Content(
             role="user",
             parts=[types.Part(text=prompt)]
         )
         
-        # Stream events
+        # Track if we need to generate a chart
+        chart_request = None
+        chart_data = None
+        
         try:
             async for event in runner.run_async(
                 user_id=f"report_{self.report_id}",
@@ -255,67 +303,78 @@ Be conversational and helpful. Use markdown for text content.""",
                                 "content": part.text
                             }
                         
-                        # Function calls (status updates)
+                        # Function calls
                         elif hasattr(part, 'function_call') and part.function_call:
                             fn_name = part.function_call.name
-                            if fn_name.startswith("add_"):
-                                yield {
-                                    "type": "status",
-                                    "content": f"✨ Creating content..."
-                                }
-                            else:
-                                yield {
-                                    "type": "status",
-                                    "content": f"🔍 {fn_name}..."
-                                }
-                        
-                        # Executable code (chart generation)
-                        elif hasattr(part, 'executable_code') and part.executable_code:
                             yield {
-                                "type": "code",
-                                "content": part.executable_code.code
+                                "type": "status",
+                                "content": f"🔍 {fn_name}..."
                             }
+            
+            # Check for chart requests in text content
+            for item in self._content_items:
+                if item["type"] == "text" and "CHART_REQUEST:" in item["content"]:
+                    # Extract chart request
+                    lines = item["content"].split('\n')
+                    for line in lines:
+                        if line.startswith("CHART_REQUEST:"):
+                            chart_request = line.replace("CHART_REQUEST:", "").strip()
+                            break
+                    
+                    # Find associated data (look for table with same ID or recent data)
+                    # For now, use the most recent table
+                    for prev_item in reversed(self._content_items):
+                        if prev_item["type"] == "table":
+                            try:
+                                chart_data = json.loads(prev_item["content"])
+                            except:
+                                pass
+                            break
+                    
+                    if chart_request and chart_data:
+                        yield {
+                            "type": "status",
+                            "content": "📊 Generating chart..."
+                        }
                         
-                        # Code execution result
-                        elif hasattr(part, 'code_execution_result') and part.code_execution_result:
-                            yield {
-                                "type": "code_result",
-                                "output": part.code_execution_result.output
-                            }
+                        # Generate chart
+                        chart_image = await self.generate_chart(chart_request, chart_data)
                         
-                        # Inline data (generated images/charts)
-                        elif hasattr(part, 'inline_data') and part.inline_data:
-                            image_data = part.inline_data.data
-                            if isinstance(image_data, bytes):
-                                image_data = base64.b64encode(image_data).decode()
-                            
-                            # Add as content item
-                            item = {
+                        if chart_image:
+                            # Add chart as content item
+                            chart_item = {
                                 "id": len(self._content_items) + 1,
                                 "type": "chart",
                                 "title": "Generated Chart",
-                                "content": image_data,
-                                "mime_type": part.inline_data.mime_type,
+                                "content": chart_image,
+                                "mime_type": "image/png",
                                 "created_at": datetime.now().isoformat(),
                             }
-                            self._content_items.append(item)
+                            self._content_items.append(chart_item)
                             
                             yield {
                                 "type": "chart",
-                                "data": image_data,
-                                "mime_type": part.inline_data.mime_type
+                                "data": chart_image,
+                                "mime_type": "image/png"
                             }
+                        
+                        # Remove the CHART_REQUEST text item
+                        self._content_items = [i for i in self._content_items if "CHART_REQUEST:" not in i.get("content", "")]
+                    
+                    break
             
-            # Yield all content items at the end
+            # Yield all content items
             for item in self._content_items:
                 yield {
                     "type": "content_item",
                     "item": item
                 }
-                
+            
             yield {"type": "done", "items_added": len(self._content_items)}
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             yield {
                 "type": "error",
                 "content": str(e)
