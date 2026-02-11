@@ -1,9 +1,11 @@
-"""API endpoints for report management and generation."""
+"""Clean API endpoints for report management."""
+from __future__ import annotations
+
 import json
 import sqlite3
-from typing import Optional
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -13,214 +15,293 @@ from services.report_agent import ReportAgentService
 
 
 router = APIRouter(prefix="/reports", tags=["reports"])
-
-# Database path
 DB_PATH = Path(__file__).parent.parent.parent / "lunara.db"
 
-# Global report agent instance
-_report_agent: Optional[ReportAgentService] = None
 
+# ============================================================================
+# Database Schema
+# ============================================================================
 
-def get_report_agent() -> ReportAgentService:
-    """Get or create report agent instance."""
-    global _report_agent
-    if _report_agent is None:
-        _report_agent = ReportAgentService()
-    return _report_agent
-
-
-def init_reports_table():
-    """Initialize the reports table in the database."""
+def init_db():
+    """Initialize reports tables."""
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
+    
+    # Reports table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS reports (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            blocks TEXT DEFAULT '[]',
+            title TEXT NOT NULL DEFAULT 'Untitled Report',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
     """)
+    
+    # Report content items (document sections)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS report_content (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            type TEXT NOT NULL,  -- 'text', 'chart', 'table'
+            title TEXT,
+            content TEXT NOT NULL,  -- markdown, base64 image, or JSON
+            position INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
+        )
+    """)
+    
     conn.commit()
     conn.close()
 
 
-# Initialize table on module load
-init_reports_table()
+# Initialize on module load
+init_db()
 
 
-# Pydantic models
+# ============================================================================
+# Pydantic Models
+# ============================================================================
+
 class ReportCreate(BaseModel):
-    name: str = "Untitled Report"
+    title: str = "Untitled Report"
 
 
 class ReportUpdate(BaseModel):
-    name: Optional[str] = None
-    blocks: Optional[list] = None
+    title: Optional[str] = None
 
 
 class GenerateRequest(BaseModel):
     prompt: str
 
 
-# CRUD Endpoints
+class ContentItem(BaseModel):
+    id: int
+    type: str
+    title: Optional[str]
+    content: str
+
+
+class Report(BaseModel):
+    id: int
+    title: str
+    items: List[ContentItem]
+    created_at: str
+    updated_at: str
+
+
+# ============================================================================
+# API Endpoints
+# ============================================================================
 
 @router.post("")
 async def create_report(request: ReportCreate):
-    """Create a new report."""
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        cursor = conn.cursor()
-        now = datetime.now().isoformat()
-        
-        cursor.execute(
-            "INSERT INTO reports (name, blocks, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (request.name, "[]", now, now)
-        )
-        report_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        
-        return {
-            "id": report_id,
-            "name": request.name,
-            "blocks": [],
-            "created_at": now,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Create a new empty report."""
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    
+    now = datetime.now().isoformat()
+    cursor.execute(
+        "INSERT INTO reports (title, created_at, updated_at) VALUES (?, ?, ?)",
+        (request.title, now, now)
+    )
+    report_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return {
+        "id": report_id,
+        "title": request.title,
+        "items": [],
+        "created_at": now,
+        "updated_at": now
+    }
 
 
 @router.get("")
 async def list_reports():
     """List all reports."""
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, name, created_at, updated_at FROM reports ORDER BY updated_at DESC")
-        rows = cursor.fetchall()
-        conn.close()
-        
-        return [
-            {"id": row[0], "name": row[1], "created_at": row[2], "updated_at": row[3]}
-            for row in rows
-        ]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT r.id, r.title, r.created_at, r.updated_at,
+               COUNT(rc.id) as item_count
+        FROM reports r
+        LEFT JOIN report_content rc ON r.id = rc.report_id
+        GROUP BY r.id
+        ORDER BY r.updated_at DESC
+    """)
+    
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return [
+        {
+            "id": row[0],
+            "title": row[1],
+            "created_at": row[2],
+            "updated_at": row[3],
+            "item_count": row[4]
+        }
+        for row in rows
+    ]
 
 
 @router.get("/{report_id}")
 async def get_report(report_id: int):
-    """Get a specific report with blocks."""
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, name, blocks, created_at, updated_at FROM reports WHERE id = ?", (report_id,))
-        row = cursor.fetchone()
+    """Get a report with all its content items."""
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    
+    # Get report
+    cursor.execute(
+        "SELECT id, title, created_at, updated_at FROM reports WHERE id = ?",
+        (report_id,)
+    )
+    row = cursor.fetchone()
+    
+    if not row:
         conn.close()
-        
-        if not row:
-            raise HTTPException(status_code=404, detail="Report not found")
-        
-        return {
-            "id": row[0],
-            "name": row[1],
-            "blocks": json.loads(row[2]) if row[2] else [],
-            "created_at": row[3],
-            "updated_at": row[4],
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    # Get content items
+    cursor.execute("""
+        SELECT id, type, title, content, position
+        FROM report_content
+        WHERE report_id = ?
+        ORDER BY position ASC
+    """, (report_id,))
+    
+    items = [
+        {
+            "id": item[0],
+            "type": item[1],
+            "title": item[2],
+            "content": item[3],
+            "position": item[4]
         }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        for item in cursor.fetchall()
+    ]
+    
+    conn.close()
+    
+    return {
+        "id": row[0],
+        "title": row[1],
+        "items": items,
+        "created_at": row[2],
+        "updated_at": row[3]
+    }
 
 
 @router.put("/{report_id}")
 async def update_report(report_id: int, request: ReportUpdate):
-    """Update a report."""
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        cursor = conn.cursor()
-        
-        # Get current report
-        cursor.execute("SELECT name, blocks FROM reports WHERE id = ?", (report_id,))
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
-            raise HTTPException(status_code=404, detail="Report not found")
-        
-        name = request.name if request.name else row[0]
-        blocks = json.dumps(request.blocks) if request.blocks is not None else row[1]
-        now = datetime.now().isoformat()
-        
-        cursor.execute(
-            "UPDATE reports SET name = ?, blocks = ?, updated_at = ? WHERE id = ?",
-            (name, blocks, now, report_id)
-        )
-        conn.commit()
+    """Update report metadata."""
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT id FROM reports WHERE id = ?", (report_id,))
+    if not cursor.fetchone():
         conn.close()
-        
-        return {"status": "updated", "id": report_id}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    now = datetime.now().isoformat()
+    
+    if request.title:
+        cursor.execute(
+            "UPDATE reports SET title = ?, updated_at = ? WHERE id = ?",
+            (request.title, now, report_id)
+        )
+    
+    conn.commit()
+    conn.close()
+    
+    return {"status": "updated", "id": report_id}
 
 
 @router.delete("/{report_id}")
 async def delete_report(report_id: int):
-    """Delete a report."""
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM reports WHERE id = ?", (report_id,))
-        conn.commit()
+    """Delete a report and all its content."""
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    
+    cursor.execute("DELETE FROM reports WHERE id = ?", (report_id,))
+    
+    if cursor.rowcount == 0:
         conn.close()
-        return {"status": "deleted", "id": report_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    conn.commit()
+    conn.close()
+    
+    return {"status": "deleted", "id": report_id}
 
-
-# AI Generation Endpoint
 
 @router.post("/{report_id}/generate")
-async def generate_report_content(report_id: int, request: GenerateRequest):
-    """
-    Generate report content using AI.
+async def generate_content(report_id: int, request: GenerateRequest):
+    """Generate content using AI copilot.
     
-    Streams SSE events with generated content.
+    Streams SSE events:
+    - type: 'text' - Agent thinking/response text
+    - type: 'status' - Action being performed
+    - type: 'code' - Code being executed
+    - type: 'code_result' - Code execution output
+    - type: 'chart' - Generated chart (base64)
+    - type: 'content_item' - Final content item added to report
+    - type: 'done' - Generation complete
     """
-    agent = get_report_agent()
     
     async def event_stream():
+        # Create fresh service instance (NO singleton - prevents race conditions)
+        agent = ReportAgentService(report_id=report_id)
+        
         try:
-            async for chunk in agent.generate(request.prompt):
-                yield f"data: {json.dumps(chunk)}\n\n"
+            # Stream generation events
+            async for event in agent.generate_content(request.prompt):
+                yield f"data: {json.dumps(event)}\n\n"
             
-            # After generation, get any new blocks
-            blocks = agent.get_report_blocks()
-            if blocks:
-                # Save blocks to report
+            # Save generated content to database
+            items = agent.get_content_items()
+            if items:
                 conn = sqlite3.connect(str(DB_PATH))
                 cursor = conn.cursor()
-                cursor.execute("SELECT blocks FROM reports WHERE id = ?", (report_id,))
-                row = cursor.fetchone()
                 
-                if row:
-                    existing = json.loads(row[0]) if row[0] else []
-                    existing.extend(blocks)
-                    now = datetime.now().isoformat()
-                    cursor.execute(
-                        "UPDATE reports SET blocks = ?, updated_at = ? WHERE id = ?",
-                        (json.dumps(existing), now, report_id)
-                    )
-                    conn.commit()
+                # Get current max position
+                cursor.execute(
+                    "SELECT MAX(position) FROM report_content WHERE report_id = ?",
+                    (report_id,)
+                )
+                result = cursor.fetchone()
+                next_position = (result[0] or 0) + 1
                 
+                # Insert new items
+                now = datetime.now().isoformat()
+                for item in items:
+                    cursor.execute("""
+                        INSERT INTO report_content 
+                        (report_id, type, title, content, position, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        report_id,
+                        item["type"],
+                        item.get("title", ""),
+                        item["content"],
+                        next_position,
+                        now
+                    ))
+                    next_position += 1
+                
+                # Update report timestamp
+                cursor.execute(
+                    "UPDATE reports SET updated_at = ? WHERE id = ?",
+                    (now, report_id)
+                )
+                
+                conn.commit()
                 conn.close()
-                agent.clear_blocks()
             
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'items_added': len(items)})}\n\n"
             
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
@@ -233,3 +314,48 @@ async def generate_report_content(report_id: int, request: GenerateRequest):
             "Connection": "keep-alive",
         }
     )
+
+
+@router.delete("/{report_id}/items/{item_id}")
+async def delete_content_item(report_id: int, item_id: int):
+    """Delete a content item from the report."""
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    
+    # Verify item belongs to report
+    cursor.execute(
+        "SELECT id FROM report_content WHERE id = ? AND report_id = ?",
+        (item_id, report_id)
+    )
+    
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=404, detail="Content item not found")
+    
+    cursor.execute("DELETE FROM report_content WHERE id = ?", (item_id,))
+    
+    # Update positions of remaining items
+    cursor.execute("""
+        SELECT id FROM report_content 
+        WHERE report_id = ? 
+        ORDER BY position ASC
+    """, (report_id,))
+    
+    ids = [row[0] for row in cursor.fetchall()]
+    for idx, id_val in enumerate(ids, start=1):
+        cursor.execute(
+            "UPDATE report_content SET position = ? WHERE id = ?",
+            (idx, id_val)
+        )
+    
+    # Update report timestamp
+    now = datetime.now().isoformat()
+    cursor.execute(
+        "UPDATE reports SET updated_at = ? WHERE id = ?",
+        (now, report_id)
+    )
+    
+    conn.commit()
+    conn.close()
+    
+    return {"status": "deleted", "id": item_id}

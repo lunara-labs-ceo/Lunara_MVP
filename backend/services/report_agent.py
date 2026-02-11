@@ -1,31 +1,32 @@
-"""Report Agent Service - hierarchical agent architecture using AgentTool pattern.
+"""Clean Report Agent Service - Document Copilot Architecture.
 
-Architecture:
-- ReportWriter (main) - orchestrates report building
-  └── AgentTool(DataAssistant) - fetches artifacts, manages blocks
-  └── AgentTool(CodeExecutor) - runs Python for charts/analysis
+Like Word with Copilot:
+- User chats naturally
+- AI picks artifacts and generates content
+- Content appears as sections in a document
 """
+from __future__ import annotations
+
 import os
 import json
 import sqlite3
+import base64
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional, AsyncIterator
+from typing import Dict, List, Optional, AsyncIterator, Any
 
 from google.adk.agents import LlmAgent
 from google.adk.tools import agent_tool
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.artifacts import InMemoryArtifactService
 from google.adk.code_executors import BuiltInCodeExecutor
+from google.genai import types
 
 # Database path
 DB_PATH = Path(__file__).parent.parent / "lunara.db"
 
-# Service account for BigQuery
-# Check if already set (e.g., by main.py on Render), otherwise look for local file
+# Configure credentials
 SERVICE_ACCOUNT_PATH = Path(__file__).parent.parent.parent / "lunara-dev-094f5e9e682e.json"
-
 if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
     if SERVICE_ACCOUNT_PATH.exists():
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(SERVICE_ACCOUNT_PATH)
@@ -36,153 +37,117 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
 
 class ReportAgentService:
-    """Hierarchical agent system for report generation.
+    """Clean report agent - request-scoped, no shared state.
     
-    Uses AgentTool pattern:
-    - ReportWriter: Main agent that orchestrates
-    - DataAssistant: Agent wrapped as tool for artifact operations
-    - CodeExecutor: Agent wrapped as tool for Python execution
+    Each request creates a fresh instance, eliminating race conditions.
     """
     
-    def __init__(self):
-        """Initialize the hierarchical agent system."""
-        self._runner: Optional[Runner] = None
-        self._session_id: Optional[str] = None
-        self._user_id: str = "default"
-        self._report_blocks: List[Dict] = []
-        self._seen_artifacts: set = set()  # Track artifacts we've already added
+    def __init__(self, report_id: int):
+        """Initialize service for a specific report.
         
-        # =====================================================
-        # Agent 1: CodeExecutor (only has code execution)
-        # =====================================================
+        Args:
+            report_id: The report ID this agent instance is working on.
+        """
+        self.report_id = report_id
+        self._content_items: List[Dict[str, Any]] = []
+        
+        # Create sub-agents
+        self._create_agents()
+    
+    def _create_agents(self) -> None:
+        """Create the agent hierarchy."""
+        
+        # Agent 1: Data Assistant - fetches artifacts
+        self.data_assistant = LlmAgent(
+            model="gemini-2.0-flash",
+            name="DataAssistant",
+            description="Fetches data artifacts when requested by the ReportWriter.",
+            instruction="""You fetch artifact data from the database.
+
+Available tools:
+- list_artifacts(): Get list of all saved artifacts
+- get_artifact_data(artifact_id): Get full data from a specific artifact
+
+When asked for data:
+1. Use list_artifacts() to see what's available
+2. Use get_artifact_data() to fetch specific artifact data
+3. Return the data as JSON
+
+Be concise - just return the data, no extra commentary.""",
+            tools=[
+                self._list_artifacts,
+                self._get_artifact_data,
+            ],
+        )
+        
+        # Agent 2: Code Executor - creates charts
         self.code_executor = LlmAgent(
-            model="gemini-3-flash-preview",
+            model="gemini-2.0-flash",
             name="CodeExecutor",
-            description="Executes Python code for data analysis and chart generation. Use for pandas analysis, matplotlib charts, and calculations.",
-            instruction="""You are a Python code execution specialist.
+            description="Creates data visualizations using Python and matplotlib.",
+            instruction="""You create professional data visualizations.
 
-When given data, you should:
-1. Write Python code using pandas, numpy, matplotlib
-2. Execute the code to create visualizations or analyze data
-3. Return the results clearly
+When given data:
+1. Write Python code using matplotlib to create the chart
+2. Use professional styling (colors, labels, titles)
+3. Execute the code to generate the chart
+4. The chart will be automatically captured and added to the report
 
-For charts:
-- Use plt.figure(figsize=(10, 6))
-- Add clear titles, labels, and legends
-- Use professional color schemes
-- Always call plt.show() to render
+Chart guidelines:
+- Use plt.figure(figsize=(10, 6)) for good size
+- Use modern color schemes (blues, teals)
+- Always add clear titles and labels
+- Call plt.show() to render the chart
 
 For analysis:
 - Use pandas for data manipulation
-- Print key insights and statistics
-- Be precise with numbers""",
+- Print key insights""",
             code_executor=BuiltInCodeExecutor(),
         )
         
-        # =====================================================
-        # Agent 2: DataAssistant (only has custom tools)
-        # =====================================================
-        self.data_assistant = LlmAgent(
-            model="gemini-3-flash-preview",
-            name="DataAssistant", 
-            description="Manages data artifacts and report blocks. Use to list/get artifacts and add content to the report.",
-            instruction="""You manage data artifacts and report blocks.
-
-Available tools:
-- get_artifacts(): List all saved data artifacts
-- get_artifact_data(artifact_id): Get full data from a specific artifact  
-- add_block(block_type, content, title): Add content to the report canvas
-
-Block types:
-- 'text': For written analysis and summaries (supports markdown)
-- 'chart': For images (base64 encoded)
-- 'kpi': For key metrics (e.g. "Total Revenue: $1.2M")
-- 'table': For tabular data (JSON string)
-
-IMPORTANT formatting rules for 'text' blocks:
-- Use markdown formatting (headers, bold, lists)
-- Create SEPARATE blocks for each major section
-- For an executive summary, create ONE text block
-- For insights/analysis, create ANOTHER text block
-- Do NOT combine everything into one giant block
-- Use proper markdown:
-  * ## for section headers
-  * **bold** for emphasis
-  * - or * for bullet lists
-  * 1. 2. 3. for numbered lists
-
-Example text block content:
-'''
-## Key Findings
-
-The analysis reveals three major trends:
-
-1. **Revenue Growth**: 23% increase YoY
-2. **Top Performer**: Carhartt leads with $31.4K
-3. **Seasonal Peak**: December shows highest volume
-
-### Recommendations
-- Focus inventory on top 3 brands
-- Increase marketing spend in Q4
-'''
-
-Always call get_artifacts() first to see what data is available.""",
-            tools=[
-                self.get_artifacts,
-                self.get_artifact_data,
-                self.add_block,
-            ],
-        )
-        
-        # =====================================================
-        # Agent 3: ReportWriter (orchestrator with AgentTools)
-        # =====================================================
+        # Agent 3: Report Writer - orchestrates everything
         self.report_writer = LlmAgent(
-            model="gemini-3-flash-preview",
+            model="gemini-2.0-flash",
             name="ReportWriter",
-            description="Main report generation agent that orchestrates data retrieval and code execution.",
-            instruction="""You are a report generation AI for Lunara BI.
+            description="Document copilot that generates report content from artifacts.",
+            instruction="""You are a document copilot for Lunara BI. You help users create reports from their data artifacts.
 
-You have two specialized assistants available as tools:
-1. **DataAssistant** - Use to list/get artifacts and add blocks to the report
-2. **CodeExecutor** - Use to run Python code for analysis and charts
+Your job:
+1. Understand what the user wants to create
+2. Fetch relevant artifacts using DataAssistant
+3. Generate appropriate content:
+   - **Text summaries**: Use add_text_content() for analysis and insights
+   - **Charts**: Use CodeExecutor to create visualizations
+   - **Tables**: Use add_table_content() to display data
 
 Workflow:
-1. Call DataAssistant to list available artifacts
-2. Call DataAssistant to get specific artifact data
-3. Call CodeExecutor with the data to create analysis/charts
-4. Call DataAssistant to add the results as SEPARATE blocks
+1. Ask DataAssistant to list available artifacts
+2. Fetch the relevant artifact data
+3. Based on user request, generate appropriate content:
+   - For "summarize" → add_text_content()
+   - For "chart" or "visualization" → CodeExecutor (chart auto-captured)
+   - For "table" or "show data" → add_table_content()
 
-IMPORTANT - Report Structure:
-- Create SEPARATE blocks for each section (don't dump everything in one block)
-- Use descriptive titles for each block
-- Structure a typical report as:
-  1. Executive Summary block (key highlights)
-  2. Chart block (visualization)
-  3. Analysis block (detailed insights)
-  4. Recommendations block (action items)
+Content types:
+- **Text**: Markdown-formatted analysis (headers, bold, lists)
+- **Charts**: Generated via CodeExecutor (automatically captured)
+- **Tables**: JSON data formatted as clean tables
 
-Be helpful, insightful, and create professional visualizations.
-When the user asks for a report, coordinate between your assistants to build it.""",
+Always be helpful and create professional, insightful content.""",
             tools=[
                 agent_tool.AgentTool(agent=self.data_assistant),
                 agent_tool.AgentTool(agent=self.code_executor),
+                self._add_text_content,
+                self._add_table_content,
             ],
         )
-        
-        # Session service removed - InMemoryRunner handles it internally
     
-    # =========================================================
+    # ========================================================================
     # Tools for DataAssistant
-    # =========================================================
+    # ========================================================================
     
-    def get_artifacts(self) -> dict:
-        """
-        Get all saved artifacts from the database.
-        
-        Returns:
-            List of artifacts with id, name, created_at.
-        """
+    def _list_artifacts(self) -> str:
+        """List all saved artifacts."""
         try:
             conn = sqlite3.connect(str(DB_PATH))
             cursor = conn.cursor()
@@ -195,23 +160,15 @@ When the user asks for a report, coordinate between your assistants to build it.
             conn.close()
             
             artifacts = [
-                {"id": row[0], "name": row[1], "created_at": row[2]}
+                {"id": row[0], "title": row[1], "created_at": row[2]}
                 for row in rows
             ]
-            return {"artifacts": artifacts, "count": len(artifacts)}
+            return json.dumps(artifacts, indent=2)
         except Exception as e:
-            return {"error": str(e)}
+            return json.dumps({"error": str(e)})
     
-    def get_artifact_data(self, artifact_id: str) -> dict:
-        """
-        Get full data from an artifact.
-        
-        Args:
-            artifact_id: ID of the artifact to retrieve.
-            
-        Returns:
-            Artifact data including SQL and results.
-        """
+    def _get_artifact_data(self, artifact_id: str) -> str:
+        """Get full data from an artifact."""
         try:
             conn = sqlite3.connect(str(DB_PATH))
             cursor = conn.cursor()
@@ -223,262 +180,167 @@ When the user asks for a report, coordinate between your assistants to build it.
             conn.close()
             
             if not row:
-                return {"error": f"Artifact {artifact_id} not found"}
+                return json.dumps({"error": f"Artifact {artifact_id} not found"})
             
-            return {
+            data = json.loads(row[3]) if row[3] else []
+            return json.dumps({
                 "id": row[0],
-                "name": row[1],
+                "title": row[1],
                 "sql": row[2],
-                "data": json.loads(row[3]) if row[3] else [],
+                "data": data,
+                "row_count": len(data) if isinstance(data, list) else 0,
                 "created_at": row[4],
-            }
+            }, indent=2)
         except Exception as e:
-            return {"error": str(e)}
+            return json.dumps({"error": str(e)})
     
-    def add_block(self, block_type: str, content: str, title: str = "") -> dict:
-        """
-        Add a block to the report.
+    # ========================================================================
+    # Tools for ReportWriter
+    # ========================================================================
+    
+    def _add_text_content(self, title: str, markdown_content: str) -> str:
+        """Add formatted text content to the report.
         
         Args:
-            block_type: Type of block ('chart', 'text', 'kpi', 'table')
-            content: Content (base64 for charts, text/JSON for others)
-            title: Optional title for the block
-            
-        Returns:
-            Confirmation with block ID.
+            title: Section title
+            markdown_content: Markdown-formatted text
         """
-        # For chart/image blocks: if content looks like a filename (not base64),
-        # store it for later resolution via artifact service
-        if block_type in ("chart", "image"):
-            # Check if content is a filename (short, ends with .png) vs base64 (long, starts with iVBOR)
-            is_filename = (
-                len(content) < 100 and 
-                (content.endswith('.png') or content.endswith('.jpg'))
-            )
-            if is_filename:
-                # Store the filename for later resolution - don't add broken block
-                if not hasattr(self, '_pending_chart_filenames'):
-                    self._pending_chart_filenames = []
-                self._pending_chart_filenames.append({
-                    "filename": content,
-                    "title": title or "Generated Chart"
-                })
-                print(f"📌 Stored pending chart: {content} (will resolve from artifacts)")
-                return {"status": "success", "message": "Chart will be added from artifact data"}
-        
-        block = {
-            "id": len(self._report_blocks) + 1,
-            "type": block_type,
+        item = {
+            "id": len(self._content_items) + 1,
+            "type": "text",
             "title": title,
-            "content": content,
+            "content": markdown_content,
             "created_at": datetime.now().isoformat(),
         }
-        self._report_blocks.append(block)
-        return {"status": "success", "block_id": block["id"]}
+        self._content_items.append(item)
+        return f"Added text section: {title}"
     
-    # =========================================================
-    # Service methods
-    # =========================================================
-    
-    def get_report_blocks(self) -> List[Dict]:
-        """Get all blocks added to the report."""
-        return self._report_blocks
-    
-    def clear_blocks(self):
-        """Clear all report blocks."""
-        self._report_blocks = []
-    
-    async def initialize(self, user_id: str = "default"):
-        """Initialize runner and session."""
-        self._user_id = user_id
-        if self._runner is None:
-            # Create services
-            session_service = InMemorySessionService()
-            artifact_service = InMemoryArtifactService()
-            
-            # Create Runner with both services
-            self._runner = Runner(
-                agent=self.report_writer,
-                app_name="lunara_reports",
-                session_service=session_service,
-                artifact_service=artifact_service,
-            )
-            
-            # Create session
-            session = await session_service.create_session(
-                app_name="lunara_reports",
-                user_id=self._user_id,
-                state={"blocks": []}
-            )
-            self._session_id = session.id
-            print(f"✓ Report Agent: Created session {self._session_id} for user {self._user_id}")
-    
-    async def generate(
-        self,
-        prompt: str,
-    ) -> AsyncIterator[Dict]:
+    def _add_table_content(self, title: str, data_json: str) -> str:
+        """Add a data table to the report.
+        
+        Args:
+            title: Table title
+            data_json: JSON array of objects (artifact data)
         """
-        Generate report content based on user prompt.
+        try:
+            data = json.loads(data_json) if isinstance(data_json, str) else data_json
+            item = {
+                "id": len(self._content_items) + 1,
+                "type": "table",
+                "title": title,
+                "content": json.dumps(data),
+                "row_count": len(data) if isinstance(data, list) else 0,
+                "created_at": datetime.now().isoformat(),
+            }
+            self._content_items.append(item)
+            return f"Added table: {title} ({item['row_count']} rows)"
+        except Exception as e:
+            return f"Error adding table: {str(e)}"
+    
+    # ========================================================================
+    # Public API
+    # ========================================================================
+    
+    def get_content_items(self) -> List[Dict[str, Any]]:
+        """Get all content items generated so far."""
+        return self._content_items.copy()
+    
+    async def generate_content(self, prompt: str) -> AsyncIterator[Dict[str, Any]]:
+        """Generate content based on user prompt.
         
-        Yields:
-            Streaming response chunks with type and content.
+        Yields streaming events with agent progress and final content.
         """
-        if not self._runner:
-            await self.initialize()
+        # Create fresh services for this request
+        session_service = InMemorySessionService()
         
-        from google.genai import types
-        
-        content = types.Content(
-            role="user",
-            parts=[types.Part.from_text(text=prompt)]
+        runner = Runner(
+            agent=self.report_writer,
+            app_name="lunara_reports",
+            session_service=session_service,
         )
         
+        # Create session
+        session = await session_service.create_session(
+            app_name="lunara_reports",
+            user_id=f"report_{self.report_id}",
+            state={"content_items": []}
+        )
+        
+        # Create message
+        content = types.Content(
+            role="user",
+            parts=[types.Part(text=prompt)]
+        )
+        
+        # Stream events
         try:
-            async for event in self._runner.run_async(
-                user_id=self._user_id,
-                session_id=self._session_id,
-                new_message=content,
+            async for event in runner.run_async(
+                user_id=f"report_{self.report_id}",
+                session_id=session.id,
+                new_message=content
             ):
-                if hasattr(event, 'content') and event.content:
+                if event.content and event.content.parts:
                     for part in event.content.parts:
+                        # Text content
                         if hasattr(part, 'text') and part.text:
                             yield {
                                 "type": "text",
-                                "content": part.text,
-                                "author": getattr(event, 'author', 'unknown')
+                                "content": part.text
                             }
+                        
+                        # Function calls (status updates)
+                        elif hasattr(part, 'function_call') and part.function_call:
+                            yield {
+                                "type": "status",
+                                "content": f"🔄 {part.function_call.name}..."
+                            }
+                        
+                        # Executable code (chart generation)
                         elif hasattr(part, 'executable_code') and part.executable_code:
                             yield {
                                 "type": "code",
                                 "content": part.executable_code.code
                             }
+                        
+                        # Code execution results
                         elif hasattr(part, 'code_execution_result') and part.code_execution_result:
                             yield {
                                 "type": "code_result",
-                                "output": part.code_execution_result.output,
-                                "outcome": str(part.code_execution_result.outcome)
+                                "output": part.code_execution_result.output
                             }
-                        elif hasattr(part, 'function_call') and part.function_call:
-                            yield {
-                                "type": "status",
-                                "content": f"🔧 Calling {part.function_call.name}..."
-                            }
+                        
+                        # Inline data (generated images)
                         elif hasattr(part, 'inline_data') and part.inline_data:
-                            # Handle generated images from code execution
-                            import base64
                             image_data = part.inline_data.data
-                            
-                            # DEBUG: Log what we're getting
-                            print(f"🖼️ INLINE_DATA DEBUG:")
-                            print(f"   Type: {type(image_data)}")
-                            print(f"   Is bytes: {isinstance(image_data, bytes)}")
-                            if isinstance(image_data, bytes):
-                                print(f"   Bytes len: {len(image_data)}, preview: {image_data[:50]}")
-                            else:
-                                print(f"   String value: {str(image_data)[:100]}")
-                            print(f"   MIME: {part.inline_data.mime_type}")
-                            
                             if isinstance(image_data, bytes):
                                 image_data = base64.b64encode(image_data).decode()
                             
-                            print(f"   Final data len: {len(image_data) if image_data else 0}")
-                            
-                            yield {
-                                "type": "image",
-                                "mime_type": part.inline_data.mime_type,
-                                "data": image_data
-                            }
-                            # Also add as a block
-                            self._report_blocks.append({
-                                "id": len(self._report_blocks) + 1,
+                            # Add as content item
+                            item = {
+                                "id": len(self._content_items) + 1,
                                 "type": "chart",
                                 "title": "Generated Chart",
                                 "content": image_data,
+                                "mime_type": part.inline_data.mime_type,
                                 "created_at": datetime.now().isoformat(),
-                            })
+                            }
+                            self._content_items.append(item)
+                            
+                            yield {
+                                "type": "chart",
+                                "data": image_data,
+                                "mime_type": part.inline_data.mime_type
+                            }
+            
+            # Yield all content items at the end
+            for item in self._content_items:
+                yield {
+                    "type": "content_item",
+                    "item": item
+                }
+                
         except Exception as e:
             yield {
                 "type": "error",
                 "content": str(e)
-            }
-        
-        # After generation, try to fetch any NEW artifacts saved by CodeExecutor
-        try:
-            if self._runner and self._runner.artifact_service:
-                artifact_names = await self._runner.artifact_service.list_artifact_keys(
-                    app_name="lunara_reports",
-                    user_id=self._user_id,
-                    session_id=self._session_id,
-                )
-                
-                print(f"🎨 DEBUG: Found {len(artifact_names)} artifacts: {artifact_names}")
-                
-                for artifact_name in artifact_names:
-                    # Skip artifacts we've already processed
-                    if artifact_name in self._seen_artifacts:
-                        print(f"  ⏭️ Skipping already seen: {artifact_name}")
-                        continue
-                    
-                    # Mark as seen
-                    self._seen_artifacts.add(artifact_name)
-                    
-                    # Fetch the artifact
-                    artifact_part = await self._runner.artifact_service.load_artifact(
-                        app_name="lunara_reports",
-                        user_id=self._user_id,
-                        session_id=self._session_id,
-                        filename=artifact_name,
-                    )
-                    
-                    print(f"  📦 Artifact: {artifact_name}")
-                    print(f"     Type: {type(artifact_part)}")
-                    print(f"     Has inline_data: {hasattr(artifact_part, 'inline_data')}")
-                    if hasattr(artifact_part, 'inline_data') and artifact_part.inline_data:
-                        print(f"     inline_data.data type: {type(artifact_part.inline_data.data)}")
-                        print(f"     inline_data.mime_type: {artifact_part.inline_data.mime_type}")
-                        data_sample = artifact_part.inline_data.data
-                        if isinstance(data_sample, bytes):
-                            print(f"     Data (bytes): len={len(data_sample)}, preview={data_sample[:50]}")
-                        else:
-                            print(f"     Data (other): {str(data_sample)[:100]}")
-                    
-                    if artifact_part and hasattr(artifact_part, 'inline_data') and artifact_part.inline_data:
-                        import base64
-                        image_data = artifact_part.inline_data.data
-                        if isinstance(image_data, bytes):
-                            image_data = base64.b64encode(image_data).decode()
-                        
-                        print(f"     ✅ Final image_data length: {len(image_data) if image_data else 0}")
-                        
-                        yield {
-                            "type": "image",
-                            "mime_type": artifact_part.inline_data.mime_type,
-                            "data": image_data,
-                            "filename": artifact_name,
-                        }
-                        
-                        # Add as a block - use pending chart title if available
-                        chart_title = "Generated Chart"
-                        if hasattr(self, '_pending_chart_filenames'):
-                            for pending in self._pending_chart_filenames:
-                                if pending["filename"] == artifact_name:
-                                    chart_title = pending["title"]
-                                    print(f"     📌 Using pending title: {chart_title}")
-                                    break
-                        
-                        self._report_blocks.append({
-                            "id": len(self._report_blocks) + 1,
-                            "type": "chart",
-                            "title": chart_title,
-                            "content": image_data,
-                            "created_at": datetime.now().isoformat(),
-                        })
-        except Exception as e:
-            print(f"Warning: Failed to retrieve artifacts: {e}")
-        
-        # After generation, yield any new blocks
-        for block in self._report_blocks:
-            yield {
-                "type": "block",
-                "block": block
             }
