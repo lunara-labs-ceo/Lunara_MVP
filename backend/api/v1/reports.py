@@ -27,6 +27,17 @@ def init_db():
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
     
+    # Check if old reports table exists and needs migration
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='reports'")
+    if cursor.fetchone():
+        # Check if it has the old schema (no 'title' column)
+        cursor.execute("PRAGMA table_info(reports)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if 'title' not in columns:
+            # Drop old tables and recreate
+            cursor.execute("DROP TABLE IF EXISTS report_content")
+            cursor.execute("DROP TABLE IF EXISTS reports")
+    
     # Reports table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS reports (
