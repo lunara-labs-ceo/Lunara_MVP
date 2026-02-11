@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, AsyncIterator, Any
 
 from google.adk.agents import LlmAgent
-from google.adk.tools import agent_tool, FunctionTool
+from google.adk.tools import FunctionTool
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.code_executors import BuiltInCodeExecutor
@@ -80,7 +80,9 @@ You have NO other tools - only code execution. Use it to create charts.""",
             code_executor=BuiltInCodeExecutor(),
         )
         
-        # Agent 2: Report Writer (main) - has tools, uses CodeExecutor as sub-agent
+        # Agent 2: Report Writer (main) - has tools + CodeExecutor as sub-agent
+        # Using sub_agents instead of AgentTool due to ADK bug #729
+        # (AgentTool doesn't propagate multimodal content properly)
         self.report_writer = LlmAgent(
             model="gemini-3-flash-preview",
             name="ReportWriter",
@@ -93,20 +95,21 @@ Your job:
 3. Generate content:
    - Text analysis → use add_text_content()
    - Data table → use add_table_content()
-   - Charts/visualizations → call CodeExecutor agent
+   - Charts/visualizations → delegate to CodeExecutor sub-agent
 
 Workflow for charts:
-1. Get artifact data
-2. Call CodeExecutor with the data and what chart to create
+1. Get artifact data first
+2. Delegate to CodeExecutor sub-agent with the data and chart request
 3. CodeExecutor will generate and execute matplotlib code
-4. The chart image will be captured automatically
+4. The chart will be automatically added to the report
 
 Available tools:
 - list_artifacts(): Get available artifacts
 - get_artifact_data(id): Fetch specific artifact data
 - add_text_content(title, markdown): Add text section
 - add_table_content(title, data_json): Add table
-- CodeExecutor (sub-agent): Call this for charts
+
+To create charts, delegate to the CodeExecutor sub-agent.
 
 Be conversational and helpful. Use markdown for text content.""",
             tools=[
@@ -114,8 +117,8 @@ Be conversational and helpful. Use markdown for text content.""",
                 FunctionTool(self._get_artifact_data),
                 FunctionTool(self._add_text_content),
                 FunctionTool(self._add_table_content),
-                agent_tool.AgentTool(agent=self.code_executor),
             ],
+            sub_agents=[self.code_executor],
         )
     
     # ========================================================================
