@@ -1,9 +1,9 @@
-"""Clean Report Agent Service - Document Copilot.
+"""Clean Report Agent Service - Document Copilot Architecture.
 
-Simple architecture like the chat agent:
-- Single agent with tools
-- Streams text responses
-- Adds content via tool calls
+Uses ADK pattern from codelab:
+- Main agent with data tools (no code executor)
+- Separate code executor agent for charts
+- Main agent calls code executor via AgentTool when needed
 """
 from __future__ import annotations
 
@@ -15,7 +15,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, AsyncIterator, Any
 
-from google.adk.agents import Agent
+from google.adk.agents import LlmAgent
+from google.adk.tools import agent_tool, FunctionTool
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.code_executors import BuiltInCodeExecutor
@@ -36,7 +37,12 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
 
 class ReportAgentService:
-    """Clean report agent - request-scoped, no shared state."""
+    """Clean report agent - request-scoped, no shared state.
+    
+    Architecture:
+    - ReportWriter (main agent) - has data tools, orchestrates
+      └── AgentTool(CodeExecutor) - for charts only
+    """
     
     def __init__(self, report_id: int):
         """Initialize service for a specific report.
@@ -46,50 +52,74 @@ class ReportAgentService:
         """
         self.report_id = report_id
         self._content_items: List[Dict[str, Any]] = []
-        self._runner: Optional[Runner] = None
-        self._session_id: Optional[str] = None
         
-        # Create the agent with all tools
-        self.agent = Agent(
+        # Create agents
+        self._create_agents()
+    
+    def _create_agents(self) -> None:
+        """Create the agent hierarchy following ADK best practices."""
+        
+        # Agent 1: Code Executor - ONLY has code executor, no other tools
+        self.code_executor = LlmAgent(
             model="gemini-3-flash-preview",
-            name="report_copilot",
-            description="Document copilot that generates report content from data artifacts",
-            instruction="""You are a document copilot for Lunara BI. You help users create reports from their saved data artifacts.
+            name="CodeExecutor",
+            description="Creates data visualizations using matplotlib. Call this when you need a chart.",
+            instruction="""You are a data visualization specialist.
 
-Your job is to:
-1. Understand what content the user wants to create
-2. Fetch relevant artifacts using list_artifacts and get_artifact_data
-3. Generate appropriate content using the add_* tools
+When given data, create professional charts using matplotlib:
+1. Analyze the data structure
+2. Choose appropriate chart type (bar, pie, line, etc.)
+3. Write and execute Python code with matplotlib
+4. Use professional styling:
+   - plt.figure(figsize=(10, 6))
+   - Clear titles and labels
+   - Professional color schemes
+   - Always call plt.show()
+
+You have NO other tools - only code execution. Use it to create charts.""",
+            code_executor=BuiltInCodeExecutor(),
+        )
+        
+        # Agent 2: Report Writer (main) - has tools, uses CodeExecutor as sub-agent
+        self.report_writer = LlmAgent(
+            model="gemini-3-flash-preview",
+            name="ReportWriter",
+            description="Document copilot that generates report content from data artifacts.",
+            instruction="""You are a document copilot for Lunara BI.
+
+Your job:
+1. Understand what content the user wants
+2. Fetch artifacts using list_artifacts() and get_artifact_data()
+3. Generate content:
+   - Text analysis → use add_text_content()
+   - Data table → use add_table_content()
+   - Charts/visualizations → call CodeExecutor agent
+
+Workflow for charts:
+1. Get artifact data
+2. Call CodeExecutor with the data and what chart to create
+3. CodeExecutor will generate and execute matplotlib code
+4. The chart image will be captured automatically
 
 Available tools:
-- list_artifacts(): Get list of all saved artifacts with IDs and titles
-- get_artifact_data(artifact_id): Get full data from a specific artifact
-- add_text_content(title, markdown_content): Add formatted text analysis
-- add_table_content(title, data_json): Add a data table (pass artifact data as JSON string)
+- list_artifacts(): Get available artifacts
+- get_artifact_data(id): Fetch specific artifact data
+- add_text_content(title, markdown): Add text section
+- add_table_content(title, data_json): Add table
+- CodeExecutor (sub-agent): Call this for charts
 
-When the user asks for:
-- "Summary", "analysis", "insights" → Use add_text_content with markdown
-- "Chart", "graph", "visualization" → Write Python code with matplotlib, it will auto-execute
-- "Table", "show data", "raw data" → Use add_table_content with the artifact data
-
-Workflow:
-1. Call list_artifacts() to see what's available
-2. Call get_artifact_data() to fetch relevant data
-3. Generate content using the appropriate add_* tool
-
-Be conversational in your text responses. Use markdown formatting for text content.
-When creating charts via code, use professional styling with clear labels.""",
+Be conversational and helpful. Use markdown for text content.""",
             tools=[
-                self._list_artifacts,
-                self._get_artifact_data,
-                self._add_text_content,
-                self._add_table_content,
+                FunctionTool(self._list_artifacts),
+                FunctionTool(self._get_artifact_data),
+                FunctionTool(self._add_text_content),
+                FunctionTool(self._add_table_content),
+                agent_tool.AgentTool(agent=self.code_executor),
             ],
-            code_executor=BuiltInCodeExecutor(),
         )
     
     # ========================================================================
-    # Tools
+    # Tools for ReportWriter
     # ========================================================================
     
     def _list_artifacts(self) -> str:
@@ -177,27 +207,23 @@ When creating charts via code, use professional styling with clear labels.""",
         """Get all content items generated so far."""
         return self._content_items.copy()
     
-    async def initialize(self):
-        """Initialize runner and session."""
-        if self._runner is None:
-            session_service = InMemorySessionService()
-            
-            self._runner = Runner(
-                agent=self.agent,
-                app_name="lunara_reports",
-                session_service=session_service,
-            )
-            
-            session = await session_service.create_session(
-                app_name="lunara_reports",
-                user_id=f"report_{self.report_id}",
-                state={"content_items": []}
-            )
-            self._session_id = session.id
-    
     async def generate_content(self, prompt: str) -> AsyncIterator[Dict[str, Any]]:
         """Generate content based on user prompt."""
-        await self.initialize()
+        # Create fresh services for this request
+        session_service = InMemorySessionService()
+        
+        runner = Runner(
+            agent=self.report_writer,
+            app_name="lunara_reports",
+            session_service=session_service,
+        )
+        
+        # Create session
+        session = await session_service.create_session(
+            app_name="lunara_reports",
+            user_id=f"report_{self.report_id}",
+            state={"content_items": []}
+        )
         
         # Create message
         content = types.Content(
@@ -205,23 +231,23 @@ When creating charts via code, use professional styling with clear labels.""",
             parts=[types.Part(text=prompt)]
         )
         
-        # Stream events like the chat agent
+        # Stream events
         try:
-            async for event in self._runner.run_async(
-                session_id=self._session_id,
+            async for event in runner.run_async(
                 user_id=f"report_{self.report_id}",
+                session_id=session.id,
                 new_message=content
             ):
                 if event.content and event.content.parts:
                     for part in event.content.parts:
-                        # Text response from agent
+                        # Text content
                         if hasattr(part, 'text') and part.text:
                             yield {
                                 "type": "text",
                                 "content": part.text
                             }
                         
-                        # Function calls
+                        # Function calls (status updates)
                         elif hasattr(part, 'function_call') and part.function_call:
                             fn_name = part.function_call.name
                             if fn_name.startswith("add_"):
@@ -272,7 +298,7 @@ When creating charts via code, use professional styling with clear labels.""",
                                 "mime_type": part.inline_data.mime_type
                             }
             
-            # Yield final content items
+            # Yield all content items at the end
             for item in self._content_items:
                 yield {
                     "type": "content_item",
