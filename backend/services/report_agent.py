@@ -95,21 +95,26 @@ Your job:
 3. Generate content:
    - Text analysis → use add_text_content()
    - Data table → use add_table_content()
-   - Charts/visualizations → delegate to CodeExecutor sub-agent
+   - Charts/visualizations → transfer to CodeExecutor sub-agent
 
-Workflow for charts:
-1. Get artifact data first
-2. Delegate to CodeExecutor sub-agent with the data and chart request
-3. CodeExecutor will generate and execute matplotlib code
-4. The chart will be automatically added to the report
+Workflow for charts (IMPORTANT - FOLLOW EXACTLY):
+1. First, get the artifact data using get_artifact_data(artifact_id)
+2. Then transfer to CodeExecutor using transfer_to_agent function with:
+   - agent_name: "CodeExecutor"
+   - request: Include the data and describe what chart to create (e.g., "Create a bar chart from this data showing brands by revenue")
+3. The CodeExecutor will generate the chart and return it
+4. The chart will be automatically captured and added to the report
+
+To transfer to CodeExecutor, you MUST call transfer_to_agent with agent_name="CodeExecutor".
 
 Available tools:
 - list_artifacts(): Get available artifacts
-- get_artifact_data(id): Fetch specific artifact data
+- get_artifact_data(id): Fetch specific artifact data  
 - add_text_content(title, markdown): Add text section
 - add_table_content(title, data_json): Add table
 
-To create charts, delegate to the CodeExecutor sub-agent.
+You also have a sub-agent:
+- CodeExecutor: Use transfer_to_agent(agent_name="CodeExecutor", request="...") for charts
 
 Be conversational and helpful. Use markdown for text content.""",
             tools=[
