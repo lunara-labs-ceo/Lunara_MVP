@@ -228,6 +228,7 @@ Create a professional chart using matplotlib. Save it as 'chart.png'."""
         )
         
         chart_data = None
+        artifact_filename = None
         
         try:
             async for event in runner.run_async(
@@ -250,10 +251,35 @@ Create a professional chart using matplotlib. Save it as 'chart.png'."""
                 # Also check for artifacts
                 if hasattr(event, 'actions') and event.actions and event.actions.artifact_delta:
                     print(f"[DEBUG] Artifact delta: {event.actions.artifact_delta}")
+                    # Store the artifact filename to load later
+                    for filename in event.actions.artifact_delta.keys():
+                        if filename.endswith('.png'):
+                            artifact_filename = filename
+                            break
         except Exception as e:
             print(f"[DEBUG] Chart generation error: {e}")
             import traceback
             traceback.print_exc()
+        
+        # If we didn't get inline_data but have an artifact, load it
+        if not chart_data and artifact_filename:
+            try:
+                print(f"[DEBUG] Loading artifact: {artifact_filename}")
+                artifact_part = await artifact_service.load_artifact(
+                    app_name="lunara_charts",
+                    user_id=f"chart_{self.report_id}",
+                    session_id=session.id,
+                    filename=artifact_filename,
+                )
+                if artifact_part and hasattr(artifact_part, 'inline_data') and artifact_part.inline_data:
+                    image_data = artifact_part.inline_data.data
+                    if isinstance(image_data, bytes):
+                        chart_data = base64.b64encode(image_data).decode()
+                    else:
+                        chart_data = image_data
+                    print(f"[DEBUG] Chart loaded from artifact, length: {len(chart_data)}")
+            except Exception as e:
+                print(f"[DEBUG] Failed to load artifact: {e}")
         
         return chart_data
     
