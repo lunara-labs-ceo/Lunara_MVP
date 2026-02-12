@@ -196,21 +196,17 @@ The chart will be automatically captured and added to the report.""",
     # ========================================================================
     
     async def generate_chart(self, description: str, data: List[Dict]) -> Optional[str]:
-        """Generate a chart using the standalone chart generator.
+        """Generate a chart using the standalone chart generator."""
+        from google.adk.artifacts import InMemoryArtifactService
         
-        Args:
-            description: What chart to create
-            data: The data to visualize
-            
-        Returns:
-            Base64 encoded chart image or None if failed
-        """
         session_service = InMemorySessionService()
+        artifact_service = InMemoryArtifactService()
         
         runner = Runner(
             agent=self.chart_generator,
             app_name="lunara_charts",
             session_service=session_service,
+            artifact_service=artifact_service,
         )
         
         session = await session_service.create_session(
@@ -219,13 +215,12 @@ The chart will be automatically captured and added to the report.""",
             state={}
         )
         
-        # Create prompt with data
         prompt = f"""{description}
 
 Data:
 {json.dumps(data, indent=2)}
 
-Create a professional chart using matplotlib. Call plt.show() to render it."""
+Create a professional chart using matplotlib. Save it as 'chart.png'."""
         
         content = types.Content(
             role="user",
@@ -240,18 +235,25 @@ Create a professional chart using matplotlib. Call plt.show() to render it."""
                 session_id=session.id,
                 new_message=content
             ):
+                # Check for inline_data (chart image)
                 if event.content and event.content.parts:
                     for part in event.content.parts:
-                        # Capture inline data (chart image)
                         if hasattr(part, 'inline_data') and part.inline_data:
                             image_data = part.inline_data.data
                             if isinstance(image_data, bytes):
                                 chart_data = base64.b64encode(image_data).decode()
                             else:
                                 chart_data = image_data
+                            print(f"[DEBUG] Chart captured from inline_data, length: {len(chart_data)}")
                             break
+                
+                # Also check for artifacts
+                if hasattr(event, 'actions') and event.actions and event.actions.artifact_delta:
+                    print(f"[DEBUG] Artifact delta: {event.actions.artifact_delta}")
         except Exception as e:
-            print(f"Chart generation error: {e}")
+            print(f"[DEBUG] Chart generation error: {e}")
+            import traceback
+            traceback.print_exc()
         
         return chart_data
     
