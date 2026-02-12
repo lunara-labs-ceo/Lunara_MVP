@@ -67,20 +67,22 @@ Available tools:
 - add_table_content(title, data_json): Add data table
 
 For CHARTS:
-When the user wants a chart, do this:
+When the user wants a chart:
 1. Fetch the artifact data using get_artifact_data()
 2. Add a text note saying "CHART_REQUEST: [description]" using add_text_content
-3. The backend will see this and generate the chart automatically
+3. The backend will generate the chart automatically
 
-Example workflow for charts:
+Example for charts:
 User: "Create a bar chart of sales"
-You: 
+You:
   1. list_artifacts() to find sales data
   2. get_artifact_data(id) to fetch the data
-  3. add_text_content(title="Chart Request", markdown="CHART_REQUEST: Create a bar chart from this data showing...")
-  4. add_table_content(title="Sales Data", data_json=...) to show the raw data too
+  3. add_text_content(title="Chart Request", markdown="CHART_REQUEST: Create a bar chart...")
 
-Be conversational and helpful.""",
+IMPORTANT:
+- Only add tables when the user ASKS for a table
+- Don't add tables automatically with charts unless requested
+- Be conversational - not every response needs a table""",
             tools=[
                 FunctionTool(self._list_artifacts),
                 FunctionTool(self._get_artifact_data),
