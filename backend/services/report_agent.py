@@ -350,7 +350,6 @@ Create a professional chart using matplotlib. Save it as 'chart.png'."""
                             break
                     
                     # Find associated data (look for table with same ID or recent data)
-                    # For now, use the most recent table
                     for prev_item in reversed(self._content_items):
                         if prev_item["type"] == "table":
                             try:
@@ -358,44 +357,44 @@ Create a professional chart using matplotlib. Save it as 'chart.png'."""
                             except:
                                 pass
                             break
-                    
-                    # Count items before potential chart generation
+                    break  # Only process first chart request
+            
+            # Count items before potential chart generation
             items_before_chart = len(self._content_items)
             
+            # Generate chart if requested
             if chart_request and chart_data:
-                        yield {
-                            "type": "status",
-                            "content": "📊 Generating chart..."
-                        }
-                        
-                        # Generate chart
-                        chart_image = await self.generate_chart(chart_request, chart_data)
-                        
-                        if chart_image:
-                            # Add chart as content item
-                            chart_item = {
-                                "id": len(self._content_items) + 1,
-                                "type": "chart",
-                                "title": "Generated Chart",
-                                "content": chart_image,
-                                "mime_type": "image/png",
-                                "created_at": datetime.now().isoformat(),
-                            }
-                            self._content_items.append(chart_item)
-                            
-                            # Yield the chart
-                            yield {
-                                "type": "chart",
-                                "data": chart_image,
-                                "mime_type": "image/png"
-                            }
-                        
-                        # Remove the CHART_REQUEST text item
-                        self._content_items = [i for i in self._content_items if "CHART_REQUEST:" not in i.get("content", "")]
-                        # Update count after removal
-                        items_before_chart = len(self._content_items) - (1 if chart_image else 0)
+                yield {
+                    "type": "status",
+                    "content": "📊 Generating chart..."
+                }
+                
+                # Generate chart
+                chart_image = await self.generate_chart(chart_request, chart_data)
+                
+                if chart_image:
+                    # Add chart as content item
+                    chart_item = {
+                        "id": len(self._content_items) + 1,
+                        "type": "chart",
+                        "title": "Generated Chart",
+                        "content": chart_image,
+                        "mime_type": "image/png",
+                        "created_at": datetime.now().isoformat(),
+                    }
+                    self._content_items.append(chart_item)
                     
-                    break
+                    # Yield the chart
+                    yield {
+                        "type": "chart",
+                        "data": chart_image,
+                        "mime_type": "image/png"
+                    }
+                
+                # Remove the CHART_REQUEST text item
+                self._content_items = [i for i in self._content_items if "CHART_REQUEST:" not in i.get("content", "")]
+                # Update count after removal
+                items_before_chart = len(self._content_items) - (1 if chart_image else 0)
             
             # Yield only items that existed before chart generation
             for i, item in enumerate(self._content_items):
