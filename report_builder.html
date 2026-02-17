@@ -288,6 +288,42 @@
             color: var(--text-primary);
         }
 
+        /* Full HTML Report Content */
+        .html-content {
+            line-height: 1.7;
+        }
+
+        .html-content h1,
+        .html-content h2,
+        .html-content h3 {
+            margin-top: 20px;
+            margin-bottom: 12px;
+            line-height: 1.35;
+        }
+
+        .html-content p {
+            margin-bottom: 12px;
+        }
+
+        .html-content ul,
+        .html-content ol {
+            margin-bottom: 12px;
+            padding-left: 22px;
+        }
+
+        .html-content section {
+            margin-bottom: 20px;
+        }
+
+        .html-content figure {
+            margin: 20px 0;
+        }
+
+        .html-content img {
+            max-width: 100%;
+            height: auto;
+        }
+
         /* Chart Content */
         .chart-content {
             text-align: center;
@@ -843,6 +879,10 @@
                 case 'table':
                     const data = JSON.parse(item.content);
                     contentHtml += renderTable(data);
+                    break;
+
+                case 'html':
+                    contentHtml += `<div class="html-content">${item.content}</div>`;
                     break;
                     
                 default:

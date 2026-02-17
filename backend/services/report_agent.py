@@ -1,35 +1,27 @@
-"""Clean Report Agent Service - Document Copilot.
-
-Simplified architecture:
-- Single agent for data fetching and text generation (no code executor)
-- Backend explicitly calls chart generation when needed
-- No sub-agents, no AgentTool complexity
-"""
 from __future__ import annotations
 
-import os
-import json
-import sqlite3
 import base64
-from pathlib import Path
+import html
+import json
+import os
+import re
+import sqlite3
 from datetime import datetime
-from typing import Dict, List, Optional, AsyncIterator, Any
+from pathlib import Path
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from google.adk.agents import LlmAgent
-from google.adk.tools import FunctionTool
+from google.adk.artifacts import InMemoryArtifactService
+from google.adk.code_executors import BuiltInCodeExecutor
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.code_executors import BuiltInCodeExecutor
 from google.genai import types
 
-# Database path
 DB_PATH = Path(__file__).parent.parent / "lunara.db"
 
-# Configure credentials
 SERVICE_ACCOUNT_PATH = Path(__file__).parent.parent.parent / "lunara-dev-094f5e9e682e.json"
-if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-    if SERVICE_ACCOUNT_PATH.exists():
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(SERVICE_ACCOUNT_PATH)
+if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS") and SERVICE_ACCOUNT_PATH.exists():
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(SERVICE_ACCOUNT_PATH)
 
 os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "true")
 os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "lunara-dev")
@@ -37,381 +29,308 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
 
 class ReportAgentService:
-    """Clean report agent - request-scoped, no shared state."""
-    
+    """Minimal report agent service.
+
+    Architecture:
+    - Backend loads artifacts from SQLite
+    - Single ADK agent receives full artifact JSON in prompt
+    - Same agent uses BuiltInCodeExecutor to generate charts when requested
+    - Backend captures chart artifacts and builds one final HTML report item
+    """
+
     def __init__(self, report_id: int):
-        """Initialize service for a specific report."""
         self.report_id = report_id
         self._content_items: List[Dict[str, Any]] = []
-        
-        # Create agent (NO code executor - charts handled separately)
+
         self.agent = LlmAgent(
             model="gemini-3-flash-preview",
-            name="ReportWriter",
-            description="Document copilot that generates report content from data artifacts.",
-            instruction="""You are a document copilot for Lunara BI.
-
-Your job is to help users create reports from their saved data artifacts.
-
-You can:
-1. List available artifacts
-2. Fetch artifact data
-3. Add text analysis/summaries
-4. Add data tables
-5. REQUEST chart generation (the backend will handle this)
-
-Available tools:
-- list_artifacts(): Get list of saved artifacts
-- get_artifact_data(id): Fetch full data from an artifact
-- add_text_content(title, markdown): Add formatted text section
-- add_table_content(title, data_json): Add data table
-
-For CHARTS:
-When the user wants a chart:
-1. Fetch the artifact data using get_artifact_data()
-2. Add a text note saying "CHART_REQUEST: [description]" using add_text_content
-3. The backend will generate the chart automatically
-
-Example for charts:
-User: "Create a bar chart of sales"
-You:
-  1. list_artifacts() to find sales data
-  2. get_artifact_data(id) to fetch the data
-  3. add_text_content(title="Chart Request", markdown="CHART_REQUEST: Create a bar chart...")
-
-IMPORTANT:
-- Only add tables when the user ASKS for a table
-- Don't add tables automatically with charts unless requested
-- Be conversational - not every response needs a table""",
-            tools=[
-                FunctionTool(self._list_artifacts),
-                FunctionTool(self._get_artifact_data),
-                FunctionTool(self._add_text_content),
-                FunctionTool(self._add_table_content),
-            ],
-        )
-        
-        # Separate chart generator (called explicitly by backend, not as agent tool)
-        self.chart_generator = LlmAgent(
-            model="gemini-3-flash-preview",
-            name="ChartGenerator",
-            description="Creates data visualizations using matplotlib",
-            instruction="""You are a data visualization specialist.
-
-Create professional charts using matplotlib:
-1. Analyze the data provided
-2. Choose appropriate chart type (bar, pie, line, etc.)
-3. Write and execute Python code
-4. Use professional styling:
-   - plt.figure(figsize=(10, 6))
-   - Clear titles, labels, legend
-   - Professional colors
-   - Always call plt.show()
-
-The chart will be automatically captured and added to the report.""",
+            name="ReportBuilder",
+            description="Builds a basic HTML report from provided artifacts",
+            instruction=(
+                "You are Lunara Report Builder. You will be given full JSON artifacts and a user request.\n"
+                "Build a clean, basic HTML report.\n\n"
+                "Rules:\n"
+                "1) Use only the provided artifacts.\n"
+                "2) If user asks for charts, generate them with Python (matplotlib) using code execution.\n"
+                "3) Save chart files as chart_1.png, chart_2.png, ... in request order.\n"
+                "4) Keep output simple and business-readable.\n"
+                "5) Return ONLY valid JSON, no markdown fences, no extra prose.\n\n"
+                "Return JSON schema:\n"
+                "{\n"
+                "  \"title\": \"string\",\n"
+                "  \"summary_html\": \"<p>...</p>\",\n"
+                "  \"sections\": [\n"
+                "    {\"heading\": \"string\", \"html\": \"<p>...</p>\"}\n"
+                "  ],\n"
+                "  \"chart_captions\": [\"caption for chart_1\", \"caption for chart_2\"],\n"
+                "  \"notes\": \"optional short string\"\n"
+                "}\n"
+            ),
             code_executor=BuiltInCodeExecutor(),
         )
-    
-    # ========================================================================
-    # Tools
-    # ========================================================================
-    
-    def _list_artifacts(self) -> str:
-        """List all saved artifacts."""
+
+    def _load_artifacts(self) -> List[Dict[str, Any]]:
+        """Load all artifacts from local SQLite."""
+        conn = sqlite3.connect(str(DB_PATH))
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, title, sql, data, created_at
+            FROM artifacts
+            ORDER BY created_at DESC
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
+
+        artifacts: List[Dict[str, Any]] = []
+        for row in rows:
+            raw_data = row[3] or "[]"
+            try:
+                parsed_data = json.loads(raw_data)
+            except json.JSONDecodeError:
+                parsed_data = []
+
+            artifacts.append(
+                {
+                    "id": row[0],
+                    "title": row[1],
+                    "sql": row[2],
+                    "data": parsed_data,
+                    "created_at": row[4],
+                    "row_count": len(parsed_data) if isinstance(parsed_data, list) else 0,
+                }
+            )
+        return artifacts
+
+    @staticmethod
+    def _extract_json(text: str) -> Optional[Dict[str, Any]]:
+        """Parse the first valid JSON object from model text."""
+        candidate = text.strip()
+
+        if candidate.startswith("```"):
+            candidate = re.sub(r"^```(?:json)?\s*", "", candidate, flags=re.IGNORECASE)
+            candidate = re.sub(r"\s*```$", "", candidate)
+
         try:
-            conn = sqlite3.connect(str(DB_PATH))
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT id, title, created_at 
-                FROM artifacts 
-                ORDER BY created_at DESC
-            """)
-            rows = cursor.fetchall()
-            conn.close()
-            
-            artifacts = [
-                {"id": row[0], "title": row[1], "created_at": row[2]}
-                for row in rows
-            ]
-            return json.dumps(artifacts, indent=2)
-        except Exception as e:
-            return json.dumps({"error": str(e)})
-    
-    def _get_artifact_data(self, artifact_id: str) -> str:
-        """Get full data from an artifact."""
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+        start = candidate.find("{")
+        end = candidate.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return None
+
         try:
-            conn = sqlite3.connect(str(DB_PATH))
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT id, title, sql, data, created_at 
-                FROM artifacts WHERE id = ?
-            """, (artifact_id,))
-            row = cursor.fetchone()
-            conn.close()
-            
-            if not row:
-                return json.dumps({"error": f"Artifact {artifact_id} not found"})
-            
-            data = json.loads(row[3]) if row[3] else []
-            return json.dumps({
-                "id": row[0],
-                "title": row[1],
-                "sql": row[2],
-                "data": data,
-                "row_count": len(data) if isinstance(data, list) else 0,
-                "created_at": row[4],
-            }, indent=2)
-        except Exception as e:
-            return json.dumps({"error": str(e)})
-    
-    def _add_text_content(self, title: str, markdown_content: str) -> str:
-        """Add formatted text content to the report."""
-        item = {
-            "id": len(self._content_items) + 1,
-            "type": "text",
-            "title": title,
-            "content": markdown_content,
-            "created_at": datetime.now().isoformat(),
-        }
-        self._content_items.append(item)
-        return f"Added text section: {title}"
-    
-    def _add_table_content(self, title: str, data_json: str) -> str:
-        """Add a data table to the report."""
+            parsed = json.loads(candidate[start : end + 1])
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            return None
+
+        return None
+
+    @staticmethod
+    async def _load_png_as_base64(
+        artifact_service: InMemoryArtifactService,
+        app_name: str,
+        user_id: str,
+        session_id: str,
+        filename: str,
+    ) -> Optional[str]:
+        """Load a PNG artifact and return base64-encoded data."""
         try:
-            data = json.loads(data_json) if isinstance(data_json, str) else data_json
-            item = {
-                "id": len(self._content_items) + 1,
-                "type": "table",
-                "title": title,
-                "content": json.dumps(data),
-                "row_count": len(data) if isinstance(data, list) else 0,
-                "created_at": datetime.now().isoformat(),
+            artifact_part = await artifact_service.load_artifact(
+                app_name=app_name,
+                user_id=user_id,
+                session_id=session_id,
+                filename=filename,
+            )
+            if not artifact_part or not getattr(artifact_part, "inline_data", None):
+                return None
+
+            raw = artifact_part.inline_data.data
+            if isinstance(raw, bytes):
+                return base64.b64encode(raw).decode("utf-8")
+            if isinstance(raw, str):
+                return raw
+            return None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _compose_html(
+        title: str,
+        summary_html: str,
+        sections: List[Dict[str, str]],
+        chart_blocks: List[str],
+        notes: str,
+    ) -> str:
+        """Compose a basic HTML report document."""
+        section_html = []
+        for section in sections:
+            heading = section.get("heading", "Section")
+            body = section.get("html", "")
+            section_html.append(
+                f"<section><h2>{heading}</h2>{body}</section>"
+            )
+
+        charts_html = ""
+        if chart_blocks:
+            charts_html = "<section><h2>Charts</h2>" + "".join(chart_blocks) + "</section>"
+
+        notes_html = f"<p><em>{notes}</em></p>" if notes else ""
+
+        return f"""
+<div class=\"lunara-report\">
+  <h1>{title}</h1>
+  <section>
+    <h2>Summary</h2>
+    {summary_html}
+  </section>
+  {''.join(section_html)}
+  {charts_html}
+  {notes_html}
+</div>
+""".strip()
+
+    def get_content_items(self) -> List[Dict[str, Any]]:
+        return self._content_items.copy()
+
+    async def generate_content(self, prompt: str) -> AsyncIterator[Dict[str, Any]]:
+        artifacts = self._load_artifacts()
+        if not artifacts:
+            yield {
+                "type": "error",
+                "content": "No artifacts found. Please save at least one query artifact first.",
             }
-            self._content_items.append(item)
-            return f"Added table: {title} ({item['row_count']} rows)"
-        except Exception as e:
-            return f"Error adding table: {str(e)}"
-    
-    # ========================================================================
-    # Chart Generation (called explicitly by backend)
-    # ========================================================================
-    
-    async def generate_chart(self, description: str, data: List[Dict]) -> Optional[str]:
-        """Generate a chart using the standalone chart generator."""
-        from google.adk.artifacts import InMemoryArtifactService
-        
+            return
+
+        yield {"type": "status", "content": "Loaded artifacts"}
+
         session_service = InMemorySessionService()
         artifact_service = InMemoryArtifactService()
-        
+
+        app_name = "lunara_reports"
+        user_id = f"report_{self.report_id}"
+
         runner = Runner(
-            agent=self.chart_generator,
-            app_name="lunara_charts",
+            agent=self.agent,
+            app_name=app_name,
             session_service=session_service,
             artifact_service=artifact_service,
         )
-        
-        session = await session_service.create_session(
-            app_name="lunara_charts",
-            user_id=f"chart_{self.report_id}",
-            state={}
-        )
-        
-        prompt = f"""{description}
 
-Data:
-{json.dumps(data, indent=2)}
-
-Create a professional chart using matplotlib. Save it as 'chart.png'."""
-        
-        content = types.Content(
-            role="user",
-            parts=[types.Part(text=prompt)]
-        )
-        
-        chart_data = None
-        artifact_filename = None
-        
-        try:
-            async for event in runner.run_async(
-                user_id=f"chart_{self.report_id}",
-                session_id=session.id,
-                new_message=content
-            ):
-                # Check for inline_data (chart image)
-                if event.content and event.content.parts:
-                    for part in event.content.parts:
-                        if hasattr(part, 'inline_data') and part.inline_data:
-                            image_data = part.inline_data.data
-                            if isinstance(image_data, bytes):
-                                chart_data = base64.b64encode(image_data).decode()
-                            else:
-                                chart_data = image_data
-                            print(f"[DEBUG] Chart captured from inline_data, length: {len(chart_data)}")
-                            break
-                
-                # Also check for artifacts
-                if hasattr(event, 'actions') and event.actions and event.actions.artifact_delta:
-                    print(f"[DEBUG] Artifact delta: {event.actions.artifact_delta}")
-                    # Store the artifact filename to load later
-                    for filename in event.actions.artifact_delta.keys():
-                        if filename.endswith('.png'):
-                            artifact_filename = filename
-                            break
-        except Exception as e:
-            print(f"[DEBUG] Chart generation error: {e}")
-            import traceback
-            traceback.print_exc()
-        
-        # If we didn't get inline_data but have an artifact, load it
-        if not chart_data and artifact_filename:
-            try:
-                print(f"[DEBUG] Loading artifact: {artifact_filename}")
-                artifact_part = await artifact_service.load_artifact(
-                    app_name="lunara_charts",
-                    user_id=f"chart_{self.report_id}",
-                    session_id=session.id,
-                    filename=artifact_filename,
-                )
-                if artifact_part and hasattr(artifact_part, 'inline_data') and artifact_part.inline_data:
-                    image_data = artifact_part.inline_data.data
-                    if isinstance(image_data, bytes):
-                        chart_data = base64.b64encode(image_data).decode()
-                    else:
-                        chart_data = image_data
-                    print(f"[DEBUG] Chart loaded from artifact, length: {len(chart_data)}")
-            except Exception as e:
-                print(f"[DEBUG] Failed to load artifact: {e}")
-        
-        return chart_data
-    
-    # ========================================================================
-    # Public API
-    # ========================================================================
-    
-    def get_content_items(self) -> List[Dict[str, Any]]:
-        """Get all content items generated so far."""
-        return self._content_items.copy()
-    
-    async def generate_content(self, prompt: str) -> AsyncIterator[Dict[str, Any]]:
-        """Generate content based on user prompt."""
-        session_service = InMemorySessionService()
-        
-        runner = Runner(
-            agent=self.agent,
-            app_name="lunara_reports",
-            session_service=session_service,
-        )
-        
         session = await session_service.create_session(
-            app_name="lunara_reports",
-            user_id=f"report_{self.report_id}",
-            state={"content_items": []}
+            app_name=app_name,
+            user_id=user_id,
+            state={},
         )
-        
-        content = types.Content(
-            role="user",
-            parts=[types.Part(text=prompt)]
+
+        user_prompt = (
+            "User request:\n"
+            f"{prompt}\n\n"
+            "Artifacts JSON:\n"
+            f"{json.dumps(artifacts, ensure_ascii=True)}"
         )
-        
-        # Track if we need to generate a chart
-        chart_request = None
-        chart_data = None
-        
-        try:
-            async for event in runner.run_async(
-                user_id=f"report_{self.report_id}",
-                session_id=session.id,
-                new_message=content
+
+        content = types.Content(role="user", parts=[types.Part(text=user_prompt)])
+
+        text_chunks: List[str] = []
+        png_filenames: List[str] = []
+
+        yield {"type": "status", "content": "Analyzing data and generating report"}
+
+        async for event in runner.run_async(
+            user_id=user_id,
+            session_id=session.id,
+            new_message=content,
+        ):
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    if getattr(part, "text", None):
+                        text = part.text
+                        text_chunks.append(text)
+                        yield {"type": "text", "content": text}
+
+            if (
+                getattr(event, "actions", None)
+                and getattr(event.actions, "artifact_delta", None)
             ):
-                if event.content and event.content.parts:
-                    for part in event.content.parts:
-                        # Text content
-                        if hasattr(part, 'text') and part.text:
-                            yield {
-                                "type": "text",
-                                "content": part.text
-                            }
-                        
-                        # Function calls
-                        elif hasattr(part, 'function_call') and part.function_call:
-                            fn_name = part.function_call.name
-                            yield {
-                                "type": "status",
-                                "content": f"🔍 {fn_name}..."
-                            }
-            
-            # Check for chart requests in text content
-            for item in self._content_items:
-                if item["type"] == "text" and "CHART_REQUEST:" in item["content"]:
-                    # Extract chart request
-                    lines = item["content"].split('\n')
-                    for line in lines:
-                        if line.startswith("CHART_REQUEST:"):
-                            chart_request = line.replace("CHART_REQUEST:", "").strip()
-                            break
-                    
-                    # Find associated data (look for table with same ID or recent data)
-                    for prev_item in reversed(self._content_items):
-                        if prev_item["type"] == "table":
-                            try:
-                                chart_data = json.loads(prev_item["content"])
-                            except:
-                                pass
-                            break
-                    break  # Only process first chart request
-            
-            # Count items before potential chart generation
-            items_before_chart = len(self._content_items)
-            
-            # Generate chart if requested
-            if chart_request and chart_data:
-                yield {
-                    "type": "status",
-                    "content": "📊 Generating chart..."
-                }
-                
-                # Generate chart
-                chart_image = await self.generate_chart(chart_request, chart_data)
-                
-                if chart_image:
-                    # Add chart as content item
-                    chart_item = {
-                        "id": len(self._content_items) + 1,
-                        "type": "chart",
-                        "title": "Generated Chart",
-                        "content": chart_image,
-                        "mime_type": "image/png",
-                        "created_at": datetime.now().isoformat(),
-                    }
-                    self._content_items.append(chart_item)
-                    
-                    # Yield the chart
-                    yield {
-                        "type": "chart",
-                        "data": chart_image,
-                        "mime_type": "image/png"
-                    }
-                
-                # Remove the CHART_REQUEST text item
-                self._content_items = [i for i in self._content_items if "CHART_REQUEST:" not in i.get("content", "")]
-                # Update count after removal
-                items_before_chart = len(self._content_items) - (1 if chart_image else 0)
-            
-            # Yield only items that existed before chart generation
-            for i, item in enumerate(self._content_items):
-                if i < items_before_chart:
-                    yield {
-                        "type": "content_item",
-                        "item": item
-                    }
-            
-            yield {"type": "done", "items_added": len(self._content_items)}
-            
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            yield {
-                "type": "error",
-                "content": str(e)
+                for filename in event.actions.artifact_delta.keys():
+                    if filename.lower().endswith(".png"):
+                        png_filenames.append(filename)
+
+        report_text = "".join(text_chunks).strip()
+        parsed = self._extract_json(report_text)
+
+        if not parsed:
+            fallback_html = (
+                "<div class=\"lunara-report\">"
+                "<h1>Generated Report</h1>"
+                "<section><h2>Response</h2>"
+                f"<pre>{html.escape(report_text)}</pre>"
+                "</section></div>"
+            )
+            item = {
+                "id": int(datetime.now().timestamp() * 1000),
+                "type": "html",
+                "title": "Generated Report",
+                "content": fallback_html,
+                "created_at": datetime.now().isoformat(),
             }
+            self._content_items.append(item)
+            yield {"type": "content_item", "item": item}
+            yield {"type": "done", "items_added": 1}
+            return
+
+        title = parsed.get("title") or "Generated Report"
+        summary_html = parsed.get("summary_html") or "<p>No summary provided.</p>"
+        sections = parsed.get("sections") if isinstance(parsed.get("sections"), list) else []
+        chart_captions = parsed.get("chart_captions") if isinstance(parsed.get("chart_captions"), list) else []
+        notes = parsed.get("notes") or ""
+
+        chart_blocks: List[str] = []
+        if png_filenames:
+            # Preserve creation order while removing duplicates.
+            ordered_unique = list(dict.fromkeys(png_filenames))
+            for idx, filename in enumerate(ordered_unique):
+                img_base64 = await self._load_png_as_base64(
+                    artifact_service=artifact_service,
+                    app_name=app_name,
+                    user_id=user_id,
+                    session_id=session.id,
+                    filename=filename,
+                )
+                if not img_base64:
+                    continue
+                caption = chart_captions[idx] if idx < len(chart_captions) else f"Chart {idx + 1}"
+                chart_blocks.append(
+                    "<figure style=\"margin: 20px 0;\">"
+                    f"<img src=\"data:image/png;base64,{img_base64}\" alt=\"{caption}\" style=\"max-width: 100%; border: 1px solid #e5e5e5; border-radius: 8px;\"/>"
+                    f"<figcaption style=\"margin-top: 8px; color: #666; font-size: 14px;\">{caption}</figcaption>"
+                    "</figure>"
+                )
+
+        final_html = self._compose_html(
+            title=title,
+            summary_html=summary_html,
+            sections=sections,
+            chart_blocks=chart_blocks,
+            notes=notes,
+        )
+
+        item = {
+            "id": int(datetime.now().timestamp() * 1000),
+            "type": "html",
+            "title": title,
+            "content": final_html,
+            "created_at": datetime.now().isoformat(),
+        }
+        self._content_items.append(item)
+
+        yield {"type": "content_item", "item": item}
+        yield {"type": "done", "items_added": 1}
