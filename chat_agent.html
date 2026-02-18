@@ -11,6 +11,10 @@
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/sql.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -456,6 +460,7 @@
             color: var(--border-stone);
         }
 
+
         /* Results Panel */
         .results-panel {
             height: 260px;
@@ -844,24 +849,79 @@
         }
 
         .msg-assistant-bubble code {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 1px 5px;
+            background: rgba(30, 41, 59, 0.7);
+            padding: 2px 6px;
             border-radius: 4px;
-            font-family: 'SF Mono', 'Consolas', monospace;
+            font-family: 'SF Mono', 'Consolas', 'Fira Code', monospace;
             font-size: 12px;
+            color: #e2e8f0;
         }
 
-        .msg-assistant-bubble pre {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 10px 12px;
-            border-radius: 6px;
+        .code-block-wrapper {
+            position: relative;
+            margin: 10px 0;
+        }
+
+        .code-block-wrapper pre {
+            background: #1e293b;
+            padding: 14px 16px;
+            padding-top: 36px;
+            border-radius: 8px;
             overflow-x: auto;
-            margin: 8px 0;
+            margin: 0;
+            border: 1px solid rgba(148, 163, 184, 0.15);
         }
 
-        .msg-assistant-bubble pre code {
+        .code-block-wrapper pre code {
             background: transparent;
             padding: 0;
+            color: #e2e8f0;
+            font-size: 12.5px;
+            line-height: 1.6;
+        }
+
+        .code-copy-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(148, 163, 184, 0.15);
+            border: none;
+            border-radius: 6px;
+            padding: 4px 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #94a3b8;
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.15s ease;
+            z-index: 1;
+        }
+
+        .code-copy-btn:hover {
+            background: rgba(148, 163, 184, 0.3);
+            color: #e2e8f0;
+        }
+
+        .code-copy-btn .material-symbols-outlined {
+            font-size: 14px;
+        }
+
+        /* Fallback for pre blocks not inside wrapper */
+        .msg-assistant-bubble>pre {
+            background: #1e293b;
+            padding: 14px 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 8px 0;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+        }
+
+        .msg-assistant-bubble>pre code {
+            background: transparent;
+            padding: 0;
+            color: #e2e8f0;
         }
     </style>
 </head>
@@ -1340,6 +1400,7 @@
             }).join('');
 
             container.scrollTop = container.scrollHeight;
+            highlightCodeBlocks();
         }
 
         // ═══════════════════════════════════════════
@@ -1520,6 +1581,7 @@
 
         function finalizeStreamingMessage() {
             currentStreamingId = null;
+            highlightCodeBlocks();
         }
 
         async function sendMessage() {
@@ -1553,7 +1615,7 @@
                     .filter(m => m.role && m.content)
                     .map(m => ({ role: m.role, content: m.content, sql: m.sql || null }));
 
-                const response = await fetch(`${API_BASE} /chat/query`, {
+                const response = await fetch(`${API_BASE}/chat/query`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1647,7 +1709,7 @@
                 '<div class="results-empty">Executing query...</div>';
 
             try {
-                const response = await fetch(`${API_BASE} /chat/execute`, {
+                const response = await fetch(`${API_BASE}/chat/execute`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sql })
@@ -1717,12 +1779,43 @@
         function renderMarkdown(text) {
             if (typeof marked !== 'undefined') {
                 try {
-                    return marked.parse(text, { breaks: true, gfm: true });
+                    let html = marked.parse(text, { breaks: true, gfm: true });
+                    // Wrap <pre> blocks with a container that has a copy button
+                    html = html.replace(/<pre><code([^>]*)>(.*?)<\/code><\/pre>/gs, function (match, attrs, code) {
+                        return '<div class="code-block-wrapper">' +
+                            '<button class="code-copy-btn" onclick="copyCodeBlock(this)">' +
+                            '<span class="material-symbols-outlined">content_copy</span>Copy</button>' +
+                            '<pre><code' + attrs + '>' + code + '</code></pre></div>';
+                    });
+                    return html;
                 } catch (e) {
                     return text.replace(/\n/g, '<br>');
                 }
             }
             return text.replace(/\n/g, '<br>');
+        }
+
+        function highlightCodeBlocks() {
+            if (typeof hljs !== 'undefined') {
+                document.querySelectorAll('.msg-assistant-bubble pre code').forEach(function (block) {
+                    if (!block.dataset.highlighted) {
+                        hljs.highlightElement(block);
+                    }
+                });
+            }
+        }
+
+        function copyCodeBlock(btn) {
+            const pre = btn.closest('.code-block-wrapper').querySelector('code');
+            const text = pre.textContent;
+            navigator.clipboard.writeText(text).then(function () {
+                btn.innerHTML = '<span class="material-symbols-outlined">check</span>Copied!';
+                btn.style.color = '#4ade80';
+                setTimeout(function () {
+                    btn.innerHTML = '<span class="material-symbols-outlined">content_copy</span>Copy';
+                    btn.style.color = '';
+                }, 2000);
+            });
         }
 
         function escapeHtml(str) {
