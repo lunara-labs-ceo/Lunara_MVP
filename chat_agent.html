@@ -1957,6 +1957,11 @@
 
         // ─── Initialize ───
         async function init() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                window.location.href = '/landing.html';
+                return;
+            }
             await getCurrentUser();
             loadSemanticModel();
             loadChatSessions();

@@ -631,7 +631,15 @@
                 console.error('Error loading project:', err);
             }
         }
-        loadProjectName();
+        async function init() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                window.location.href = '/landing.html';
+                return;
+            }
+            loadProjectName();
+        }
+        init();
 
         // Tab switching
         function setActiveTab(tab) {

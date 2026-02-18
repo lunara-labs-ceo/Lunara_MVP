@@ -823,7 +823,15 @@
         });
 
         // Initialize
-        loadDatasets();
+        async function init() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                window.location.href = '/landing.html';
+                return;
+            }
+            loadDatasets();
+        }
+        init();
     </script>
 </body>
 

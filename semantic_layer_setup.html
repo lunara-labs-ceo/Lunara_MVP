@@ -1360,8 +1360,16 @@
         }
 
         // Initialize
-        loadSelectedTables();
-        loadSemanticModelFromSupabase(); // Load from Supabase first, then localStorage
+        async function init() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                window.location.href = '/landing.html';
+                return;
+            }
+            loadSelectedTables();
+            loadSemanticModelFromSupabase(); // Load from Supabase first, then localStorage
+        }
+        init();
     </script>
 </body>
 
