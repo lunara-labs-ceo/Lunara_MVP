@@ -262,7 +262,8 @@ The JSONB column gives flexibility - each artifact type can have its own structu
 |-------|---------|--------|
 | `data_sources` | Store BQ/Postgres/AWS connections per project | ✅ Implemented |
 | `semantic_models` | Store semantic layer definitions per project | ✅ Implemented |
-| `agent_sessions` | Store chat history per agent | Planned |
+| `chat_sessions` | Store chat conversations per project | ✅ Implemented |
+| `chat_artifacts` | Store saved query results per project | ✅ Implemented |
 | `artifact_versions` | Track version history of reports/slides (optional) | Planned |
 
 ---
@@ -294,19 +295,15 @@ This keeps each change small and testable.
      │  profiles   │  │  projects   │  │    ...      │
      └─────────────┘  └──────┬──────┘  └─────────────┘
                              │
-         ┌───────────────────┼───────────────────┐
-         │                   │                   │
-         ▼                   ▼                   ▼
-  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-  │   agents    │     │  artifacts  │     │data_sources │
-  └─────────────┘     └─────────────┘     └─────────────┘
-         │
-         ▼
-  ┌─────────────┐
-  │agent_sessions│
-  └─────────────┘
+         ┌──────────┬────────┼────────┬──────────┐
+         │          │        │        │          │
+         ▼          ▼        ▼        ▼          ▼
+   ┌──────────┐ ┌────────┐ ┌──────┐ ┌──────────┐ ┌─────────────┐
+   │  agents  │ │semantic│ │data_ │ │  chat_   │ │    chat_    │
+   │          │ │_models │ │source│ │ sessions │ │  artifacts  │
+   └──────────┘ └────────┘ └──────┘ └──────────┘ └─────────────┘
 ```
 
 ---
 
-*Last updated: February 2, 2026*
+*Last updated: February 17, 2026*

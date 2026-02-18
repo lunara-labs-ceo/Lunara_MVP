@@ -1,220 +1,1094 @@
 <!DOCTYPE html>
-<html class="light" lang="en">
+<html lang="en">
 
 <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Lunara - Semantic Layer Chat Agent</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap"
-        rel="stylesheet" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunara - Query Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-        rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#135bec",
-                        "primary-hover": "#0e4ac2",
-                        "background-light": "#f6f6f8",
-                        "background-dark": "#101622",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"],
-                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
-                    },
-                },
-            },
-        }
-    </script>
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        ::-webkit-scrollbar {
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-stone: #EAE9E5;
+            --border-stone: #BAB8B0;
+            --electric-blue: #0033FF;
+            --electric-blue-hover: #0022CC;
+            --dark-text: #1A1A1A;
+            --success-green: #059669;
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-stone);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ─── Header ─── */
+        header {
+            background: var(--bg-stone);
+            border-bottom: 1px solid var(--border-stone);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            flex-shrink: 0;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: stretch;
+            height: 64px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-stone);
+            text-decoration: none;
+            color: var(--dark-text);
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--electric-blue);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--dark-text);
+        }
+
+        .breadcrumb a {
+            color: var(--dark-text);
+            text-decoration: none;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .breadcrumb a:hover {
+            opacity: 1;
+        }
+
+        .breadcrumb-separator {
+            opacity: 0.4;
+        }
+
+        .breadcrumb-current {
+            font-weight: 500;
+        }
+
+        .header-spacer {
+            flex: 1;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 24px;
+        }
+
+        /* ─── Buttons ─── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .btn-primary {
+            background: var(--electric-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--electric-blue-hover);
+        }
+
+        .btn-secondary {
+            background: white;
+            border: 1px solid var(--border-stone);
+            color: var(--dark-text);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-stone);
+        }
+
+        .btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .btn-success {
+            background: var(--success-green);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #047857;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-sm .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        .btn-icon {
+            padding: 6px;
+            border-radius: 6px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--dark-text);
+            opacity: 0.4;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            opacity: 1;
+            background: var(--bg-stone);
+        }
+
+        /* ─── Main Layout ─── */
+        main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* ─── Sidebar ─── */
+        .sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid var(--border-stone);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .sidebar-section.sessions {
+            flex: 1;
+        }
+
+        .sidebar-section.artifacts {
+            height: 35%;
+            border-top: 1px solid var(--border-stone);
+        }
+
+        .sidebar-section.models {
+            height: 30%;
+            border-top: 1px solid var(--border-stone);
+        }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-stone);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--dark-text);
+            opacity: 0.5;
+        }
+
+        .sidebar-count {
+            font-size: 11px;
+            color: var(--dark-text);
+            opacity: 0.4;
+        }
+
+        .sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+        }
+
+        .sidebar-item:hover {
+            background: var(--bg-stone);
+        }
+
+        .sidebar-item.active {
+            background: rgba(0, 51, 255, 0.06);
+            border-color: rgba(0, 51, 255, 0.15);
+        }
+
+        .sidebar-item .material-symbols-outlined {
+            font-size: 18px;
+            color: var(--border-stone);
+            flex-shrink: 0;
+        }
+
+        .sidebar-item.active .material-symbols-outlined {
+            color: var(--electric-blue);
+        }
+
+        .sidebar-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sidebar-item-name {
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--dark-text);
+        }
+
+        .sidebar-item-meta {
+            font-size: 11px;
+            color: var(--dark-text);
+            opacity: 0.4;
+        }
+
+        .sidebar-item .delete-btn {
+            display: none;
+            font-size: 14px;
+            color: var(--dark-text);
+            opacity: 0.3;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .sidebar-item:hover .delete-btn {
+            display: block;
+        }
+
+        .sidebar-item .delete-btn:hover {
+            opacity: 1;
+            color: #DC2626;
+        }
+
+        .sidebar-empty {
+            padding: 24px;
+            text-align: center;
+            color: var(--dark-text);
+            opacity: 0.4;
+            font-size: 12px;
+        }
+
+        .sidebar-empty .material-symbols-outlined {
+            font-size: 28px;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        /* Column list in models section */
+        .model-columns {
+            margin-left: 28px;
+            margin-top: 2px;
+            padding-left: 10px;
+            border-left: 1px solid var(--border-stone);
+        }
+
+        .model-column {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--dark-text);
+            opacity: 0.5;
+            padding: 1px 6px;
+        }
+
+        .model-column-type {
+            font-family: 'Courier New', monospace;
+            font-size: 9px;
+        }
+
+        /* ─── Center Panel: SQL Editor + Results ─── */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: white;
+            border-right: 1px solid var(--border-stone);
+        }
+
+        .toolbar {
+            height: 48px;
+            border-bottom: 1px solid var(--border-stone);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            flex-shrink: 0;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .query-status {
+            font-size: 12px;
+            color: var(--dark-text);
+            opacity: 0.5;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
             width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success-green);
+        }
+
+        .status-dot.error {
+            background: #DC2626;
+        }
+
+        .status-dot.running {
+            background: #F59E0B;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* SQL Editor */
+        .sql-editor-wrap {
+            flex: 1;
+            position: relative;
+            min-height: 120px;
+        }
+
+        .sql-editor {
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: transparent;
+            border: none;
+            resize: none;
+            color: var(--dark-text);
+        }
+
+        .sql-editor:focus {
+            outline: none;
+        }
+
+        .sql-editor::placeholder {
+            color: var(--border-stone);
+        }
+
+        /* Results Panel */
+        .results-panel {
+            height: 260px;
+            border-top: 1px solid var(--border-stone);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .results-header {
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 1px solid var(--border-stone);
+            flex-shrink: 0;
+        }
+
+        .results-tab {
+            padding: 10px 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--electric-blue);
+            border-bottom: 2px solid var(--electric-blue);
+        }
+
+        .results-spacer {
+            flex: 1;
+        }
+
+        .results-meta {
+            font-size: 11px;
+            color: var(--dark-text);
+            opacity: 0.4;
+        }
+
+        .results-container {
+            flex: 1;
+            overflow: auto;
+        }
+
+        .results-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--dark-text);
+            opacity: 0.4;
+            font-size: 13px;
+        }
+
+        .results-error {
+            padding: 16px;
+            color: #DC2626;
+            font-size: 13px;
+        }
+
+        /* Results Table */
+        .results-table {
+            width: 100%;
+            text-align: left;
+            border-collapse: collapse;
+        }
+
+        .results-table thead {
+            background: var(--bg-stone);
+            position: sticky;
+            top: 0;
+        }
+
+        .results-table th {
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--dark-text);
+            border-bottom: 1px solid var(--border-stone);
+        }
+
+        .results-table td {
+            padding: 6px 16px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .results-table tbody tr:hover {
+            background: rgba(0, 51, 255, 0.02);
+        }
+
+        .row-num {
+            width: 40px;
+            text-align: center;
+            color: var(--dark-text);
+            opacity: 0.3;
+            font-size: 11px;
+        }
+
+        /* ─── Chat Panel ─── */
+        .chat-panel {
+            width: 380px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .chat-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-stone);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .chat-header .material-symbols-outlined {
+            color: var(--electric-blue);
+            font-size: 20px;
+        }
+
+        .chat-header-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark-text);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: var(--bg-stone);
+        }
+
+        .chat-welcome {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--dark-text);
+            opacity: 0.4;
+        }
+
+        .chat-welcome .material-symbols-outlined {
+            font-size: 40px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .chat-welcome p {
+            font-size: 14px;
+        }
+
+        /* Chat bubbles */
+        .msg-user {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .msg-user-bubble {
+            background: var(--electric-blue);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 16px 16px 4px 16px;
+            font-size: 13px;
+            max-width: 85%;
+            line-height: 1.5;
+        }
+
+        .msg-assistant {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .msg-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: white;
+            border: 1px solid var(--border-stone);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .msg-avatar .material-symbols-outlined {
+            font-size: 14px;
+            color: var(--electric-blue);
+        }
+
+        .msg-assistant-bubble {
+            background: white;
+            border: 1px solid var(--border-stone);
+            padding: 10px 16px;
+            border-radius: 16px 16px 16px 4px;
+            font-size: 13px;
+            max-width: 85%;
+            line-height: 1.5;
+            color: var(--dark-text);
+            box-shadow: var(--card-shadow);
+        }
+
+        .msg-sql-badge {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-stone);
+            font-size: 11px;
+            color: var(--success-green);
+            font-weight: 500;
+        }
+
+        /* Chat input */
+        .chat-input-wrap {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-stone);
+            flex-shrink: 0;
+        }
+
+        .chat-input-box {
+            position: relative;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 12px 44px 12px 16px;
+            border: 1px solid var(--border-stone);
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 13px;
+            resize: none;
+            background: var(--bg-stone);
+            color: var(--dark-text);
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--electric-blue);
+        }
+
+        .chat-input::placeholder {
+            color: var(--border-stone);
+        }
+
+        .chat-send-btn {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            padding: 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--electric-blue);
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+
+        .chat-send-btn:hover {
+            background: rgba(0, 51, 255, 0.08);
+        }
+
+        .chat-send-btn .material-symbols-outlined {
+            font-size: 20px;
+        }
+
+        .chat-disclaimer {
+            text-align: center;
+            font-size: 10px;
+            color: var(--dark-text);
+            opacity: 0.3;
+            margin-top: 8px;
+        }
+
+        /* ─── Scrollbar ─── */
+        ::-webkit-scrollbar {
+            width: 6px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
+            background: var(--border-stone);
+            border-radius: 3px;
         }
 
-        .dark ::-webkit-scrollbar-thumb {
-            background: #374151;
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* ─── Save Artifact Modal ─── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-box {
+            background: var(--bg-warm-dark);
+            border: 1px solid var(--border-stone);
+            border-radius: 12px;
+            padding: 24px;
+            width: 400px;
+            max-width: 90vw;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-box h3 {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-cream);
+        }
+
+        .modal-box input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-stone);
+            border: 1px solid var(--border-stone);
+            border-radius: 8px;
+            color: var(--text-cream);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .modal-box input:focus {
+            border-color: var(--electric-blue);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        /* ─── Markdown in chat bubbles ─── */
+        .msg-assistant-bubble h1,
+        .msg-assistant-bubble h2,
+        .msg-assistant-bubble h3 {
+            font-size: 14px;
+            font-weight: 700;
+            margin: 12px 0 6px 0;
+            color: var(--text-cream);
+        }
+
+        .msg-assistant-bubble h1 {
+            font-size: 16px;
+        }
+
+        .msg-assistant-bubble h2 {
+            font-size: 15px;
+        }
+
+        .msg-assistant-bubble p {
+            margin: 0 0 8px 0;
+        }
+
+        .msg-assistant-bubble p:last-child {
+            margin-bottom: 0;
+        }
+
+        .msg-assistant-bubble ul,
+        .msg-assistant-bubble ol {
+            margin: 4px 0 8px 0;
+            padding-left: 20px;
+        }
+
+        .msg-assistant-bubble li {
+            margin-bottom: 4px;
+        }
+
+        .msg-assistant-bubble strong {
+            color: var(--text-cream);
+            font-weight: 600;
+        }
+
+        .msg-assistant-bubble code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-size: 12px;
+        }
+
+        .msg-assistant-bubble pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        .msg-assistant-bubble pre code {
+            background: transparent;
+            padding: 0;
         }
     </style>
 </head>
 
-<body
-    class="bg-background-light dark:bg-background-dark text-[#111318] dark:text-white font-display overflow-hidden flex flex-col h-screen">
-    <!-- Header -->
-    <header
-        class="shrink-0 flex items-center justify-between border-b border-[#e5e7eb] dark:border-gray-800 bg-white dark:bg-[#101622] px-4 py-2.5 shadow-sm z-20">
-        <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2">
-                <div class="size-8 text-primary">
-                    <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                        <path clip-rule="evenodd"
-                            d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z"
-                            fill="currentColor" fill-rule="evenodd"></path>
-                        <path clip-rule="evenodd"
-                            d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z"
-                            fill="currentColor" fill-rule="evenodd"></path>
-                    </svg>
-                </div>
-                <h2 class="text-[#111318] dark:text-white text-lg font-bold">Lunara</h2>
-            </div>
-            <div class="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
-            <nav class="flex items-center text-xs font-medium text-[#616f89] dark:text-gray-400">
-                <a href="semantic_layer_setup.html"
-                    class="flex items-center gap-1 hover:text-primary transition-colors">
-                    <span class="material-symbols-outlined text-[16px]">arrow_back</span>
-                    Semantic Layer
-                </a>
-                <span class="mx-2 text-gray-300 dark:text-gray-600">/</span>
-                <span class="text-[#111318] dark:text-white font-semibold">Query Agent</span>
-            </nav>
-        </div>
-        <div class="flex items-center gap-3">
-            <a href="report_builder.html"
-                class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-primary rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
-                <span class="material-symbols-outlined text-[18px]">description</span>
-                Report Builder
+<body>
+    <header>
+        <div class="header-inner">
+            <a href="/dashboard.html" class="logo">
+                <div class="logo-icon"></div>
+                <span class="logo-text">Lunara</span>
             </a>
+            <div class="breadcrumb">
+                <a href="/dashboard.html">Dashboard</a>
+                <span class="breadcrumb-separator">/</span>
+                <a id="semanticLink" href="/semantic_layer_setup.html">Semantic Layer</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current">Query Agent</span>
+            </div>
+            <div class="header-spacer"></div>
+            <div class="header-actions">
+                <a id="reportLink" href="/report_builder.html" class="btn btn-success">
+                    <span class="material-symbols-outlined">description</span>
+                    Report Builder
+                </a>
+            </div>
         </div>
     </header>
 
-    <main class="flex-1 flex overflow-hidden">
-        <!-- Sidebar: Semantic Models -->
-        <aside
-            class="w-64 bg-white dark:bg-[#101622] border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
-            <div class="flex flex-col flex-1 min-h-0">
-                <div
-                    class="p-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50">
-                    <h3 class="font-semibold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Semantic
-                        Models</h3>
+    <main>
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Chat Sessions -->
+            <div class="sidebar-section sessions">
+                <div class="sidebar-header">
+                    <span class="sidebar-title">Chat Sessions</span>
+                    <button class="btn-icon" onclick="createNewSession()" title="New Chat">
+                        <span class="material-symbols-outlined" style="font-size:18px;">add</span>
+                    </button>
                 </div>
-                <div id="models-list" class="flex-1 overflow-y-auto p-2 space-y-2">
-                    <p class="text-xs text-gray-400 italic p-2">Loading...</p>
+                <div id="sessions-list" class="sidebar-list">
+                    <div class="sidebar-empty">
+                        <span class="material-symbols-outlined">chat_bubble</span>
+                        <p>No sessions yet</p>
+                    </div>
                 </div>
             </div>
-            <!-- Artifacts Section -->
-            <div class="flex flex-col h-[35%] border-t border-gray-200 dark:border-gray-800">
-                <div
-                    class="p-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50">
-                    <h3 class="font-semibold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saved
-                        Artifacts</h3>
-                    <span id="artifacts-count" class="text-[10px] text-gray-400">0</span>
+
+            <!-- Saved Artifacts -->
+            <div class="sidebar-section artifacts">
+                <div class="sidebar-header">
+                    <span class="sidebar-title">Saved Artifacts</span>
+                    <span id="artifacts-count" class="sidebar-count">0</span>
                 </div>
-                <div id="artifacts-list" class="flex-1 overflow-y-auto p-2 space-y-1">
-                    <p class="text-xs text-gray-400 italic p-2">No artifacts saved</p>
+                <div id="artifacts-list" class="sidebar-list">
+                    <div class="sidebar-empty">
+                        <span class="material-symbols-outlined">bookmark</span>
+                        <p>No artifacts saved</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Semantic Models -->
+            <div class="sidebar-section models">
+                <div class="sidebar-header">
+                    <span class="sidebar-title">Semantic Models</span>
+                </div>
+                <div id="models-list" class="sidebar-list">
+                    <div class="sidebar-empty">
+                        <span class="material-symbols-outlined">table_chart</span>
+                        <p>Loading...</p>
+                    </div>
                 </div>
             </div>
         </aside>
 
-        <!-- SQL Editor Section -->
-        <section
-            class="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#0d1117] border-r border-gray-200 dark:border-gray-800">
-            <!-- Toolbar -->
-            <div
-                class="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-[#101622]">
-                <div class="flex items-center gap-2">
-                    <button id="run-btn" onclick="executeQuery()"
-                        class="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded shadow-sm transition-colors">
-                        <span class="material-symbols-outlined text-[16px]">play_arrow</span>
+        <!-- SQL Editor + Results -->
+        <section class="center-panel">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <button id="run-btn" class="btn btn-primary btn-sm" onclick="executeQuery()">
+                        <span class="material-symbols-outlined">play_arrow</span>
                         Run
                     </button>
-                    <button onclick="clearEditor()"
-                        class="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 text-gray-700 dark:text-gray-300 text-xs font-medium rounded transition-colors">
-                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                    <button class="btn btn-secondary btn-sm" onclick="clearEditor()">
+                        <span class="material-symbols-outlined">delete</span>
                         Clear
                     </button>
+                    <button id="save-artifact-btn" class="btn btn-secondary btn-sm" onclick="saveAsArtifact()" disabled>
+                        <span class="material-symbols-outlined">bookmark_add</span>
+                        Save Artifact
+                    </button>
                 </div>
-                <div id="query-status" class="text-xs text-gray-500">
-                    <span class="flex items-center gap-1">
-                        <div class="size-2 rounded-full bg-green-500"></div>
-                        Ready
-                    </span>
+                <div id="query-status" class="query-status">
+                    <div class="status-dot"></div>
+                    Ready
                 </div>
             </div>
 
-            <!-- SQL Editor -->
-            <div class="flex-1 relative flex flex-col overflow-hidden bg-white dark:bg-[#0d1117]">
-                <textarea id="sql-editor"
-                    class="flex-1 w-full p-4 font-mono text-sm bg-transparent resize-none focus:outline-none dark:text-gray-300"
+            <div class="sql-editor-wrap">
+                <textarea id="sql-editor" class="sql-editor"
                     placeholder="-- SQL will appear here when you ask a question..."></textarea>
             </div>
 
-            <!-- Results Panel -->
-            <div class="h-64 border-t border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-[#101622]">
-                <div
-                    class="flex items-center px-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#161b22]">
-                    <span class="px-4 py-2 text-xs font-semibold text-primary border-b-2 border-primary">Query
-                        Results</span>
-                    <div class="flex-1"></div>
-                    <button id="save-artifact-btn" onclick="saveAsArtifact()"
-                        class="hidden flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-primary text-xs font-semibold rounded transition-colors mr-3 border border-blue-100">
-                        <span class="material-symbols-outlined text-[16px]">bookmark_add</span>
-                        Save as Artifact
-                    </button>
-                    <div id="results-meta" class="text-[10px] text-gray-400 px-2"></div>
+            <div class="results-panel">
+                <div class="results-header">
+                    <span class="results-tab">Query Results</span>
+                    <div class="results-spacer"></div>
+                    <span id="results-meta" class="results-meta"></span>
                 </div>
-                <div id="results-container" class="flex-1 overflow-auto">
-                    <div class="flex items-center justify-center h-full text-gray-400 text-sm">
-                        Run a query to see results
-                    </div>
+                <div id="results-container" class="results-container">
+                    <div class="results-empty">Run a query to see results</div>
                 </div>
             </div>
         </section>
 
         <!-- Chat Panel -->
-        <aside
-            class="w-96 bg-white dark:bg-[#101622] flex flex-col shrink-0 border-l border-gray-200 dark:border-gray-800 shadow-lg">
-            <div
-                class="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50/50">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
-                    <h3 class="font-semibold text-sm text-[#111318] dark:text-white">Lunara Assistant</h3>
+        <aside class="chat-panel">
+            <div class="chat-header">
+                <span class="material-symbols-outlined">auto_awesome</span>
+                <span class="chat-header-title">Lunara Assistant</span>
+            </div>
+
+            <div id="chat-messages" class="chat-messages">
+                <div class="chat-welcome">
+                    <span class="material-symbols-outlined">chat</span>
+                    <p>Ask me anything about your data!</p>
                 </div>
             </div>
 
-            <!-- Chat Messages -->
-            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-[#0d1117]">
-                <div class="text-center text-sm text-gray-400 py-8">
-                    <span class="material-symbols-outlined text-4xl mb-2 block">chat</span>
-                    Ask me anything about your data!
-                </div>
-            </div>
-
-            <!-- Chat Input -->
-            <div class="p-4 bg-white dark:bg-[#101622] border-t border-gray-200 dark:border-gray-800">
-                <div class="relative shadow-sm">
-                    <textarea id="chat-input"
-                        class="w-full pl-3 pr-10 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-1 focus:ring-primary resize-none text-sm"
-                        placeholder="Ask Lunara..." rows="1"
+            <div class="chat-input-wrap">
+                <div class="chat-input-box">
+                    <textarea id="chat-input" class="chat-input" placeholder="Ask Lunara..." rows="1"
                         onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
-                    <div class="absolute right-2 bottom-2">
-                        <button onclick="sendMessage()"
-                            class="p-1.5 text-primary hover:bg-blue-50 rounded-lg transition-colors">
-                            <span class="material-symbols-outlined text-[20px]">send</span>
-                        </button>
-                    </div>
+                    <button class="chat-send-btn" onclick="sendMessage()">
+                        <span class="material-symbols-outlined">send</span>
+                    </button>
                 </div>
-                <p class="text-[10px] text-center text-gray-400 mt-2">AI can make mistakes. Review generated SQL.</p>
+                <p class="chat-disclaimer">AI can make mistakes. Review generated SQL.</p>
             </div>
         </aside>
     </main>
 
+    <!-- Save Artifact Modal -->
+    <div id="artifact-modal" class="modal-overlay" onclick="if(event.target===this)closeArtifactModal()">
+        <div class="modal-box">
+            <h3>Save as Artifact</h3>
+            <input id="artifact-name-input" type="text" placeholder="Enter artifact name..." value="Query Result"
+                onkeydown="if(event.key==='Enter')confirmSaveArtifact(); if(event.key==='Escape')closeArtifactModal();">
+            <div class="modal-actions">
+                <button class="btn btn-secondary btn-sm" onclick="closeArtifactModal()">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="confirmSaveArtifact()">
+                    <span class="material-symbols-outlined">bookmark_add</span>
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const API_BASE = '/api/v1';  // Use relative paths (works on localhost and Render)
+        // ─── Configuration ───
+        const API_BASE = '/api/v1';
         const STORAGE_KEY = 'lunara_semantic_model';
 
+        // Supabase
+        const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1Zmhkb2psc2F5c3JraXZkZnltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzI4ODUsImV4cCI6MjA4NDk0ODg4NX0.MiYnxqdSXCV10LUqbBz2hTIyjcLhPy50X0xzYNacHtA';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
+        });
+
+        // URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('project_id');
+
+        // Update breadcrumb links with project_id
+        if (projectId) {
+            document.getElementById('semanticLink').href = `/semantic_layer_setup.html?project_id=${projectId}`;
+            document.getElementById('reportLink').href = `/report_builder.html?project_id=${projectId}`;
+        }
+
+        // ─── State ───
         let semanticModel = null;
+        let semanticModelId = null;  // UUID from Supabase semantic_models table
         let lastQueryResults = null;
         let currentSQL = '';
+        let currentSessionId = null;
+        let chatMessages = []; // local mirror of messages for current session
+        let currentStreamingId = null;
+        let currentUser = null;
 
-        // Load semantic model from localStorage
-        function loadSemanticModel() {
+        // ─── Auth Helper ───
+        async function getCurrentUser() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            currentUser = user;
+            return user;
+        }
+
+        // ═══════════════════════════════════════════
+        // SEMANTIC MODEL (from Supabase → localStorage fallback)
+        // ═══════════════════════════════════════════
+        async function loadSemanticModel() {
+            if (projectId) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('semantic_models')
+                        .select('*')
+                        .eq('project_id', projectId)
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+
+                    if (!error && data && data.length > 0) {
+                        const saved = data[0];
+                        semanticModelId = saved.id;  // store the UUID
+                        semanticModel = {
+                            tables: saved.model.tables || [],
+                            relationships: saved.model.relationships || []
+                        };
+                        renderModelsSidebar();
+                        console.log('Loaded semantic model from Supabase:', saved.id);
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Failed to load semantic model from Supabase:', err);
+                }
+            }
+
+            // Fallback: localStorage
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
                 try {
@@ -227,49 +1101,264 @@
                 } catch (e) {
                     console.error('Failed to load semantic model:', e);
                     document.getElementById('models-list').innerHTML =
-                        '<p class="text-xs text-red-400 p-2">Failed to load models</p>';
+                        '<div class="sidebar-empty"><p>Failed to load models</p></div>';
                 }
             } else {
                 document.getElementById('models-list').innerHTML =
-                    '<p class="text-xs text-gray-400 italic p-2">No semantic model found. <a href="semantic_layer_setup.html" class="text-primary hover:underline">Generate one</a></p>';
+                    `<div class="sidebar-empty">
+                        <span class="material-symbols-outlined">table_chart</span>
+                        <p>No semantic model found. <a href="/semantic_layer_setup.html${projectId ? '?project_id=' + projectId : ''}" style="color:var(--electric-blue);">Generate one</a></p>
+                    </div>`;
             }
         }
 
-        // Render models in sidebar
         function renderModelsSidebar() {
             const container = document.getElementById('models-list');
             if (!semanticModel?.tables?.length) {
-                container.innerHTML = '<p class="text-xs text-gray-400 italic p-2">No tables in model</p>';
+                container.innerHTML = '<div class="sidebar-empty"><p>No tables in model</p></div>';
                 return;
             }
 
-            container.innerHTML = semanticModel.tables.map(table => `
-                <div class="mb-2">
-                    <div class="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer">
-                        <span class="material-symbols-outlined text-primary text-[16px]">table_chart</span>
-                        ${table.name || table.table_id?.split('.').pop() || 'Unknown'}
+            container.innerHTML = semanticModel.tables.map(table => {
+                const name = table.name || table.table_id?.split('.').pop() || 'Unknown';
+                return `
+                    <div style="margin-bottom:4px;">
+                        <div class="sidebar-item" style="cursor:default;">
+                            <span class="material-symbols-outlined" style="color:var(--electric-blue);">table_chart</span>
+                            <span class="sidebar-item-name">${name}</span>
+                        </div>
+                        <div class="model-columns">
+                            ${table.columns.slice(0, 4).map(col => `
+                                <div class="model-column">
+                                    <span>${col.name}</span>
+                                    <span class="model-column-type">${(col.semantic_type || 'DIM').toUpperCase().slice(0, 3)}</span>
+                                </div>
+                            `).join('')}
+                            ${table.columns.length > 4 ? `<div class="model-column"><span>+${table.columns.length - 4} more</span></div>` : ''}
+                        </div>
                     </div>
-                    <ul class="ml-6 mt-1 space-y-0.5 border-l border-gray-100 dark:border-gray-800 pl-2">
-                        ${table.columns.slice(0, 5).map(col => `
-                            <li class="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 py-0.5 px-1">
-                                <span>${col.name}</span>
-                                <span class="font-mono text-[9px] text-gray-400">${col.semantic_type?.toUpperCase().slice(0, 3) || 'DIM'}</span>
-                            </li>
-                        `).join('')}
-                        ${table.columns.length > 5 ? `<li class="text-[10px] text-gray-400 px-1">+${table.columns.length - 5} more</li>` : ''}
-                    </ul>
+                `;
+            }).join('');
+        }
+
+        // ═══════════════════════════════════════════
+        // CHAT SESSIONS (Supabase)
+        // ═══════════════════════════════════════════
+        async function loadChatSessions() {
+            if (!projectId) {
+                document.getElementById('sessions-list').innerHTML =
+                    '<div class="sidebar-empty"><p>No project selected</p></div>';
+                return;
+            }
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('chat_sessions')
+                    .select('id, name, created_at, updated_at')
+                    .eq('project_id', projectId)
+                    .order('updated_at', { ascending: false });
+
+                if (error) throw error;
+
+                renderSessionsList(data || []);
+            } catch (err) {
+                console.error('Failed to load chat sessions:', err);
+            }
+        }
+
+        function renderSessionsList(sessions) {
+            const container = document.getElementById('sessions-list');
+
+            if (!sessions.length) {
+                container.innerHTML = `
+                    <div class="sidebar-empty">
+                        <span class="material-symbols-outlined">chat_bubble</span>
+                        <p>No sessions yet</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = sessions.map(s => `
+                <div class="sidebar-item ${s.id === currentSessionId ? 'active' : ''}"
+                     onclick="switchSession('${s.id}')">
+                    <span class="material-symbols-outlined">chat_bubble_outline</span>
+                    <div class="sidebar-item-info">
+                        <div class="sidebar-item-name">${escapeHtml(s.name)}</div>
+                        <div class="sidebar-item-meta">${formatDate(s.updated_at || s.created_at)}</div>
+                    </div>
+                    <span class="material-symbols-outlined delete-btn"
+                          onclick="event.stopPropagation();deleteSession('${s.id}')">delete</span>
                 </div>
             `).join('');
         }
 
-        // Load artifacts from API
-        async function loadArtifacts() {
+        async function createNewSession() {
+            if (!projectId) return;
+            const user = currentUser || await getCurrentUser();
+
             try {
-                const response = await fetch(`${API_BASE}/chat/artifacts`);
-                const artifacts = await response.json();
-                renderArtifacts(artifacts);
-            } catch (e) {
-                console.error('Failed to load artifacts:', e);
+                const sessionData = {
+                    project_id: projectId,
+                    name: 'New Chat',
+                    messages: [],
+                };
+                if (semanticModelId) sessionData.semantic_model_id = semanticModelId;
+                if (user?.id) sessionData.created_by = user.id;
+
+                const { data, error } = await supabaseClient
+                    .from('chat_sessions')
+                    .insert([sessionData])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                currentSessionId = data.id;
+                chatMessages = [];
+                renderChatMessages();
+                loadChatSessions();
+
+                // Clear editor and results for fresh start
+                document.getElementById('sql-editor').value = '';
+                currentSQL = '';
+                lastQueryResults = null;
+                document.getElementById('results-container').innerHTML =
+                    '<div class="results-empty">Run a query to see results</div>';
+                document.getElementById('save-artifact-btn').disabled = true;
+                document.getElementById('results-meta').textContent = '';
+                document.getElementById('query-status').innerHTML =
+                    '<div class="status-dot"></div>Ready';
+            } catch (err) {
+                console.error('Failed to create session:', err);
+            }
+        }
+
+        async function switchSession(sessionId) {
+            if (sessionId === currentSessionId) return;
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('chat_sessions')
+                    .select('*')
+                    .eq('id', sessionId)
+                    .single();
+
+                if (error) throw error;
+
+                currentSessionId = data.id;
+                chatMessages = data.messages || [];
+                renderChatMessages();
+                loadChatSessions(); // re-render to update active state
+            } catch (err) {
+                console.error('Failed to switch session:', err);
+            }
+        }
+
+        async function saveSessionMessages() {
+            // Convenience wrapper using current globals
+            await saveSessionMessagesFor(currentSessionId, chatMessages);
+        }
+
+        async function saveSessionMessagesFor(sessionId, messages) {
+            if (!sessionId) return;
+
+            // Auto-name the session from the first user message
+            const firstUserMsg = messages.find(m => m.role === 'user');
+            const sessionName = firstUserMsg
+                ? firstUserMsg.content.slice(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '')
+                : 'New Chat';
+
+            try {
+                await supabaseClient
+                    .from('chat_sessions')
+                    .update({
+                        messages: messages,
+                        name: sessionName
+                    })
+                    .eq('id', sessionId);
+            } catch (err) {
+                console.error('Failed to save session messages:', err);
+            }
+        }
+
+        let _pendingDeleteSession = null;
+        async function deleteSession(sessionId) {
+            if (_pendingDeleteSession !== sessionId) {
+                _pendingDeleteSession = sessionId;
+                showToast('Click delete again to confirm', 'error');
+                setTimeout(function () { _pendingDeleteSession = null; }, 3000);
+                return;
+            }
+            _pendingDeleteSession = null;
+            try {
+                await supabaseClient
+                    .from('chat_sessions')
+                    .delete()
+                    .eq('id', sessionId);
+                if (sessionId === currentSessionId) {
+                    currentSessionId = null;
+                    chatMessages = [];
+                    renderChatMessages();
+                }
+                loadChatSessions();
+                showToast('Session deleted', 'success');
+            } catch (err) {
+                console.error('Failed to delete session:', err);
+            }
+        }
+
+        function renderChatMessages() {
+            const container = document.getElementById('chat-messages');
+
+            if (!chatMessages.length) {
+                container.innerHTML = `
+                        <div class="chat-welcome" >
+                        <span class="material-symbols-outlined">chat</span>
+                        <p>Ask me anything about your data!</p>
+                    </div> `;
+                return;
+            }
+
+            container.innerHTML = chatMessages.map((msg, i) => {
+                if (msg.role === 'user') {
+                    return `
+                        <div class="msg-user" >
+                        <div class="msg-user-bubble">${escapeHtml(msg.content)}</div>
+                        </div> `;
+                } else {
+                    return `
+                        <div class="msg-assistant" >
+                            <div class="msg-avatar">
+                                <span class="material-symbols-outlined">auto_awesome</span>
+                            </div>
+                            <div class="msg-assistant-bubble">
+                                ${renderMarkdown(msg.content)}
+                                ${msg.sql ? '<div class="msg-sql-badge">✓ SQL generated in editor</div>' : ''}
+                            </div>
+                        </div> `;
+                }
+            }).join('');
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // ═══════════════════════════════════════════
+        // ARTIFACTS (Supabase)
+        // ═══════════════════════════════════════════
+        async function loadArtifacts() {
+            if (!projectId) return;
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('chat_artifacts')
+                    .select('id, title, sql, created_at')
+                    .eq('project_id', projectId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                renderArtifacts(data || []);
+            } catch (err) {
+                console.error('Failed to load artifacts:', err);
             }
         }
 
@@ -278,22 +1367,25 @@
             document.getElementById('artifacts-count').textContent = artifacts.length;
 
             if (!artifacts.length) {
-                container.innerHTML = '<p class="text-xs text-gray-400 italic p-2">No artifacts saved</p>';
+                container.innerHTML = `
+                        <div class="sidebar-empty" >
+                        <span class="material-symbols-outlined">bookmark</span>
+                        <p>No artifacts saved</p>
+                    </div> `;
                 return;
             }
 
             container.innerHTML = artifacts.map(art => `
-                <div class="flex items-center gap-2 px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer group" onclick="loadArtifact('${art.id}', \`${art.sql.replace(/`/g, '\\`')}\`)">
-                    <span class="material-symbols-outlined text-blue-500 text-[18px]">table_chart</span>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">${art.title}</div>
-                        <div class="text-[10px] text-gray-400">${new Date(art.created_at).toLocaleDateString()}</div>
+                        <div class="sidebar-item" onclick="loadArtifact('${art.id}', \`${art.sql.replace(/`/g, '\\`')}\`)" >
+                    <span class="material-symbols-outlined" style="color:var(--electric-blue);">table_chart</span>
+                    <div class="sidebar-item-info">
+                        <div class="sidebar-item-name">${escapeHtml(art.title)}</div>
+                        <div class="sidebar-item-meta">${formatDate(art.created_at)}</div>
                     </div>
-                    <button onclick="event.stopPropagation();deleteArtifact('${art.id}')" class="hidden group-hover:block text-gray-400 hover:text-red-500">
-                        <span class="material-symbols-outlined text-[14px]">delete</span>
-                    </button>
+                    <span class="material-symbols-outlined delete-btn"
+                          onclick="event.stopPropagation();deleteArtifact('${art.id}')">delete</span>
                 </div>
-            `).join('');
+                        `).join('');
         }
 
         function loadArtifact(id, sql) {
@@ -301,48 +1393,120 @@
             currentSQL = sql;
         }
 
-        async function deleteArtifact(id) {
-            if (!confirm('Delete this artifact?')) return;
+        function saveAsArtifact() {
+            if (!lastQueryResults || !currentSQL || !projectId) {
+                showToast('No query results to save. Run a query first.', 'error');
+                return;
+            }
+            // Show the inline modal instead of prompt()
+            const modal = document.getElementById('artifact-modal');
+            const input = document.getElementById('artifact-name-input');
+            input.value = 'Query Result';
+            modal.classList.add('active');
+            setTimeout(() => { input.focus(); input.select(); }, 50);
+        }
+
+        function closeArtifactModal() {
+            document.getElementById('artifact-modal').classList.remove('active');
+        }
+
+        async function confirmSaveArtifact() {
+            const title = document.getElementById('artifact-name-input').value.trim();
+            if (!title) return;
+
+            closeArtifactModal();
+
+            const user = currentUser || await getCurrentUser();
+
+            const artifact = {
+                project_id: projectId,
+                title: title,
+                sql: currentSQL,
+                data: lastQueryResults
+            };
+            if (currentSessionId) artifact.session_id = currentSessionId;
+            if (user?.id) artifact.created_by = user.id;
+
             try {
-                await fetch(`${API_BASE}/chat/artifacts/${id}`, { method: 'DELETE' });
+                const { error } = await supabaseClient
+                    .from('chat_artifacts')
+                    .insert([artifact]);
+
+                if (error) throw error;
+
+                showToast('Artifact saved!', 'success');
                 loadArtifacts();
-            } catch (e) {
-                console.error('Failed to delete artifact:', e);
+            } catch (err) {
+                console.error('Failed to save artifact:', err);
+                showToast('Failed to save artifact: ' + (err.message || JSON.stringify(err)), 'error');
             }
         }
 
-        // Chat functionality
-        let currentStreamingId = null;  // Track current streaming message
+        function showToast(message, type = 'success') {
+            // Remove any existing toast
+            const existing = document.getElementById('toast-notification');
+            if (existing) existing.remove();
 
-        function addMessage(content, isUser = false, isStreaming = false) {
+            const toast = document.createElement('div');
+            toast.id = 'toast-notification';
+            toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter,sans-serif;z-index:2000;color:white;box-shadow:0 4px 20px rgba(0,0,0,0.3);background:' + (type === 'success' ? '#059669' : '#DC2626');
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        let _pendingDeleteArtifact = null;
+        async function deleteArtifact(id) {
+            if (_pendingDeleteArtifact !== id) {
+                _pendingDeleteArtifact = id;
+                showToast('Click delete again to confirm', 'error');
+                setTimeout(function () { _pendingDeleteArtifact = null; }, 3000);
+                return;
+            }
+            _pendingDeleteArtifact = null;
+            try {
+                await supabaseClient
+                    .from('chat_artifacts')
+                    .delete()
+                    .eq('id', id);
+                loadArtifacts();
+                showToast('Artifact deleted', 'success');
+            } catch (err) {
+                console.error('Failed to delete artifact:', err);
+            }
+        }
+
+        // ═══════════════════════════════════════════
+        // CHAT MESSAGING
+        // ═══════════════════════════════════════════
+        function addMessageBubble(content, isUser = false, isStreaming = false) {
             const container = document.getElementById('chat-messages');
+            // Remove welcome screen
+            const welcome = container.querySelector('.chat-welcome');
+            if (welcome) welcome.remove();
+
             const id = isStreaming ? `streaming-${Date.now()}` : `msg-${Date.now()}`;
 
             if (isUser) {
                 container.innerHTML += `
-                    <div class="flex flex-col items-end gap-1">
-                        <div class="bg-primary text-white px-4 py-2.5 rounded-2xl rounded-tr-sm shadow-sm text-sm max-w-[90%]">
-                            ${content}
-                        </div>
-                    </div>
-                `;
+                        <div class="msg-user" >
+                            <div class="msg-user-bubble">${escapeHtml(content)}</div>
+                    </div> `;
             } else {
                 container.innerHTML += `
-                    <div id="${id}" class="flex gap-3">
-                        <div class="size-6 rounded-full bg-white dark:bg-gray-800 border border-gray-200 flex items-center justify-center shrink-0 mt-1">
-                            <span class="material-symbols-outlined text-primary text-[14px]">auto_awesome</span>
+                        <div id="${id}" class="msg-assistant" >
+                        <div class="msg-avatar">
+                            <span class="material-symbols-outlined">auto_awesome</span>
                         </div>
-                        <div class="flex-1">
-                            <div class="text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-[#1a202c] p-3 rounded-2xl rounded-tl-sm border border-gray-100 shadow-sm">
-                                ${content}
-                            </div>
-                        </div>
-                    </div>
-                `;
-                if (isStreaming) {
-                    currentStreamingId = id;  // Store the ID for updates
-                }
+                        <div class="msg-assistant-bubble">${content}</div>
+                    </div> `;
+                if (isStreaming) currentStreamingId = id;
             }
+
             container.scrollTop = container.scrollHeight;
             return id;
         }
@@ -350,14 +1514,12 @@
         function updateStreamingMessage(content) {
             if (currentStreamingId) {
                 const el = document.getElementById(currentStreamingId);
-                if (el) {
-                    el.querySelector('.text-sm').innerHTML = content;
-                }
+                if (el) el.querySelector('.msg-assistant-bubble').innerHTML = content;
             }
         }
 
         function finalizeStreamingMessage() {
-            currentStreamingId = null;  // Clear so next message gets a new ID
+            currentStreamingId = null;
         }
 
         async function sendMessage() {
@@ -366,18 +1528,39 @@
             if (!message) return;
 
             input.value = '';
-            addMessage(message, true);
 
-            // Add streaming placeholder with unique ID
-            addMessage('<span class="text-gray-400">Thinking...</span>', false, true);
+            // Auto-create session if none active
+            if (!currentSessionId && projectId) {
+                await createNewSession();
+            }
+
+            // ── Snapshot the session context at send time ──
+            // This prevents a race condition where switching sessions mid-stream
+            // causes the reply to be saved to the wrong session.
+            const sendSessionId = currentSessionId;
+            const sendMessages = chatMessages; // reference to THIS session's array
+
+            // Add user message to state
+            sendMessages.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
+            addMessageBubble(message, true);
+
+            // Add streaming placeholder
+            addMessageBubble('<span style="opacity:0.4;">Thinking...</span>', false, true);
 
             try {
-                const response = await fetch(`${API_BASE}/chat/query`, {
+                // Build history for context (exclude timestamps for the API)
+                const historyForAPI = sendMessages
+                    .filter(m => m.role && m.content)
+                    .map(m => ({ role: m.role, content: m.content, sql: m.sql || null }));
+
+                const response = await fetch(`${API_BASE} /chat/query`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: message,
-                        semantic_model: semanticModel
+                        semantic_model: semanticModel,
+                        session_id: sendSessionId,
+                        history: historyForAPI.slice(0, -1) // exclude the message we just added
                     })
                 });
 
@@ -399,43 +1582,72 @@
                                 const data = JSON.parse(line.slice(6));
                                 if (data.type === 'text') {
                                     fullText += data.content;
-                                    updateStreamingMessage(fullText.replace(/\n/g, '<br>'));
+                                    // Only update the UI if still on the same session
+                                    if (currentSessionId === sendSessionId) {
+                                        updateStreamingMessage(renderMarkdown(fullText));
+                                    }
                                 } else if (data.type === 'sql') {
                                     generatedSQL = data.content;
-                                    document.getElementById('sql-editor').value = generatedSQL;
-                                    currentSQL = generatedSQL;
+                                    if (currentSessionId === sendSessionId) {
+                                        document.getElementById('sql-editor').value = generatedSQL;
+                                        currentSQL = generatedSQL;
+                                    }
                                 } else if (data.type === 'error') {
-                                    updateStreamingMessage(`<span class="text-red-500">${data.content}</span>`);
+                                    if (currentSessionId === sendSessionId) {
+                                        updateStreamingMessage(`<span style="color:#DC2626;" > ${data.content}</span> `);
+                                    }
                                 }
                             } catch (e) { }
                         }
                     }
                 }
 
-                // Finalize message
-                if (generatedSQL) {
-                    updateStreamingMessage(fullText.replace(/\n/g, '<br>') +
-                        '<div class="mt-2 pt-2 border-t border-gray-100"><span class="text-xs text-green-600">✓ SQL generated in editor</span></div>');
+                // Finalize streaming UI (only if still on same session)
+                if (currentSessionId === sendSessionId) {
+                    if (generatedSQL) {
+                        updateStreamingMessage(renderMarkdown(fullText) +
+                            '<div class="msg-sql-badge">✓ SQL generated in editor</div>');
+                    }
+                    finalizeStreamingMessage();
                 }
-                finalizeStreamingMessage();  // Clear the streaming ID
+
+                // Save assistant message to the ORIGINAL session's messages array
+                sendMessages.push({
+                    role: 'assistant',
+                    content: fullText,
+                    sql: generatedSQL || null,
+                    timestamp: new Date().toISOString()
+                });
+
+                // Persist to the ORIGINAL session in Supabase (not currentSessionId)
+                await saveSessionMessagesFor(sendSessionId, sendMessages);
+                loadChatSessions(); // refresh sidebar
 
             } catch (e) {
-                updateStreamingMessage(`<span class="text-red-500">Error: ${e.message}</span>`);
-                finalizeStreamingMessage();
+                if (currentSessionId === sendSessionId) {
+                    updateStreamingMessage(`<span style="color:#DC2626;" > Error: ${e.message}</span> `);
+                    finalizeStreamingMessage();
+                }
             }
         }
 
-        // SQL execution
+        // ═══════════════════════════════════════════
+        // SQL EXECUTION
+        // ═══════════════════════════════════════════
         async function executeQuery() {
             const sql = document.getElementById('sql-editor').value.trim();
             if (!sql) return;
 
             currentSQL = sql;
-            document.getElementById('query-status').innerHTML = '<span class="text-yellow-500">Running...</span>';
-            document.getElementById('results-container').innerHTML = '<div class="flex items-center justify-center h-full text-gray-400">Executing query...</div>';
+            lastQueryResults = null;
+            document.getElementById('save-artifact-btn').disabled = true;
+            document.getElementById('query-status').innerHTML =
+                '<div class="status-dot running"></div>Running...';
+            document.getElementById('results-container').innerHTML =
+                '<div class="results-empty">Executing query...</div>';
 
             try {
-                const response = await fetch(`${API_BASE}/chat/execute`, {
+                const response = await fetch(`${API_BASE} /chat/execute`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sql })
@@ -446,22 +1658,30 @@
                 if (response.ok && result.success) {
                     lastQueryResults = result.data;
                     renderResults(result.data);
-                    document.getElementById('save-artifact-btn').classList.remove('hidden');
-                    document.getElementById('query-status').innerHTML = '<span class="flex items-center gap-1"><div class="size-2 rounded-full bg-green-500"></div>Complete</span>';
+                    document.getElementById('save-artifact-btn').disabled = false;
+                    document.getElementById('query-status').innerHTML =
+                        '<div class="status-dot"></div>Complete';
                 } else {
                     const errorMsg = result.detail || result.error || 'Query failed';
-                    document.getElementById('results-container').innerHTML = `<div class="p-4 text-red-500">${errorMsg}</div>`;
-                    document.getElementById('query-status').innerHTML = '<span class="text-red-500">Error</span>';
+                    document.getElementById('results-container').innerHTML =
+                        `<div class="results-error" > ${errorMsg}</div> `;
+                    document.getElementById('query-status').innerHTML =
+                        '<div class="status-dot error"></div>Error';
+                    document.getElementById('save-artifact-btn').disabled = true;
                 }
             } catch (e) {
-                document.getElementById('results-container').innerHTML = `<div class="p-4 text-red-500">${e.message}</div>`;
-                document.getElementById('query-status').innerHTML = '<span class="text-red-500">Error</span>';
+                document.getElementById('results-container').innerHTML =
+                    `<div class="results-error" > ${e.message}</div> `;
+                document.getElementById('query-status').innerHTML =
+                    '<div class="status-dot error"></div>Error';
+                document.getElementById('save-artifact-btn').disabled = true;
             }
         }
 
         function renderResults(data) {
             if (!data || !data.length) {
-                document.getElementById('results-container').innerHTML = '<div class="p-4 text-gray-500">No results</div>';
+                document.getElementById('results-container').innerHTML =
+                    '<div class="results-empty">No results</div>';
                 return;
             }
 
@@ -469,22 +1689,22 @@
             document.getElementById('results-meta').textContent = `${data.length} rows`;
 
             document.getElementById('results-container').innerHTML = `
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-gray-50 dark:bg-[#1a202c] sticky top-0">
+                        <table class="results-table" >
+                    <thead>
                         <tr>
-                            <th class="py-2 px-4 text-xs font-semibold text-gray-600 border-b w-12 text-center">#</th>
-                            ${columns.map(col => `<th class="py-2 px-4 text-xs font-semibold text-gray-600 border-b">${col}</th>`).join('')}
+                            <th class="row-num">#</th>
+                            ${columns.map(col => `<th>${col}</th>`).join('')}
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100 text-sm font-mono">
+                    <tbody>
                         ${data.slice(0, 100).map((row, i) => `
-                            <tr class="hover:bg-blue-50/50">
-                                <td class="py-1.5 px-4 text-xs text-gray-400 text-center">${i + 1}</td>
-                                ${columns.map(col => `<td class="py-1.5 px-4">${row[col] ?? ''}</td>`).join('')}
+                            <tr>
+                                <td class="row-num">${i + 1}</td>
+                                ${columns.map(col => `<td>${row[col] ?? ''}</td>`).join('')}
                             </tr>
                         `).join('')}
                     </tbody>
-                </table>
+                </table >
             `;
         }
 
@@ -493,35 +1713,39 @@
             currentSQL = '';
         }
 
-        async function saveAsArtifact() {
-            if (!lastQueryResults || !currentSQL) return;
-
-            const title = prompt('Enter a name for this artifact:', 'Query Result');
-            if (!title) return;
-
-            try {
-                const response = await fetch(`${API_BASE}/chat/artifacts`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title,
-                        sql: currentSQL,
-                        data: lastQueryResults
-                    })
-                });
-
-                if (response.ok) {
-                    loadArtifacts();
-                    alert('Artifact saved!');
+        // ─── Utilities ───
+        function renderMarkdown(text) {
+            if (typeof marked !== 'undefined') {
+                try {
+                    return marked.parse(text, { breaks: true, gfm: true });
+                } catch (e) {
+                    return text.replace(/\n/g, '<br>');
                 }
-            } catch (e) {
-                console.error('Failed to save artifact:', e);
             }
+            return text.replace(/\n/g, '<br>');
         }
 
-        // Initialize
-        loadSemanticModel();
-        loadArtifacts();
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+
+        // ─── Initialize ───
+        async function init() {
+            await getCurrentUser();
+            loadSemanticModel();
+            loadChatSessions();
+            loadArtifacts();
+        }
+
+        init();
     </script>
 </body>
 

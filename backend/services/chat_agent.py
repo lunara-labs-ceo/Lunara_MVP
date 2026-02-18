@@ -1,7 +1,8 @@
 """
-Chat Agent Service using Google ADK with SQLite session persistence.
+Chat Agent Service using Google ADK with per-session persistence.
 
 This agent generates SQL queries from natural language using the semantic model context.
+Each Supabase chat session maps 1:1 to an ADK session for isolated conversation context.
 """
 from __future__ import annotations
 
@@ -35,12 +36,12 @@ from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 
 
-# SQLite database path
+# SQLite database path for ADK session persistence
 DB_PATH = Path(__file__).parent.parent / "lunara.db"
 
 
 class ChatAgentService:
-    """Service for text-to-SQL chat using LLM agent with persistent sessions."""
+    """Service for text-to-SQL chat using LLM agent with per-session persistence."""
     
     def __init__(self, bigquery_service):
         """Initialize the chat agent.
@@ -50,9 +51,10 @@ class ChatAgentService:
         """
         self.bq_service = bigquery_service
         self._runner: Optional[Runner] = None
-        self._session_id: Optional[str] = None
         self._semantic_model: Optional[Dict] = None
         self._generated_sql: Optional[str] = None
+        # Track which ADK sessions we've initialized (keyed by session_id)
+        self._active_sessions: Dict[str, str] = {}  # supabase_session_id -> adk_session_id
         
         # Create the agent with tools
         self.agent = Agent(
@@ -71,14 +73,14 @@ class ChatAgentService:
             ],
         )
         
-        # SQLite session service for persistence
+        # SQLite session service for ADK persistence
         self._session_service = DatabaseSessionService(
             db_url=f"sqlite:///{DB_PATH}"
         )
     
     def _get_system_instruction(self) -> str:
         """Get the system instruction for the agent."""
-        return """You are an expert SQL analyst for the Lunara BI platform.
+        return """You are an expert SQL analyst for the Lunara.
 
 Your task is to generate accurate BigQuery SQL queries from natural language questions.
 
@@ -104,41 +106,106 @@ Guidelines:
 - Use proper BigQuery SQL syntax with backticks for table names
 - Be concise in your explanations"""
 
-    async def initialize(self, user_id: str = "default"):
-        """Initialize the runner and session with persistence."""
+    def _build_history_prompt(self, history: List[Dict]) -> str:
+        """Build a conversation history prompt to inject context for resumed sessions."""
+        if not history:
+            return ""
+        
+        lines = ["\n\n--- CONVERSATION HISTORY (for context) ---"]
+        for msg in history:
+            role = msg.get("role", "user").upper()
+            content = msg.get("content", "")
+            sql = msg.get("sql")
+            lines.append(f"{role}: {content}")
+            if sql:
+                lines.append(f"[Generated SQL: {sql}]")
+        lines.append("--- END HISTORY ---\n")
+        return "\n".join(lines)
+
+    async def _ensure_runner(self):
+        """Initialize the runner if not already created."""
         if self._runner is None:
             self._runner = Runner(
                 agent=self.agent,
                 app_name="lunara_chat",
                 session_service=self._session_service
             )
+
+    async def _get_or_create_session(
+        self,
+        session_id: Optional[str] = None,
+        user_id: str = "default"
+    ) -> str:
+        """Get or create an ADK session for the given Supabase session ID.
+        
+        Args:
+            session_id: Supabase chat session UUID. If None, creates a default session.
+            user_id: User identifier for the ADK session.
             
-            # Try to get existing session or create new one
-            try:
-                sessions = await self._session_service.list_sessions(
-                    app_name="lunara_chat",
-                    user_id=user_id
-                )
-                if sessions:
-                    self._session_id = sessions[0].id
-                    print(f"✓ Restored existing session: {self._session_id}")
-                else:
-                    session = await self._session_service.create_session(
-                        app_name="lunara_chat",
-                        user_id=user_id,
-                        state={"messages": []}
-                    )
-                    self._session_id = session.id
-                    print(f"✓ Created new session: {self._session_id}")
-            except Exception as e:
-                # Fallback: create new session
+        Returns:
+            The ADK session ID to use.
+        """
+        await self._ensure_runner()
+        
+        # Use session_id as the key, or "default" 
+        key = session_id or "default"
+        
+        # Already tracked in this server lifecycle
+        if key in self._active_sessions:
+            return self._active_sessions[key]
+        
+        # Use the supabase session_id directly as the ADK session user_id
+        # so sessions are isolated per chat
+        adk_user = f"session_{key}"
+        
+        try:
+            # Check if ADK already has a session for this user
+            sessions = await self._session_service.list_sessions(
+                app_name="lunara_chat",
+                user_id=adk_user
+            )
+            if sessions:
+                adk_session_id = sessions[0].id
+                print(f"✓ Restored ADK session for {key}: {adk_session_id}")
+            else:
                 session = await self._session_service.create_session(
                     app_name="lunara_chat",
-                    user_id=user_id,
+                    user_id=adk_user,
                     state={"messages": []}
                 )
-                self._session_id = session.id
-                print(f"✓ Created new session (fallback): {self._session_id}")
+                adk_session_id = session.id
+                print(f"✓ Created new ADK session for {key}: {adk_session_id}")
+        except Exception as e:
+            session = await self._session_service.create_session(
+                app_name="lunara_chat",
+                user_id=adk_user,
+                state={"messages": []}
+            )
+            adk_session_id = session.id
+            print(f"✓ Created ADK session (fallback) for {key}: {adk_session_id}")
+        
+        self._active_sessions[key] = adk_session_id
+        return adk_session_id
+
+    async def reset_session(self, session_id: Optional[str] = None):
+        """Create a fresh ADK session for a new chat.
+        
+        Args:
+            session_id: Supabase session ID to reset.
+        """
+        await self._ensure_runner()
+        
+        key = session_id or "default"
+        adk_user = f"session_{key}"
+        
+        session = await self._session_service.create_session(
+            app_name="lunara_chat",
+            user_id=adk_user,
+            state={"messages": []}
+        )
+        self._active_sessions[key] = session.id
+        print(f"✓ Reset ADK session for {key}: {session.id}")
+        return session.id
 
     def set_semantic_model(self, model: Dict):
         """Set the semantic model context for query generation."""
@@ -321,7 +388,9 @@ Guidelines:
     async def chat(
         self,
         message: str,
-        semantic_model: Optional[Dict] = None
+        semantic_model: Optional[Dict] = None,
+        session_id: Optional[str] = None,
+        history: Optional[List[Dict]] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Process a chat message and generate SQL.
@@ -329,11 +398,13 @@ Guidelines:
         Args:
             message: User's natural language question
             semantic_model: Optional semantic model to use for context
+            session_id: Supabase session ID for isolated conversation context
+            history: Previous messages in this session for context injection
             
         Yields:
             Stream events with response text and generated SQL.
         """
-        await self.initialize()
+        adk_session_id = await self._get_or_create_session(session_id)
         
         if semantic_model:
             self.set_semantic_model(semantic_model)
@@ -341,17 +412,39 @@ Guidelines:
         # Reset generated SQL
         self._generated_sql = None
         
+        # If we have history and this is a fresh ADK session (server restarted),
+        # prepend history context so the agent knows what was discussed before
+        user_message = message
+        if history and len(history) > 0:
+            # Check if this ADK session has prior turns by seeing if it's newly created
+            try:
+                adk_user = f"session_{session_id or 'default'}"
+                session_obj = await self._session_service.get_session(
+                    app_name="lunara_chat",
+                    user_id=adk_user,
+                    session_id=adk_session_id
+                )
+                # If session has no events/turns, inject history
+                has_turns = bool(session_obj and hasattr(session_obj, 'events') and session_obj.events)
+                if not has_turns:
+                    history_context = self._build_history_prompt(history)
+                    user_message = f"{history_context}\nNew question: {message}"
+            except Exception:
+                # If we can't check, inject history to be safe
+                history_context = self._build_history_prompt(history)
+                user_message = f"{history_context}\nNew question: {message}"
+        
         # Create user message
         user_content = types.Content(
             role="user",
-            parts=[types.Part(text=message)]
+            parts=[types.Part(text=user_message)]
         )
         
         # Stream the agent response
         try:
             async for event in self._runner.run_async(
-                session_id=self._session_id,
-                user_id="default",
+                session_id=adk_session_id,
+                user_id=f"session_{session_id or 'default'}",
                 new_message=user_content
             ):
                 if event.content and event.content.parts:
@@ -400,3 +493,4 @@ Guidelines:
                 "success": False,
                 "error": str(e)
             }
+

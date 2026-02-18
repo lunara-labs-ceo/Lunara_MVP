@@ -676,7 +676,8 @@
                     below.</p>
             </div>
             <div class="header-actions">
-                <button onclick="window.location.href='chat_agent.html'" class="btn btn-success">
+                <button onclick="window.location.href='chat_agent.html' + (projectId ? '?project_id=' + projectId : '')"
+                    class="btn btn-success">
                     <span class="material-symbols-outlined">chat</span>
                     Query Agent
                 </button>
