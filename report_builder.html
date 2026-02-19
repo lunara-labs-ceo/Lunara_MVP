@@ -1,178 +1,498 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lunara - Report Builder</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/sql.min.js"></script>
     <style>
-        :root {
-            --bg-primary: #fafafa;
-            --bg-secondary: #ffffff;
-            --bg-sidebar: #f5f5f5;
-            --border-color: #e5e5e5;
-            --text-primary: #171717;
-            --text-secondary: #737373;
-            --accent-color: #135bec;
-            --accent-hover: #114bc7;
-            --success-color: #22c55e;
-            --error-color: #ef4444;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            --radius-sm: 6px;
-            --radius-md: 8px;
-            --radius-lg: 12px;
-        }
-
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        :root {
+            --bg-stone: #EAE9E5;
+            --border-stone: #BAB8B0;
+            --electric-blue: #0033FF;
+            --electric-blue-hover: #0022CC;
+            --dark-text: #1A1A1A;
+            --success-green: #059669;
+            --error-red: #DC2626;
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-stone);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
-        /* Header */
-        .header {
-            height: 60px;
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            padding: 0 24px;
-            gap: 16px;
+        /* ─── Header ─── */
+        header {
+            background: var(--bg-stone);
+            border-bottom: 1px solid var(--border-stone);
+            position: sticky;
+            top: 0;
+            z-index: 50;
             flex-shrink: 0;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: stretch;
+            height: 64px;
         }
 
         .logo {
             display: flex;
             align-items: center;
             gap: 8px;
-            color: var(--accent-color);
-            font-weight: 700;
-            font-size: 20px;
+            padding: 0 24px;
+            border-right: 1px solid var(--border-stone);
+            text-decoration: none;
+            color: var(--dark-text);
         }
 
         .logo-icon {
-            width: 28px;
-            height: 28px;
-            background: var(--accent-color);
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
+            width: 24px;
+            height: 24px;
+            background: var(--electric-blue);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
         }
 
         .breadcrumb {
             display: flex;
             align-items: center;
+            padding: 0 24px;
             gap: 8px;
-            color: var(--text-secondary);
             font-size: 14px;
+            color: var(--dark-text);
         }
 
         .breadcrumb a {
-            color: var(--text-secondary);
+            color: var(--dark-text);
             text-decoration: none;
+            opacity: 0.6;
+            transition: opacity 0.2s;
         }
 
         .breadcrumb a:hover {
-            color: var(--text-primary);
+            opacity: 1;
+        }
+
+        .breadcrumb-separator {
+            opacity: 0.4;
+        }
+
+        .breadcrumb-current {
+            font-weight: 500;
         }
 
         .header-spacer {
             flex: 1;
         }
 
-        .report-title {
-            font-size: 16px;
-            font-weight: 500;
-            border: none;
-            background: transparent;
-            text-align: center;
-            min-width: 200px;
-            padding: 8px 16px;
-            border-radius: var(--radius-md);
-            transition: background 0.2s;
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 24px;
         }
 
-        .report-title:hover,
-        .report-title:focus {
-            background: var(--bg-primary);
-            outline: none;
-        }
-
+        /* ─── Buttons ─── */
         .btn {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 8px 16px;
-            border-radius: var(--radius-md);
+            gap: 8px;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-family: inherit;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
-            border: none;
             transition: all 0.2s;
+            border: none;
+        }
+
+        .btn .material-symbols-outlined {
+            font-size: 18px;
         }
 
         .btn-primary {
-            background: var(--accent-color);
+            background: var(--electric-blue);
             color: white;
         }
 
         .btn-primary:hover {
-            background: var(--accent-hover);
+            background: var(--electric-blue-hover);
         }
 
         .btn-secondary {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
+            background: white;
+            border: 1px solid var(--border-stone);
+            color: var(--dark-text);
         }
 
         .btn-secondary:hover {
-            background: var(--bg-primary);
+            background: var(--bg-stone);
         }
 
         .btn:disabled {
-            opacity: 0.5;
+            opacity: 0.35;
             cursor: not-allowed;
+            pointer-events: none;
         }
 
-        /* Main Layout */
-        .main-container {
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-sm .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        .btn-icon {
+            padding: 6px;
+            border-radius: 6px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--dark-text);
+            opacity: 0.4;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            opacity: 1;
+            background: var(--bg-stone);
+        }
+
+        /* ─── Main Layout ─── */
+        main {
             flex: 1;
             display: flex;
             overflow: hidden;
         }
 
-        /* Document Canvas */
+        /* ─── Sidebar ─── */
+        .sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid var(--border-stone);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            position: relative;
+            transition: width 0.25s ease, opacity 0.2s ease;
+            overflow: hidden;
+        }
+
+        .sidebar.hidden {
+            width: 0;
+            opacity: 0;
+        }
+
+        .sidebar-toggle-btn {
+            position: absolute;
+            right: -13px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 20;
+            width: 24px;
+            height: 48px;
+            background: white;
+            border: 1px solid var(--border-stone);
+            border-left: none;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--electric-blue);
+            transition: background 0.15s;
+            padding: 0;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: var(--bg-stone);
+        }
+
+        .sidebar-toggle-btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .show-sidebar-btn {
+            display: none;
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 20;
+            width: 20px;
+            height: 48px;
+            background: white;
+            border: 1px solid var(--border-stone);
+            border-left: none;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            color: var(--electric-blue);
+            transition: background 0.15s;
+            padding: 0;
+        }
+
+        .show-sidebar-btn:hover {
+            background: var(--bg-stone);
+        }
+
+        .show-sidebar-btn .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+
+        .sidebar-section.artifacts {
+            border-top: 1px solid var(--border-stone);
+        }
+
+        .sidebar-section.collapsed {
+            flex: 0 0 auto;
+        }
+
+        .sidebar-section.collapsed .sidebar-list {
+            display: none;
+        }
+
+        .section-chevron {
+            font-size: 16px !important;
+            color: var(--dark-text) !important;
+            opacity: 0.4;
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .sidebar-section.collapsed .section-chevron {
+            transform: rotate(-90deg);
+        }
+
+        .sidebar-header.collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .sidebar-header.collapsible:hover {
+            background: var(--bg-stone);
+        }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-stone);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header .sidebar-title {
+            flex: 1;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--dark-text);
+            opacity: 0.5;
+        }
+
+        .sidebar-count {
+            font-size: 11px;
+            color: var(--dark-text);
+            opacity: 0.4;
+        }
+
+        .sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+        }
+
+        .sidebar-item:hover {
+            background: var(--bg-stone);
+        }
+
+        .sidebar-item.active {
+            background: rgba(0, 51, 255, 0.06);
+            border-color: rgba(0, 51, 255, 0.15);
+        }
+
+        .sidebar-item .material-symbols-outlined {
+            font-size: 18px;
+            color: var(--border-stone);
+            flex-shrink: 0;
+        }
+
+        .sidebar-item.active .material-symbols-outlined {
+            color: var(--electric-blue);
+        }
+
+        .sidebar-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sidebar-item-name {
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--dark-text);
+        }
+
+        .sidebar-item-meta {
+            font-size: 11px;
+            color: var(--dark-text);
+            opacity: 0.4;
+        }
+
+        .sidebar-item .delete-btn {
+            display: none;
+            font-size: 14px;
+            color: var(--dark-text);
+            opacity: 0.3;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .sidebar-item:hover .delete-btn {
+            display: block;
+        }
+
+        .sidebar-item .delete-btn:hover {
+            opacity: 1;
+            color: #DC2626;
+        }
+
+        .sidebar-empty {
+            padding: 24px;
+            text-align: center;
+            color: var(--dark-text);
+            opacity: 0.4;
+            font-size: 12px;
+        }
+
+        .sidebar-empty .material-symbols-outlined {
+            font-size: 28px;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        /* ─── Center Panel: Document Canvas ─── */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: white;
+            border-right: 1px solid var(--border-stone);
+            position: relative;
+        }
+
+        .document-toolbar {
+            height: 48px;
+            border-bottom: 1px solid var(--border-stone);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            flex-shrink: 0;
+        }
+
+        .document-toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .report-title-input {
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark-text);
+            padding: 6px 10px;
+            border-radius: 6px;
+            min-width: 200px;
+            transition: background 0.2s;
+        }
+
+        .report-title-input:hover {
+            background: var(--bg-stone);
+        }
+
+        .report-title-input:focus {
+            outline: none;
+            background: var(--bg-stone);
+            border: 1px solid var(--border-stone);
+        }
+
         .document-area {
             flex: 1;
             overflow-y: auto;
             padding: 40px;
             display: flex;
             justify-content: center;
+            background: var(--bg-stone);
         }
 
         .document {
             width: 100%;
             max-width: 800px;
-            background: var(--bg-secondary);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-md);
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
             min-height: calc(100vh - 180px);
             padding: 60px;
         }
@@ -184,25 +504,25 @@
             align-items: center;
             justify-content: center;
             height: 100%;
-            color: var(--text-secondary);
+            color: var(--dark-text);
+            opacity: 0.4;
             text-align: center;
         }
 
         .empty-state-icon {
             font-size: 64px;
             margin-bottom: 24px;
-            opacity: 0.5;
         }
 
         .empty-state h2 {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 600;
-            color: var(--text-primary);
             margin-bottom: 8px;
+            opacity: 1;
         }
 
         .empty-state p {
-            font-size: 16px;
+            font-size: 14px;
             margin-bottom: 24px;
         }
 
@@ -212,13 +532,13 @@
             margin-bottom: 32px;
             padding: 24px;
             border: 1px solid transparent;
-            border-radius: var(--radius-lg);
+            border-radius: 12px;
             transition: all 0.2s;
         }
 
         .content-item:hover {
-            border-color: var(--border-color);
-            background: var(--bg-primary);
+            border-color: var(--border-stone);
+            background: rgba(234, 233, 229, 0.3);
         }
 
         .content-item:hover .item-actions {
@@ -236,79 +556,79 @@
         .item-btn {
             width: 32px;
             height: 32px;
-            border-radius: var(--radius-sm);
+            border-radius: 6px;
             border: none;
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
+            background: white;
+            color: var(--dark-text);
+            opacity: 0.5;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.15s;
         }
 
         .item-btn:hover {
-            background: var(--error-color);
+            background: var(--error-red);
             color: white;
+            opacity: 1;
         }
 
-        /* Text Content */
-        .text-content {
+        /* Text / HTML Content */
+        .text-content,
+        .html-content {
             line-height: 1.7;
+            color: var(--dark-text);
         }
 
         .text-content h1,
+        .html-content h1,
         .text-content h2,
-        .text-content h3 {
-            margin-top: 24px;
-            margin-bottom: 16px;
+        .html-content h2,
+        .text-content h3,
+        .html-content h3 {
+            margin-top: 20px;
+            margin-bottom: 12px;
             font-weight: 600;
             line-height: 1.3;
         }
 
-        .text-content h1 { font-size: 28px; }
-        .text-content h2 { font-size: 22px; }
-        .text-content h3 { font-size: 18px; }
-
-        .text-content p {
-            margin-bottom: 16px;
+        .text-content h1,
+        .html-content h1 {
+            font-size: 24px;
         }
 
-        .text-content ul,
-        .text-content ol {
-            margin-bottom: 16px;
-            padding-left: 24px;
+        .text-content h2,
+        .html-content h2 {
+            font-size: 20px;
         }
 
-        .text-content li {
-            margin-bottom: 8px;
-        }
-
-        .text-content strong {
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        /* Full HTML Report Content */
-        .html-content {
-            line-height: 1.7;
-        }
-
-        .html-content h1,
-        .html-content h2,
+        .text-content h3,
         .html-content h3 {
-            margin-top: 20px;
-            margin-bottom: 12px;
-            line-height: 1.35;
+            font-size: 16px;
         }
 
+        .text-content p,
         .html-content p {
             margin-bottom: 12px;
         }
 
+        .text-content ul,
+        .text-content ol,
         .html-content ul,
         .html-content ol {
             margin-bottom: 12px;
-            padding-left: 22px;
+            padding-left: 24px;
+        }
+
+        .text-content li,
+        .html-content li {
+            margin-bottom: 6px;
+        }
+
+        .text-content strong,
+        .html-content strong {
+            font-weight: 600;
         }
 
         .html-content section {
@@ -322,6 +642,17 @@
         .html-content img {
             max-width: 100%;
             height: auto;
+            border-radius: 8px;
+        }
+
+        .item-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--dark-text);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 16px;
+            opacity: 0.5;
         }
 
         /* Chart Content */
@@ -331,17 +662,8 @@
 
         .chart-content img {
             max-width: 100%;
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .item-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-stone);
         }
 
         /* Table Content */
@@ -352,57 +674,67 @@
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .data-table th {
-            background: var(--bg-primary);
-            padding: 12px;
+            background: var(--bg-stone);
+            padding: 10px 14px;
             text-align: left;
             font-weight: 600;
-            border-bottom: 2px solid var(--border-color);
+            font-size: 11px;
+            border-bottom: 1px solid var(--border-stone);
         }
 
         .data-table td {
-            padding: 12px;
-            border-bottom: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+            font-family: 'Courier New', monospace;
         }
 
         .data-table tr:hover {
-            background: var(--bg-primary);
+            background: rgba(0, 51, 255, 0.02);
         }
 
-        /* Chat Sidebar */
-        .chat-sidebar {
+        /* ─── Chat Panel ─── */
+        .chat-panel {
             width: 380px;
-            background: var(--bg-secondary);
-            border-left: 1px solid var(--border-color);
+            background: white;
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
         }
 
         .chat-header {
-            padding: 20px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .chat-header h2 {
-            font-size: 16px;
-            font-weight: 600;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-stone);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .chat-header .material-symbols-outlined {
+            color: var(--electric-blue);
+            font-size: 20px;
+        }
+
+        .chat-header-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark-text);
         }
 
         .chat-status {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 4px;
+            font-size: 11px;
+            color: var(--dark-text);
+            opacity: 0.4;
+            margin-left: auto;
         }
 
         .chat-status.generating {
-            color: var(--accent-color);
+            color: var(--electric-blue);
+            opacity: 1;
         }
 
         .chat-messages {
@@ -412,342 +744,730 @@
             display: flex;
             flex-direction: column;
             gap: 16px;
+            background: var(--bg-stone);
         }
 
-        .message {
-            max-width: 90%;
-            padding: 12px 16px;
-            border-radius: var(--radius-lg);
+        .chat-welcome {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--dark-text);
+            opacity: 0.4;
+        }
+
+        .chat-welcome .material-symbols-outlined {
+            font-size: 40px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .chat-welcome p {
             font-size: 14px;
+        }
+
+        /* Chat bubbles */
+        .msg-user {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .msg-user-bubble {
+            background: var(--electric-blue);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 16px 16px 4px 16px;
+            font-size: 13px;
+            max-width: 85%;
             line-height: 1.5;
         }
 
-        .message-user {
-            align-self: flex-end;
-            background: var(--accent-color);
-            color: white;
-        }
-
-        .message-ai {
-            align-self: flex-start;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-        }
-
-        .message-status {
-            align-self: flex-start;
-            background: transparent;
-            color: var(--text-secondary);
-            font-size: 12px;
-            padding: 4px 0;
-        }
-
-        .message pre {
-            background: rgba(0,0,0,0.05);
-            padding: 8px;
-            border-radius: var(--radius-sm);
-            overflow-x: auto;
-            font-family: monospace;
-            font-size: 12px;
-            margin-top: 8px;
-        }
-
-        .chat-input-area {
-            padding: 20px;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .chat-input-wrapper {
+        .msg-assistant {
             display: flex;
-            gap: 8px;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: 8px;
+            gap: 10px;
+            align-items: flex-start;
         }
 
-        .chat-input {
-            flex: 1;
-            border: none;
-            background: transparent;
-            padding: 8px;
-            font-size: 14px;
-            resize: none;
-            min-height: 20px;
-            max-height: 120px;
-            font-family: inherit;
-        }
-
-        .chat-input:focus {
-            outline: none;
-        }
-
-        .chat-send-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: var(--radius-md);
-            border: none;
-            background: var(--accent-color);
-            color: white;
-            cursor: pointer;
+        .msg-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: white;
+            border: 1px solid var(--border-stone);
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            margin-top: 2px;
         }
 
-        .chat-send-btn:hover:not(:disabled) {
-            background: var(--accent-hover);
+        .msg-avatar .material-symbols-outlined {
+            font-size: 14px;
+            color: var(--electric-blue);
         }
 
-        .chat-send-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .msg-assistant-bubble {
+            background: white;
+            border: 1px solid var(--border-stone);
+            padding: 10px 16px;
+            border-radius: 16px 16px 16px 4px;
+            font-size: 13px;
+            max-width: 85%;
+            line-height: 1.5;
+            color: var(--dark-text);
+            box-shadow: var(--card-shadow);
         }
 
-        .input-hint {
+        /* Markdown in chat */
+        .msg-assistant-bubble h1,
+        .msg-assistant-bubble h2,
+        .msg-assistant-bubble h3 {
+            font-size: 14px;
+            font-weight: 700;
+            margin: 12px 0 6px 0;
+        }
+
+        .msg-assistant-bubble h1 {
+            font-size: 16px;
+        }
+
+        .msg-assistant-bubble h2 {
+            font-size: 15px;
+        }
+
+        .msg-assistant-bubble p {
+            margin: 0 0 8px 0;
+        }
+
+        .msg-assistant-bubble p:last-child {
+            margin-bottom: 0;
+        }
+
+        .msg-assistant-bubble ul,
+        .msg-assistant-bubble ol {
+            margin: 4px 0 8px 0;
+            padding-left: 20px;
+        }
+
+        .msg-assistant-bubble li {
+            margin-bottom: 4px;
+        }
+
+        .msg-assistant-bubble code {
+            background: rgba(30, 41, 59, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Consolas', 'Fira Code', monospace;
             font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 8px;
-            padding-left: 8px;
+            color: #e2e8f0;
         }
 
-        /* Streaming cursor animation */
+        .code-block-wrapper {
+            position: relative;
+            margin: 10px 0;
+        }
+
+        .code-block-wrapper pre {
+            background: #1e293b;
+            padding: 14px 16px;
+            padding-top: 36px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 0;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+        }
+
+        .code-block-wrapper pre code {
+            background: transparent;
+            padding: 0;
+            color: #e2e8f0;
+            font-size: 12.5px;
+            line-height: 1.6;
+        }
+
+        .code-copy-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(148, 163, 184, 0.15);
+            border: none;
+            border-radius: 6px;
+            padding: 4px 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #94a3b8;
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.15s ease;
+            z-index: 1;
+        }
+
+        .code-copy-btn:hover {
+            background: rgba(148, 163, 184, 0.3);
+            color: #e2e8f0;
+        }
+
+        .code-copy-btn .material-symbols-outlined {
+            font-size: 14px;
+        }
+
+        .msg-assistant-bubble>pre {
+            background: #1e293b;
+            padding: 14px 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 8px 0;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+        }
+
+        .msg-assistant-bubble>pre code {
+            background: transparent;
+            padding: 0;
+            color: #e2e8f0;
+        }
+
+        /* Chat input */
+        .chat-input-wrap {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-stone);
+            flex-shrink: 0;
+        }
+
+        .chat-input-box {
+            position: relative;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 12px 44px 12px 16px;
+            border: 1px solid var(--border-stone);
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: none;
+            background: var(--bg-stone);
+            color: var(--dark-text);
+            max-height: 102px;
+            /* ~4 lines (13px * 1.5 * 4) + 24px padding */
+            overflow-y: auto;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--electric-blue);
+        }
+
+        .chat-input::placeholder {
+            color: var(--border-stone);
+        }
+
+        .chat-send-btn {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            padding: 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--electric-blue);
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+
+        .chat-send-btn:hover {
+            background: rgba(0, 51, 255, 0.08);
+        }
+
+        .chat-send-btn .material-symbols-outlined {
+            font-size: 20px;
+        }
+
+        .chat-disclaimer {
+            text-align: center;
+            font-size: 10px;
+            color: var(--dark-text);
+            opacity: 0.3;
+            margin-top: 8px;
+        }
+
+        /* Streaming cursor */
         .streaming-cursor {
             animation: blink 1s infinite;
-            color: var(--accent-color);
+            color: var(--electric-blue);
         }
 
         @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0; }
+
+            0%,
+            50% {
+                opacity: 1;
+            }
+
+            51%,
+            100% {
+                opacity: 0;
+            }
         }
 
-        /* Loading Indicator */
-        .loading-dots {
-            display: inline-flex;
-            gap: 4px;
-        }
-
-        .loading-dots span {
-            width: 8px;
-            height: 8px;
-            background: var(--accent-color);
-            border-radius: 50%;
-            animation: bounce 1.4s infinite ease-in-out both;
-        }
-
-        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
-        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
-
-        @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
-        }
-
-        /* Scrollbar */
+        /* ─── Scrollbar ─── */
         ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-stone);
+            border-radius: 3px;
         }
 
         ::-webkit-scrollbar-track {
             background: transparent;
         }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #d4d4d4;
-        }
     </style>
 </head>
+
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="logo">
-            <div class="logo-icon">
-                <span class="material-symbols-outlined" style="font-size: 18px;">analytics</span>
+    <header>
+        <div class="header-inner">
+            <a href="/dashboard.html" class="logo">
+                <div class="logo-icon"></div>
+                <span class="logo-text">Lunara</span>
+            </a>
+            <div class="breadcrumb">
+                <a href="/dashboard.html">Dashboard</a>
+                <span class="breadcrumb-separator">/</span>
+                <a id="chatLink" href="/chat_agent.html">Query Agent</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current">Report Builder</span>
             </div>
-            <span>Lunara</span>
+            <div class="header-spacer"></div>
+            <div class="header-actions">
+                <button class="btn btn-secondary btn-sm" onclick="saveReportTitle()">
+                    <span class="material-symbols-outlined">save</span>
+                    Save
+                </button>
+            </div>
         </div>
-        
-        <div class="breadcrumb">
-            <a href="/dashboard.html">Dashboard</a>
-            <span>/</span>
-            <span>Report Builder</span>
-        </div>
-        
-        <div class="header-spacer"></div>
-        
-        <input type="text" class="report-title" id="reportTitle" value="Untitled Report">
-        
-        <div class="header-spacer"></div>
-        
-        <button class="btn btn-secondary" onclick="saveReport()">
-            <span class="material-symbols-outlined" style="font-size: 18px;">save</span>
-            Save
-        </button>
     </header>
 
-    <!-- Main -->
-    <div class="main-container">
-        <!-- Document Canvas -->
-        <div class="document-area">
-            <div class="document" id="document">
-                <!-- Empty state shown initially -->
-                <div class="empty-state" id="emptyState">
-                    <span class="material-symbols-outlined empty-state-icon">description</span>
-                    <h2>Start Building Your Report</h2>
-                    <p>Chat with the AI to generate content from your data artifacts</p>
-                    <div style="font-size: 14px; opacity: 0.7; margin-top: 8px;">
-                        Try: "Summarize my sales data" or "Create a chart of revenue by product"
-                    </div>
-                </div>
-                
-                <!-- Content items will be added here -->
-                <div id="contentContainer" style="display: none;"></div>
-            </div>
-        </div>
-
-        <!-- Chat Sidebar -->
-        <div class="chat-sidebar">
-            <div class="chat-header">
-                <h2>
-                    <span class="material-symbols-outlined">smart_toy</span>
-                    Report Copilot
-                </h2>
-                <div class="chat-status" id="chatStatus">Ready to help</div>
-            </div>
-            
-            <div class="chat-messages" id="chatMessages">
-                <!-- Welcome message -->
-                <div class="message message-ai">
-                    Hi! I can help you build your report from your saved data artifacts. What would you like to create?
-                </div>
-            </div>
-            
-            <div class="chat-input-area">
-                <div class="chat-input-wrapper">
-                    <textarea 
-                        class="chat-input" 
-                        id="chatInput" 
-                        placeholder="Ask me to create something..."
-                        rows="1"
-                    ></textarea>
-                    <button class="chat-send-btn" id="sendBtn" onclick="sendMessage()">
-                        <span class="material-symbols-outlined" style="font-size: 18px;">arrow_upward</span>
+    <main>
+        <!-- Sidebar -->
+        <aside class="sidebar hidden">
+            <!-- Reports List -->
+            <div class="sidebar-section reports">
+                <div class="sidebar-header collapsible" onclick="toggleSection(this)">
+                    <span class="material-symbols-outlined section-chevron">expand_more</span>
+                    <span class="sidebar-title">Reports</span>
+                    <button class="btn-icon" onclick="event.stopPropagation(); createNewReport()" title="New Report">
+                        <span class="material-symbols-outlined" style="font-size:18px;">add</span>
                     </button>
                 </div>
-                <div class="input-hint">Press Enter to send, Shift+Enter for new line</div>
+                <div id="reports-list" class="sidebar-list">
+                    <div class="sidebar-empty">
+                        <span class="material-symbols-outlined">description</span>
+                        <p>No reports yet</p>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
+
+            <!-- Saved Artifacts (from Chat Agent) -->
+            <div class="sidebar-section artifacts collapsed">
+                <div class="sidebar-header collapsible" onclick="toggleSection(this)">
+                    <span class="material-symbols-outlined section-chevron">expand_more</span>
+                    <span class="sidebar-title">Saved Artifacts</span>
+                    <span id="artifacts-count" class="sidebar-count">0</span>
+                </div>
+                <div id="artifacts-list" class="sidebar-list">
+                    <div class="sidebar-empty">
+                        <span class="material-symbols-outlined">bookmark</span>
+                        <p>No artifacts saved</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar hide toggle -->
+            <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide sidebar">
+                <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+        </aside>
+
+        <!-- Document Canvas -->
+        <section class="center-panel">
+            <button class="show-sidebar-btn" onclick="toggleSidebar()" title="Show sidebar" style="display:flex">
+                <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+            <div class="document-toolbar">
+                <div class="document-toolbar-left">
+                    <span class="material-symbols-outlined" style="font-size:18px; opacity:0.4;">description</span>
+                    <input type="text" class="report-title-input" id="reportTitle" value="Untitled Report"
+                        onchange="saveReportTitle()">
+                </div>
+            </div>
+            <div class="document-area">
+                <div class="document" id="document">
+                    <div class="empty-state" id="emptyState">
+                        <span class="material-symbols-outlined empty-state-icon">description</span>
+                        <h2>Start Building Your Report</h2>
+                        <p>Chat with the AI copilot to generate content from your data artifacts</p>
+                        <div style="font-size: 13px; opacity: 0.7; margin-top: 8px;">
+                            Try: "Summarize my sales data" or "Create a chart of revenue by month"
+                        </div>
+                    </div>
+                    <div id="contentContainer" style="display: none;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Chat Panel -->
+        <aside class="chat-panel">
+            <div class="chat-header">
+                <span class="material-symbols-outlined">auto_awesome</span>
+                <span class="chat-header-title">Report Copilot</span>
+                <span class="chat-status" id="chatStatus">Ready</span>
+            </div>
+
+            <div id="chatMessages" class="chat-messages">
+                <div class="chat-welcome">
+                    <span class="material-symbols-outlined">description</span>
+                    <p>Ask me to build your report from saved artifacts!</p>
+                </div>
+            </div>
+
+            <div class="chat-input-wrap">
+                <div class="chat-input-box">
+                    <textarea id="chatInput" class="chat-input" placeholder="Ask Lunara..." rows="1"
+                        oninput="autoResizeInput(this)"
+                        onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+                    <button class="chat-send-btn" onclick="sendMessage()">
+                        <span class="material-symbols-outlined">send</span>
+                    </button>
+                </div>
+                <p class="chat-disclaimer">AI can make mistakes. Review generated reports.</p>
+            </div>
+        </aside>
+    </main>
 
     <script>
-        // State
-        let reportId = null;
-        let isGenerating = false;
+        // ─── Configuration ───
         const API_BASE = '/api/v1';
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', async () => {
-            await createNewReport();
-            setupChatInput();
+        // Supabase
+        const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1Zmhkb2psc2F5c3JraXZkZnltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzI4ODUsImV4cCI6MjA4NDk0ODg4NX0.MiYnxqdSXCV10LUqbBz2hTIyjcLhPy50X0xzYNacHtA';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
         });
 
-        // Create new report on load
-        async function createNewReport() {
+        // URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('project_id');
+
+        // Update breadcrumb links with project_id
+        if (projectId) {
+            document.getElementById('chatLink').href = `/chat_agent.html?project_id=${projectId}`;
+        }
+
+        // ─── State ───
+        let currentReportId = null;
+        let currentUser = null;
+        let isGenerating = false;
+        let chatMessages = [];
+
+        // ─── Auth Helper ───
+        async function getCurrentUser() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            currentUser = user;
+            return user;
+        }
+
+        // ═══════════════════════════════════════════
+        // REPORT SESSIONS (Supabase)
+        // ═══════════════════════════════════════════
+        async function loadReportSessions() {
+            if (!projectId) {
+                document.getElementById('reports-list').innerHTML =
+                    '<div class="sidebar-empty"><p>No project selected</p></div>';
+                return;
+            }
+
             try {
-                const response = await fetch(`${API_BASE}/reports`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: 'Untitled Report' })
-                });
-                const report = await response.json();
-                reportId = report.id;
-                document.getElementById('reportTitle').value = report.title;
-            } catch (e) {
-                console.error('Failed to create report:', e);
-                alert('Failed to create report');
+                const { data, error } = await supabaseClient
+                    .from('report_sessions')
+                    .select('id, name, created_at, updated_at')
+                    .eq('project_id', projectId)
+                    .order('updated_at', { ascending: false });
+
+                if (error) throw error;
+                renderReportsList(data || []);
+            } catch (err) {
+                console.error('Failed to load report sessions:', err);
             }
         }
 
-        // Setup chat input
-        function setupChatInput() {
-            const input = document.getElementById('chatInput');
-            
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
-            
-            // Auto-resize
-            input.addEventListener('input', () => {
-                input.style.height = 'auto';
-                input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-            });
+        function renderReportsList(reports) {
+            const container = document.getElementById('reports-list');
+
+            if (!reports.length) {
+                container.innerHTML = `
+                    <div class="sidebar-empty">
+                        <span class="material-symbols-outlined">description</span>
+                        <p>No reports yet</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = reports.map(r => `
+                <div class="sidebar-item ${r.id === currentReportId ? 'active' : ''}"
+                     onclick="switchReport('${r.id}')">
+                    <span class="material-symbols-outlined">description</span>
+                    <div class="sidebar-item-info">
+                        <div class="sidebar-item-name">${escapeHtml(r.name)}</div>
+                        <div class="sidebar-item-meta">${formatDate(r.updated_at || r.created_at)}</div>
+                    </div>
+                    <span class="material-symbols-outlined delete-btn"
+                          onclick="event.stopPropagation();deleteReport('${r.id}')">delete</span>
+                </div>
+            `).join('');
         }
 
-        // Send message to AI
+        async function createNewReport() {
+            if (!projectId) return;
+            const user = currentUser || await getCurrentUser();
+
+            try {
+                const reportData = {
+                    project_id: projectId,
+                    name: 'Untitled Report',
+                };
+                if (user?.id) reportData.created_by = user.id;
+
+                const { data, error } = await supabaseClient
+                    .from('report_sessions')
+                    .insert([reportData])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                currentReportId = data.id;
+                chatMessages = [];
+                document.getElementById('reportTitle').value = data.name;
+                renderChatMessages();
+                clearDocument();
+                loadReportSessions();
+                showToast('Report created', 'success');
+            } catch (err) {
+                console.error('Failed to create report:', err);
+                showToast('Failed to create report', 'error');
+            }
+        }
+
+        async function switchReport(reportId) {
+            if (reportId === currentReportId) return;
+
+            try {
+                currentReportId = reportId;
+
+                // Load report metadata
+                const { data: report, error: reportErr } = await supabaseClient
+                    .from('report_sessions')
+                    .select('*')
+                    .eq('id', reportId)
+                    .single();
+
+                if (reportErr) throw reportErr;
+
+                document.getElementById('reportTitle').value = report.name;
+
+                // Load report items
+                const { data: items, error: itemsErr } = await supabaseClient
+                    .from('report_items')
+                    .select('*')
+                    .eq('report_id', reportId)
+                    .order('position', { ascending: true });
+
+                if (itemsErr) throw itemsErr;
+
+                // Render items into document
+                clearDocument();
+                if (items && items.length > 0) {
+                    document.getElementById('emptyState').style.display = 'none';
+                    document.getElementById('contentContainer').style.display = 'block';
+                    items.forEach(item => addContentItemToDOM(item));
+                }
+
+                // Reset chat for this report
+                chatMessages = [];
+                renderChatMessages();
+                loadReportSessions();
+            } catch (err) {
+                console.error('Failed to switch report:', err);
+                showToast('Failed to load report', 'error');
+            }
+        }
+
+        async function saveReportTitle() {
+            if (!currentReportId) return;
+            const title = document.getElementById('reportTitle').value.trim();
+            if (!title) return;
+
+            try {
+                await supabaseClient
+                    .from('report_sessions')
+                    .update({ name: title })
+                    .eq('id', currentReportId);
+
+                loadReportSessions();
+                showToast('Report saved', 'success');
+            } catch (err) {
+                console.error('Failed to save report title:', err);
+            }
+        }
+
+        let _pendingDeleteReport = null;
+        async function deleteReport(reportId) {
+            if (_pendingDeleteReport !== reportId) {
+                _pendingDeleteReport = reportId;
+                showToast('Click delete again to confirm', 'error');
+                setTimeout(() => { _pendingDeleteReport = null; }, 3000);
+                return;
+            }
+            _pendingDeleteReport = null;
+
+            try {
+                await supabaseClient
+                    .from('report_sessions')
+                    .delete()
+                    .eq('id', reportId);
+
+                if (reportId === currentReportId) {
+                    currentReportId = null;
+                    chatMessages = [];
+                    renderChatMessages();
+                    clearDocument();
+                    document.getElementById('reportTitle').value = 'Untitled Report';
+                    document.getElementById('emptyState').style.display = 'flex';
+                    document.getElementById('contentContainer').style.display = 'none';
+                }
+                loadReportSessions();
+                showToast('Report deleted', 'success');
+            } catch (err) {
+                console.error('Failed to delete report:', err);
+            }
+        }
+
+        // ═══════════════════════════════════════════
+        // ARTIFACTS (from Chat Agent — Supabase)
+        // ═══════════════════════════════════════════
+        async function loadArtifacts() {
+            if (!projectId) return;
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('chat_artifacts')
+                    .select('id, title, sql, created_at')
+                    .eq('project_id', projectId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                renderArtifacts(data || []);
+            } catch (err) {
+                console.error('Failed to load artifacts:', err);
+            }
+        }
+
+        function renderArtifacts(artifacts) {
+            const container = document.getElementById('artifacts-list');
+            document.getElementById('artifacts-count').textContent = artifacts.length;
+
+            if (!artifacts.length) {
+                container.innerHTML = `
+                    <div class="sidebar-empty">
+                        <span class="material-symbols-outlined">bookmark</span>
+                        <p>No artifacts saved</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = artifacts.map(art => `
+                <div class="sidebar-item">
+                    <span class="material-symbols-outlined" style="color:var(--electric-blue);">table_chart</span>
+                    <div class="sidebar-item-info">
+                        <div class="sidebar-item-name">${escapeHtml(art.title)}</div>
+                        <div class="sidebar-item-meta">${formatDate(art.created_at)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ═══════════════════════════════════════════
+        // CHAT + AI GENERATION
+        // ═══════════════════════════════════════════
         async function sendMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
-            
-            if (!message || isGenerating || !reportId) return;
-            
-            // Add user message to chat
-            addChatMessage(message, 'user');
+
+            if (!message || isGenerating || !currentReportId) {
+                if (!currentReportId) showToast('Create or select a report first', 'error');
+                return;
+            }
+
+            // Add user message
+            chatMessages.push({ role: 'user', content: message });
+            renderChatMessages();
             input.value = '';
-            input.style.height = 'auto';
-            
+
             // Set generating state
             isGenerating = true;
-            document.getElementById('sendBtn').disabled = true;
-            setStatus('Generating...');
-            
+            setStatus('Loading artifacts...');
+
             // Create streaming AI message
             const streamingId = 'streaming-' + Date.now();
             addStreamingMessage(streamingId);
-            
+
             let fullText = '';
-            
+
             try {
-                const response = await fetch(`${API_BASE}/reports/${reportId}/generate`, {
+                // Load artifacts from Supabase to send to the backend
+                let artifacts = [];
+                if (projectId) {
+                    const { data: artData, error: artErr } = await supabaseClient
+                        .from('chat_artifacts')
+                        .select('title, sql, data')
+                        .eq('project_id', projectId);
+                    if (!artErr && artData) artifacts = artData;
+                }
+
+                setStatus('Generating...');
+
+                const response = await fetch(`${API_BASE}/reports/${currentReportId}/generate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: message })
+                    body: JSON.stringify({ prompt: message, artifacts })
                 });
-                
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
-                
+
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    
+
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
                     buffer = lines.pop() || '';
-                    
+
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             try {
                                 const data = JSON.parse(line.slice(6));
-                                
-                                // Handle text streaming like chat agent
+
                                 if (data.type === 'text' && data.content) {
                                     fullText += data.content;
                                     updateStreamingMessage(streamingId, fullText);
-                                }
-                                // Handle other events
-                                else {
+                                } else {
                                     handleStreamEvent(data, streamingId);
                                 }
                             } catch (e) {
@@ -756,170 +1476,164 @@
                         }
                     }
                 }
-                
-                // Finalize the streaming message
+
+                // Finalize
                 finalizeStreamingMessage(streamingId, fullText);
-                
+                if (fullText) {
+                    chatMessages.push({ role: 'assistant', content: fullText });
+                }
+
             } catch (e) {
                 console.error('Generation failed:', e);
-                updateStreamingMessage(streamingId, `Error: ${e.message}`);
                 finalizeStreamingMessage(streamingId, `Error: ${e.message}`);
+                chatMessages.push({ role: 'assistant', content: `Error: ${e.message}` });
             } finally {
                 isGenerating = false;
-                document.getElementById('sendBtn').disabled = false;
-                setStatus('Ready to help');
+                setStatus('Ready');
             }
         }
 
-        // Handle SSE stream events (non-text events)
         function handleStreamEvent(data, streamingId) {
             switch (data.type) {
                 case 'status':
                     setStatus(data.content);
                     break;
-                    
-                case 'code':
-                    // Code being executed
-                    break;
-                    
-                case 'code_result':
-                    // Code executed successfully
-                    break;
-                    
+
                 case 'chart':
-                    // Chart generated - add to document
                     addContentItem({
                         type: 'chart',
                         title: 'Generated Chart',
                         content: data.data
                     });
                     break;
-                    
+
                 case 'content_item':
-                    // New content item added - add to document
                     addContentItem(data.item);
                     break;
-                    
+
                 case 'done':
-                    // Generation complete
                     if (data.items_added > 0) {
-                        // Add a summary message
-                        addChatMessage(`Added ${data.items_added} section(s) to your report!`, 'ai');
+                        showToast(`Added ${data.items_added} section(s) to your report!`, 'success');
                     }
                     break;
-                    
+
                 case 'error':
-                    // Show error in the streaming message
                     updateStreamingMessage(streamingId, `Error: ${data.content}`);
                     break;
             }
         }
 
-        // Add a streaming message placeholder
-        function addStreamingMessage(id) {
-            const container = document.getElementById('chatMessages');
-            const msg = document.createElement('div');
-            msg.className = 'message message-ai';
-            msg.id = id;
-            msg.innerHTML = '<span class="streaming-cursor">▋</span>';
-            container.appendChild(msg);
-            container.scrollTop = container.scrollHeight;
-        }
+        // ═══════════════════════════════════════════
+        // DOCUMENT / CONTENT ITEMS
+        // ═══════════════════════════════════════════
+        async function addContentItem(item) {
+            // Save to Supabase
+            if (currentReportId) {
+                try {
+                    // Get next position
+                    const { data: existing } = await supabaseClient
+                        .from('report_items')
+                        .select('position')
+                        .eq('report_id', currentReportId)
+                        .order('position', { ascending: false })
+                        .limit(1);
 
-        // Update streaming message content
-        function updateStreamingMessage(id, content) {
-            const msg = document.getElementById(id);
-            if (msg) {
-                // Convert newlines to breaks and escape HTML
-                const formatted = escapeHtml(content).replace(/\n/g, '<br>');
-                msg.innerHTML = formatted + '<span class="streaming-cursor">▋</span>';
-                
-                const container = document.getElementById('chatMessages');
-                container.scrollTop = container.scrollHeight;
+                    const nextPos = (existing && existing.length > 0) ? existing[0].position + 1 : 0;
+
+                    const { data: saved, error } = await supabaseClient
+                        .from('report_items')
+                        .insert([{
+                            report_id: currentReportId,
+                            type: item.type || 'html',
+                            title: item.title || '',
+                            content: item.content || '',
+                            position: nextPos
+                        }])
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    // Use the saved item (has Supabase UUID)
+                    addContentItemToDOM(saved);
+                } catch (err) {
+                    console.error('Failed to save content item:', err);
+                    // Still render it locally even if save fails
+                    addContentItemToDOM(item);
+                }
+            } else {
+                addContentItemToDOM(item);
             }
         }
 
-        // Finalize streaming message (remove cursor)
-        function finalizeStreamingMessage(id, content) {
-            const msg = document.getElementById(id);
-            if (msg) {
-                const formatted = escapeHtml(content).replace(/\n/g, '<br>');
-                msg.innerHTML = formatted;
-            }
-        }
-
-        // Add content item to document
-        function addContentItem(item) {
-            // Hide empty state
+        function addContentItemToDOM(item) {
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('contentContainer').style.display = 'block';
-            
+
             const container = document.getElementById('contentContainer');
             const el = document.createElement('div');
             el.className = 'content-item';
             el.dataset.itemId = item.id;
-            
+
             let contentHtml = '';
-            
+
             if (item.title) {
                 contentHtml += `<div class="item-title">${escapeHtml(item.title)}</div>`;
             }
-            
+
             switch (item.type) {
                 case 'text':
-                    contentHtml += `<div class="text-content">${marked.parse(item.content)}</div>`;
+                    contentHtml += `<div class="text-content">${marked.parse(item.content || '')}</div>`;
                     break;
-                    
+
                 case 'chart':
                     contentHtml += `<div class="chart-content">
                         <img src="data:image/png;base64,${item.content}" alt="Chart">
                     </div>`;
                     break;
-                    
+
                 case 'table':
-                    const data = JSON.parse(item.content);
-                    contentHtml += renderTable(data);
+                    try {
+                        const data = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
+                        contentHtml += renderTable(data);
+                    } catch (e) {
+                        contentHtml += `<div>Failed to parse table data</div>`;
+                    }
                     break;
 
                 case 'html':
                     contentHtml += `<div class="html-content">${item.content}</div>`;
                     break;
-                    
+
                 default:
-                    contentHtml += `<div>Unknown content type: ${item.type}</div>`;
+                    contentHtml += `<div class="text-content">${marked.parse(item.content || '')}</div>`;
             }
-            
-            // Add delete button
+
+            // Delete button
             contentHtml += `
                 <div class="item-actions">
-                    <button class="item-btn" onclick="deleteItem(${item.id})" title="Delete">
+                    <button class="item-btn" onclick="deleteItem('${item.id}')" title="Delete">
                         <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
                     </button>
                 </div>
             `;
-            
+
             el.innerHTML = contentHtml;
             container.appendChild(el);
-            
-            // Scroll to new item
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        // Render data table
         function renderTable(data) {
             if (!Array.isArray(data) || data.length === 0) {
                 return '<p>No data</p>';
             }
-            
+
             const columns = Object.keys(data[0]);
-            
             let html = '<div class="table-content"><table class="data-table"><thead><tr>';
-            columns.forEach(col => {
-                html += `<th>${escapeHtml(col)}</th>`;
-            });
+            columns.forEach(col => { html += `<th>${escapeHtml(col)}</th>`; });
             html += '</tr></thead><tbody>';
-            
-            data.slice(0, 50).forEach(row => {  // Limit to 50 rows
+
+            data.slice(0, 50).forEach(row => {
                 html += '<tr>';
                 columns.forEach(col => {
                     const val = row[col];
@@ -928,120 +1642,239 @@
                 });
                 html += '</tr>';
             });
-            
+
             html += '</tbody></table>';
-            
             if (data.length > 50) {
-                html += `<p style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                html += `<p style="margin-top: 8px; font-size: 11px; opacity: 0.5;">
                     Showing 50 of ${data.length} rows
                 </p>`;
             }
-            
             html += '</div>';
             return html;
         }
 
-        // Delete content item
+        let _pendingDeleteItem = null;
         async function deleteItem(itemId) {
-            if (!confirm('Delete this section?')) return;
-            
+            if (_pendingDeleteItem !== itemId) {
+                _pendingDeleteItem = itemId;
+                showToast('Click delete again to confirm', 'error');
+                setTimeout(() => { _pendingDeleteItem = null; }, 3000);
+                return;
+            }
+            _pendingDeleteItem = null;
+
             try {
-                const response = await fetch(`${API_BASE}/reports/${reportId}/items/${itemId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    const el = document.querySelector(`[data-item-id="${itemId}"]`);
-                    if (el) {
-                        el.remove();
-                    }
-                    
-                    // Show empty state if no items left
-                    const container = document.getElementById('contentContainer');
-                    if (container.children.length === 0) {
-                        document.getElementById('emptyState').style.display = 'flex';
-                        container.style.display = 'none';
-                    }
+                await supabaseClient
+                    .from('report_items')
+                    .delete()
+                    .eq('id', itemId);
+
+                const el = document.querySelector(`[data-item-id="${itemId}"]`);
+                if (el) el.remove();
+
+                const container = document.getElementById('contentContainer');
+                if (container.children.length === 0) {
+                    document.getElementById('emptyState').style.display = 'flex';
+                    container.style.display = 'none';
                 }
+
+                showToast('Section deleted', 'success');
             } catch (e) {
                 console.error('Failed to delete item:', e);
             }
         }
 
-        // Chat UI helpers
-        function addChatMessage(text, type, isLoading = false) {
+        function clearDocument() {
+            document.getElementById('contentContainer').innerHTML = '';
+            document.getElementById('contentContainer').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'flex';
+        }
+
+        // ═══════════════════════════════════════════
+        // CHAT UI
+        // ═══════════════════════════════════════════
+        function renderChatMessages() {
             const container = document.getElementById('chatMessages');
-            const msg = document.createElement('div');
-            msg.className = `message message-${type}`;
-            
-            if (isLoading) {
-                const id = 'loading-' + Date.now();
-                msg.id = id;
-                msg.innerHTML = `${text} <span class="loading-dots"><span></span><span></span><span></span></span>`;
-                container.appendChild(msg);
-                container.scrollTop = container.scrollHeight;
-                return id;
+
+            if (!chatMessages.length) {
+                container.innerHTML = `
+                    <div class="chat-welcome">
+                        <span class="material-symbols-outlined">description</span>
+                        <p>Ask me to build your report from saved artifacts!</p>
+                    </div>`;
+                return;
             }
-            
-            msg.textContent = text;
-            container.appendChild(msg);
+
+            container.innerHTML = chatMessages.map(msg => {
+                if (msg.role === 'user') {
+                    return `
+                        <div class="msg-user">
+                            <div class="msg-user-bubble">${escapeHtml(msg.content)}</div>
+                        </div>`;
+                } else {
+                    return `
+                        <div class="msg-assistant">
+                            <div class="msg-avatar">
+                                <span class="material-symbols-outlined">auto_awesome</span>
+                            </div>
+                            <div class="msg-assistant-bubble">
+                                ${renderMarkdown(msg.content)}
+                            </div>
+                        </div>`;
+                }
+            }).join('');
+
             container.scrollTop = container.scrollHeight;
-            return null;
+            highlightCodeBlocks();
         }
 
-        function updateLoadingMessage(id, text) {
-            const msg = document.getElementById(id);
-            if (msg) {
-                // Truncate long text
-                const shortText = text.length > 100 ? text.slice(0, 100) + '...' : text;
-                msg.innerHTML = `${shortText} <span class="loading-dots"><span></span><span></span><span></span></span>`;
+        function addStreamingMessage(id) {
+            const container = document.getElementById('chatMessages');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'msg-assistant';
+            wrapper.id = id;
+            wrapper.innerHTML = `
+                <div class="msg-avatar">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <div class="msg-assistant-bubble">
+                    <span class="streaming-cursor">▋</span>
+                </div>`;
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateStreamingMessage(id, content) {
+            const wrapper = document.getElementById(id);
+            if (wrapper) {
+                const bubble = wrapper.querySelector('.msg-assistant-bubble');
+                bubble.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor">▋</span>';
+                const container = document.getElementById('chatMessages');
+                container.scrollTop = container.scrollHeight;
             }
         }
 
-        function removeLoadingMessage(id) {
-            const msg = document.getElementById(id);
-            if (msg) {
-                msg.remove();
+        function finalizeStreamingMessage(id, content) {
+            const wrapper = document.getElementById(id);
+            if (wrapper) {
+                const bubble = wrapper.querySelector('.msg-assistant-bubble');
+                bubble.innerHTML = renderMarkdown(content);
+                highlightCodeBlocks();
             }
         }
 
         function setStatus(text) {
             const el = document.getElementById('chatStatus');
             el.textContent = text;
-            el.className = 'chat-status' + (text === 'Ready to help' ? '' : ' generating');
+            el.className = 'chat-status' + (text === 'Ready' ? '' : ' generating');
         }
 
-        // Save report title
-        async function saveReport() {
-            if (!reportId) return;
-            
-            const title = document.getElementById('reportTitle').value;
-            
-            try {
-                await fetch(`${API_BASE}/reports/${reportId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title })
+        // ═══════════════════════════════════════════
+        // UTILITIES
+        // ═══════════════════════════════════════════
+        function renderMarkdown(text) {
+            if (typeof marked !== 'undefined') {
+                try {
+                    let html = marked.parse(text, { breaks: true, gfm: true });
+                    html = html.replace(/<pre><code([^>]*)>(.*?)<\/code><\/pre>/gs, function (match, attrs, code) {
+                        return '<div class="code-block-wrapper">' +
+                            '<button class="code-copy-btn" onclick="copyCodeBlock(this)">' +
+                            '<span class="material-symbols-outlined">content_copy</span>Copy</button>' +
+                            '<pre><code' + attrs + '>' + code + '</code></pre></div>';
+                    });
+                    return html;
+                } catch (e) {
+                    return text.replace(/\n/g, '<br>');
+                }
+            }
+            return text.replace(/\n/g, '<br>');
+        }
+
+        function highlightCodeBlocks() {
+            if (typeof hljs !== 'undefined') {
+                document.querySelectorAll('.msg-assistant-bubble pre code').forEach(function (block) {
+                    if (!block.dataset.highlighted) {
+                        hljs.highlightElement(block);
+                    }
                 });
-                
-                // Visual feedback
-                const btn = document.querySelector('.btn-secondary');
-                const original = btn.innerHTML;
-                btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px;">check</span> Saved';
-                setTimeout(() => {
-                    btn.innerHTML = original;
-                }, 2000);
-            } catch (e) {
-                console.error('Failed to save:', e);
             }
         }
 
-        // Escape HTML
-        function escapeHtml(text) {
+        function copyCodeBlock(btn) {
+            const pre = btn.closest('.code-block-wrapper').querySelector('code');
+            const text = pre.textContent;
+            navigator.clipboard.writeText(text).then(function () {
+                btn.innerHTML = '<span class="material-symbols-outlined">check</span>Copied!';
+                btn.style.color = '#4ade80';
+                setTimeout(function () {
+                    btn.innerHTML = '<span class="material-symbols-outlined">content_copy</span>Copy';
+                    btn.style.color = '';
+                }, 2000);
+            });
+        }
+
+        function toggleSection(headerEl) {
+            const section = headerEl.closest('.sidebar-section');
+            section.classList.toggle('collapsed');
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const showBtn = document.querySelector('.show-sidebar-btn');
+            sidebar.classList.toggle('hidden');
+            const isHidden = sidebar.classList.contains('hidden');
+            const toggleIcon = sidebar.querySelector('.sidebar-toggle-btn .material-symbols-outlined');
+            if (toggleIcon) toggleIcon.textContent = isHidden ? 'chevron_right' : 'chevron_left';
+            if (showBtn) showBtn.style.display = isHidden ? 'flex' : 'none';
+        }
+
+        function showToast(message, type = 'success') {
+            const existing = document.getElementById('toast-notification');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.id = 'toast-notification';
+            toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter,sans-serif;z-index:2000;color:white;box-shadow:0 4px 20px rgba(0,0,0,0.3);background:' + (type === 'success' ? '#059669' : '#DC2626');
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function autoResizeInput(el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+
+        function escapeHtml(str) {
             const div = document.createElement('div');
-            div.textContent = text;
+            div.textContent = str;
             return div.innerHTML;
         }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+
+        // ─── Initialize ───
+        async function init() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                window.location.href = '/landing.html';
+                return;
+            }
+            await getCurrentUser();
+            loadReportSessions();
+            loadArtifacts();
+        }
+
+        init();
     </script>
 </body>
+
 </html>

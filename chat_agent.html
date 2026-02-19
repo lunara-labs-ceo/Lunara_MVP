@@ -239,14 +239,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--dark-text);
-            opacity: 0.5;
-            transition: opacity 0.15s, background 0.15s;
+            color: var(--electric-blue);
+            transition: background 0.15s;
             padding: 0;
         }
 
         .sidebar-toggle-btn:hover {
-            opacity: 1;
             background: var(--bg-stone);
         }
 
@@ -271,14 +269,18 @@
             cursor: pointer;
             align-items: center;
             justify-content: center;
-            color: var(--dark-text);
-            opacity: 0.5;
-            transition: opacity 0.15s;
+            color: var(--electric-blue);
+            transition: background 0.15s;
             padding: 0;
         }
 
-        .show-sidebar-btn:hover { opacity: 1; }
-        .show-sidebar-btn .material-symbols-outlined { font-size: 16px; }
+        .show-sidebar-btn:hover {
+            background: var(--bg-stone);
+        }
+
+        .show-sidebar-btn .material-symbols-outlined {
+            font-size: 16px;
+        }
 
         .sidebar-section {
             display: flex;
@@ -793,9 +795,12 @@
             border-radius: 12px;
             font-family: inherit;
             font-size: 13px;
+            line-height: 1.5;
             resize: none;
             background: var(--bg-stone);
             color: var(--dark-text);
+            max-height: 102px;
+            overflow-y: auto;
         }
 
         .chat-input:focus {
@@ -1052,7 +1057,7 @@
 
     <main>
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar hidden">
             <!-- Chat Sessions -->
             <div class="sidebar-section sessions collapsed">
                 <div class="sidebar-header collapsible" onclick="toggleSection(this)">
@@ -1101,13 +1106,13 @@
 
             <!-- Sidebar hide toggle -->
             <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Hide sidebar">
-                <span class="material-symbols-outlined">chevron_left</span>
+                <span class="material-symbols-outlined">chevron_right</span>
             </button>
         </aside>
 
         <!-- SQL Editor + Results -->
         <section class="center-panel" style="position:relative;">
-            <button class="show-sidebar-btn" onclick="toggleSidebar()" title="Show sidebar">
+            <button class="show-sidebar-btn" onclick="toggleSidebar()" title="Show sidebar" style="display:flex">
                 <span class="material-symbols-outlined">chevron_right</span>
             </button>
             <div class="toolbar">
@@ -1165,6 +1170,7 @@
             <div class="chat-input-wrap">
                 <div class="chat-input-box">
                     <textarea id="chat-input" class="chat-input" placeholder="Ask Lunara..." rows="1"
+                        oninput="autoResizeInput(this)"
                         onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
                     <button class="chat-send-btn" onclick="sendMessage()">
                         <span class="material-symbols-outlined">send</span>
@@ -1941,6 +1947,11 @@
             const toggleIcon = sidebar.querySelector('.sidebar-toggle-btn .material-symbols-outlined');
             if (toggleIcon) toggleIcon.textContent = isHidden ? 'chevron_right' : 'chevron_left';
             if (showBtn) showBtn.style.display = isHidden ? 'flex' : 'none';
+        }
+
+        function autoResizeInput(el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
         }
 
         function escapeHtml(str) {

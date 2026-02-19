@@ -5,7 +5,6 @@ import html
 import json
 import os
 import re
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional
@@ -16,8 +15,6 @@ from google.adk.code_executors import BuiltInCodeExecutor
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
-
-DB_PATH = Path(__file__).parent.parent / "lunara.db"
 
 SERVICE_ACCOUNT_PATH = Path(__file__).parent.parent.parent / "lunara-dev-094f5e9e682e.json"
 if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS") and SERVICE_ACCOUNT_PATH.exists():
@@ -32,14 +29,15 @@ class ReportAgentService:
     """Minimal report agent service.
 
     Architecture:
-    - Backend loads artifacts from SQLite
+    - Artifacts are passed from the frontend (loaded from Supabase chat_artifacts)
     - Single ADK agent receives full artifact JSON in prompt
     - Same agent uses BuiltInCodeExecutor to generate charts when requested
     - Backend captures chart artifacts and builds one final HTML report item
     """
 
-    def __init__(self, report_id: int):
+    def __init__(self, report_id: str, artifacts: Optional[List[Dict[str, Any]]] = None):
         self.report_id = report_id
+        self._artifacts = artifacts or []
         self._content_items: List[Dict[str, Any]] = []
 
         self.agent = LlmAgent(
@@ -69,39 +67,18 @@ class ReportAgentService:
             code_executor=BuiltInCodeExecutor(),
         )
 
-    def _load_artifacts(self) -> List[Dict[str, Any]]:
-        """Load all artifacts from local SQLite."""
-        conn = sqlite3.connect(str(DB_PATH))
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT id, title, sql, data, created_at
-            FROM artifacts
-            ORDER BY created_at DESC
-            """
-        )
-        rows = cursor.fetchall()
-        conn.close()
-
-        artifacts: List[Dict[str, Any]] = []
-        for row in rows:
-            raw_data = row[3] or "[]"
-            try:
-                parsed_data = json.loads(raw_data)
-            except json.JSONDecodeError:
-                parsed_data = []
-
-            artifacts.append(
-                {
-                    "id": row[0],
-                    "title": row[1],
-                    "sql": row[2],
-                    "data": parsed_data,
-                    "created_at": row[4],
-                    "row_count": len(parsed_data) if isinstance(parsed_data, list) else 0,
-                }
-            )
-        return artifacts
+    def _get_artifacts(self) -> List[Dict[str, Any]]:
+        """Return artifacts passed from the frontend (from Supabase chat_artifacts)."""
+        enriched = []
+        for art in self._artifacts:
+            data = art.get("data") or []
+            enriched.append({
+                "title": art.get("title", "Unnamed Artifact"),
+                "sql": art.get("sql", ""),
+                "data": data,
+                "row_count": len(data) if isinstance(data, list) else 0,
+            })
+        return enriched
 
     @staticmethod
     def _extract_json(text: str) -> Optional[Dict[str, Any]]:
@@ -201,11 +178,11 @@ class ReportAgentService:
         return self._content_items.copy()
 
     async def generate_content(self, prompt: str) -> AsyncIterator[Dict[str, Any]]:
-        artifacts = self._load_artifacts()
+        artifacts = self._get_artifacts()
         if not artifacts:
             yield {
                 "type": "error",
-                "content": "No artifacts found. Please save at least one query artifact first.",
+                "content": "No artifacts found. Please save at least one query artifact from the Chat Agent first.",
             }
             return
 

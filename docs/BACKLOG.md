@@ -25,3 +25,10 @@
 - [ ] Add "Save Agent" button to chat_agent.html
 - [ ] Save agent config to Supabase `agents` table
 - [ ] Nav buttons for Report/PPT/Dashboard builders
+
+### Chat Agent — Open Items (Feb 17–18)
+- [ ] **Verify Save Artifact e2e** — Modal works but Supabase insert not confirmed with a live auth session
+- [ ] **Verify semantic model ID population** — Code wired up (`semanticModelId` stored and passed to `chat_sessions`), needs live verification
+- [ ] **Investigate query execution 400 error** — Browser test showed 400 during query execution, possibly missing dataset qualification
+- [ ] **RLS / auth expiry handling** — `chat_sessions` and `chat_artifacts` inserts fail with 42501 if Supabase auth session expires; add graceful handling
+- [ ] **Auth guard on `report_builder.html`** — Intentionally skipped per product decision; revisit if needed
