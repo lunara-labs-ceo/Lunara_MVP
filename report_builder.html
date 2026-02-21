@@ -1458,6 +1458,7 @@
 
             let fullText = '';
             let errorText = '';
+            let reportGenerated = false;
 
             try {
                 // Load artifacts from Supabase to send to the backend
@@ -1533,7 +1534,9 @@
                 }
 
                 // Save assistant message to the ORIGINAL session's array
-                const assistantContent = fullText || (errorText ? `Error: ${errorText}` : '');
+                const assistantContent = reportGenerated
+                    ? '✓ Report generated successfully.'
+                    : (fullText || (errorText ? `Error: ${errorText}` : ''));
                 if (assistantContent) {
                     sendMessages.push({ role: 'assistant', content: assistantContent, timestamp: new Date().toISOString() });
                 }
@@ -1571,6 +1574,10 @@
 
                 case 'content_item':
                     addContentItem(data.item);
+                    reportGenerated = true;
+                    if (currentReportId === sendSessionId) {
+                        updateStreamingMessage(streamingId, '✓ Report generated successfully.');
+                    }
                     break;
 
                 case 'done':
