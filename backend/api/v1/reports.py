@@ -35,6 +35,7 @@ class GenerateRequest(BaseModel):
     """Request body for report generation."""
     prompt: str
     artifacts: List[ArtifactInput] = []
+    history: List[Dict[str, Any]] = []
 
 
 # ============================================================================
@@ -67,7 +68,7 @@ async def generate_content(report_id: str, request: GenerateRequest):
         
         try:
             # Stream generation events
-            async for event in agent.generate_content(request.prompt):
+            async for event in agent.generate_content(request.prompt, history=request.history):
                 yield f"data: {json.dumps(event)}\n\n"
             
             # Collect generated items and emit them as content_item events

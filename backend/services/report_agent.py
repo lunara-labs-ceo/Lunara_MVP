@@ -38,7 +38,7 @@ class ReportAgentService:
             name="ReportBuilder",
             description="Builds a basic HTML report from provided artifacts",
             instruction=(
-                "You are Lunara Report Builder. You will be given full JSON artifacts and a user request.\n"
+                "You are Report Builder. You will be given full JSON artifacts and a user request.\n"
                 "Build a clean, basic HTML report.\n\n"
                 "Rules:\n"
                 "1) Use only the provided artifacts.\n"
@@ -170,7 +170,22 @@ class ReportAgentService:
     def get_content_items(self) -> List[Dict[str, Any]]:
         return self._content_items.copy()
 
-    async def generate_content(self, prompt: str) -> AsyncIterator[Dict[str, Any]]:
+    @staticmethod
+    def _build_history_prompt(history: List[Dict[str, Any]]) -> str:
+        """Build a conversation history prompt to inject context for multi-turn sessions."""
+        if not history:
+            return ""
+
+        lines = ["\n\n--- CONVERSATION HISTORY (for context) ---"]
+        for msg in history:
+            role = msg.get("role", "user").upper()
+            content = msg.get("content", "")
+            if content:
+                lines.append(f"{role}: {content[:500]}")
+        lines.append("--- END HISTORY ---\n")
+        return "\n".join(lines)
+
+    async def generate_content(self, prompt: str, history: Optional[List[Dict[str, Any]]] = None) -> AsyncIterator[Dict[str, Any]]:
         artifacts = self._get_artifacts()
         if not artifacts:
             yield {
@@ -200,7 +215,11 @@ class ReportAgentService:
             state={},
         )
 
+        # Inject conversation history if present (multi-turn context)
+        history_context = self._build_history_prompt(history) if history else ""
+
         user_prompt = (
+            f"{history_context}"
             "User request:\n"
             f"{prompt}\n\n"
             "Artifacts JSON:\n"

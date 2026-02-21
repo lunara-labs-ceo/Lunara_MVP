@@ -1054,19 +1054,19 @@
     <main>
         <!-- Sidebar -->
         <aside class="sidebar hidden">
-            <!-- Reports List -->
+            <!-- Chat Sessions List -->
             <div class="sidebar-section reports">
                 <div class="sidebar-header collapsible" onclick="toggleSection(this)">
                     <span class="material-symbols-outlined section-chevron">expand_more</span>
-                    <span class="sidebar-title">Reports</span>
-                    <button class="btn-icon" onclick="event.stopPropagation(); createNewReport()" title="New Report">
+                    <span class="sidebar-title">Chats</span>
+                    <button class="btn-icon" onclick="event.stopPropagation(); createNewSession()" title="New Chat">
                         <span class="material-symbols-outlined" style="font-size:18px;">add</span>
                     </button>
                 </div>
                 <div id="reports-list" class="sidebar-list">
                     <div class="sidebar-empty">
-                        <span class="material-symbols-outlined">description</span>
-                        <p>No reports yet</p>
+                        <span class="material-symbols-outlined">chat_bubble_outline</span>
+                        <p>No chats yet</p>
                     </div>
                 </div>
             </div>
@@ -1173,6 +1173,7 @@
         let currentUser = null;
         let isGenerating = false;
         let chatMessages = [];
+        let _pendingDeleteReport = null;
 
         // ─── Auth Helper ───
         async function getCurrentUser() {
@@ -1182,7 +1183,7 @@
         }
 
         // ═══════════════════════════════════════════
-        // REPORT SESSIONS (Supabase)
+        // CHAT SESSIONS (Supabase — report_sessions)
         // ═══════════════════════════════════════════
         async function loadReportSessions() {
             if (!projectId) {
@@ -1211,40 +1212,41 @@
             if (!reports.length) {
                 container.innerHTML = `
                     <div class="sidebar-empty">
-                        <span class="material-symbols-outlined">description</span>
-                        <p>No reports yet</p>
+                        <span class="material-symbols-outlined">chat_bubble_outline</span>
+                        <p>No chats yet</p>
                     </div>`;
                 return;
             }
 
             container.innerHTML = reports.map(r => `
                 <div class="sidebar-item ${r.id === currentReportId ? 'active' : ''}"
-                     onclick="switchReport('${r.id}')">
-                    <span class="material-symbols-outlined">description</span>
+                     onclick="switchSession('${r.id}')">
+                    <span class="material-symbols-outlined">chat_bubble_outline</span>
                     <div class="sidebar-item-info">
                         <div class="sidebar-item-name">${escapeHtml(r.name)}</div>
                         <div class="sidebar-item-meta">${formatDate(r.updated_at || r.created_at)}</div>
                     </div>
                     <span class="material-symbols-outlined delete-btn"
-                          onclick="event.stopPropagation();deleteReport('${r.id}')">delete</span>
+                          onclick="event.stopPropagation();deleteSession('${r.id}')">delete</span>
                 </div>
             `).join('');
         }
 
-        async function createNewReport() {
+        async function createNewSession() {
             if (!projectId) return;
             const user = currentUser || await getCurrentUser();
 
             try {
-                const reportData = {
+                const sessionData = {
                     project_id: projectId,
-                    name: 'Untitled Report',
+                    name: 'New Chat',
+                    messages: [],
                 };
-                if (user?.id) reportData.created_by = user.id;
+                if (user?.id) sessionData.created_by = user.id;
 
                 const { data, error } = await supabaseClient
                     .from('report_sessions')
-                    .insert([reportData])
+                    .insert([sessionData])
                     .select()
                     .single();
 
@@ -1256,40 +1258,40 @@
                 renderChatMessages();
                 clearDocument();
                 loadReportSessions();
-                showToast('Report created', 'success');
             } catch (err) {
-                console.error('Failed to create report:', err);
-                showToast('Failed to create report', 'error');
+                console.error('Failed to create session:', err);
+                showToast('Failed to create chat', 'error');
             }
         }
 
-        async function switchReport(reportId) {
-            if (reportId === currentReportId) return;
+        async function switchSession(sessionId) {
+            if (sessionId === currentReportId) return;
 
             try {
-                currentReportId = reportId;
+                currentReportId = sessionId;
 
-                // Load report metadata
-                const { data: report, error: reportErr } = await supabaseClient
+                // Load session with messages
+                const { data: session, error: sessionErr } = await supabaseClient
                     .from('report_sessions')
                     .select('*')
-                    .eq('id', reportId)
+                    .eq('id', sessionId)
                     .single();
 
-                if (reportErr) throw reportErr;
+                if (sessionErr) throw sessionErr;
 
-                document.getElementById('reportTitle').value = report.name;
+                document.getElementById('reportTitle').value = session.name;
+                chatMessages = session.messages || [];
+                renderChatMessages();
 
-                // Load report items
+                // Load report items into document canvas
                 const { data: items, error: itemsErr } = await supabaseClient
                     .from('report_items')
                     .select('*')
-                    .eq('report_id', reportId)
+                    .eq('report_id', sessionId)
                     .order('position', { ascending: true });
 
                 if (itemsErr) throw itemsErr;
 
-                // Render items into document
                 clearDocument();
                 if (items && items.length > 0) {
                     document.getElementById('emptyState').style.display = 'none';
@@ -1297,13 +1299,10 @@
                     items.forEach(item => addContentItemToDOM(item));
                 }
 
-                // Reset chat for this report
-                chatMessages = [];
-                renderChatMessages();
                 loadReportSessions();
             } catch (err) {
-                console.error('Failed to switch report:', err);
-                showToast('Failed to load report', 'error');
+                console.error('Failed to switch session:', err);
+                showToast('Failed to load chat', 'error');
             }
         }
 
@@ -1325,10 +1324,29 @@
             }
         }
 
-        let _pendingDeleteReport = null;
-        async function deleteReport(reportId) {
-            if (_pendingDeleteReport !== reportId) {
-                _pendingDeleteReport = reportId;
+        async function saveSessionMessages(sessionId, messages) {
+            if (!sessionId) return;
+            const firstUserMsg = messages.find(m => m.role === 'user');
+            const sessionName = firstUserMsg
+                ? firstUserMsg.content.slice(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '')
+                : 'New Chat';
+
+            try {
+                await supabaseClient
+                    .from('report_sessions')
+                    .update({ messages, name: sessionName })
+                    .eq('id', sessionId);
+
+                document.getElementById('reportTitle').value = sessionName;
+                loadReportSessions();
+            } catch (err) {
+                console.error('Failed to save messages:', err);
+            }
+        }
+
+        async function deleteSession(sessionId) {
+            if (_pendingDeleteReport !== sessionId) {
+                _pendingDeleteReport = sessionId;
                 showToast('Click delete again to confirm', 'error');
                 setTimeout(() => { _pendingDeleteReport = null; }, 3000);
                 return;
@@ -1339,9 +1357,9 @@
                 await supabaseClient
                     .from('report_sessions')
                     .delete()
-                    .eq('id', reportId);
+                    .eq('id', sessionId);
 
-                if (reportId === currentReportId) {
+                if (sessionId === currentReportId) {
                     currentReportId = null;
                     chatMessages = [];
                     renderChatMessages();
@@ -1351,9 +1369,9 @@
                     document.getElementById('contentContainer').style.display = 'none';
                 }
                 loadReportSessions();
-                showToast('Report deleted', 'success');
+                showToast('Chat deleted', 'success');
             } catch (err) {
-                console.error('Failed to delete report:', err);
+                console.error('Failed to delete session:', err);
             }
         }
 
@@ -1407,16 +1425,28 @@
         async function sendMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
+            if (!message || isGenerating) return;
 
-            if (!message || isGenerating || !currentReportId) {
-                if (!currentReportId) showToast('Create or select a report first', 'error');
+            input.value = '';
+
+            // Auto-create session if none active
+            if (!currentReportId && projectId) {
+                await createNewSession();
+            }
+            if (!currentReportId) {
+                showToast('Create or select a chat first', 'error');
                 return;
             }
 
+            // ── Snapshot the session context at send time ──
+            // Prevents race condition where switching sessions mid-stream
+            // causes the reply to be saved to the wrong session.
+            const sendSessionId = currentReportId;
+            const sendMessages = chatMessages;
+
             // Add user message
-            chatMessages.push({ role: 'user', content: message });
+            sendMessages.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
             renderChatMessages();
-            input.value = '';
 
             // Set generating state
             isGenerating = true;
@@ -1427,6 +1457,7 @@
             addStreamingMessage(streamingId);
 
             let fullText = '';
+            let errorText = '';
 
             try {
                 // Load artifacts from Supabase to send to the backend
@@ -1439,12 +1470,21 @@
                     if (!artErr && artData) artifacts = artData;
                 }
 
+                // Build history for context (exclude timestamps for the API)
+                const historyForAPI = sendMessages
+                    .filter(m => m.role && m.content)
+                    .map(m => ({ role: m.role, content: m.content }));
+
                 setStatus('Generating...');
 
-                const response = await fetch(`${API_BASE}/reports/${currentReportId}/generate`, {
+                const response = await fetch(`${API_BASE}/reports/${sendSessionId}/generate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: message, artifacts })
+                    body: JSON.stringify({
+                        prompt: message,
+                        artifacts,
+                        history: historyForAPI.slice(0, -1)
+                    })
                 });
 
                 const reader = response.body.getReader();
@@ -1466,9 +1506,19 @@
 
                                 if (data.type === 'text' && data.content) {
                                     fullText += data.content;
-                                    updateStreamingMessage(streamingId, fullText);
+                                    // Only update UI if still on the same session
+                                    if (currentReportId === sendSessionId) {
+                                        updateStreamingMessage(streamingId, fullText);
+                                    }
+                                } else if (data.type === 'error') {
+                                    errorText = data.content;
+                                    if (currentReportId === sendSessionId) {
+                                        updateStreamingMessage(streamingId, `Error: ${data.content}`);
+                                    }
                                 } else {
-                                    handleStreamEvent(data, streamingId);
+                                    if (currentReportId === sendSessionId) {
+                                        handleStreamEvent(data, streamingId);
+                                    }
                                 }
                             } catch (e) {
                                 console.error('Failed to parse event:', e);
@@ -1477,16 +1527,28 @@
                     }
                 }
 
-                // Finalize
-                finalizeStreamingMessage(streamingId, fullText);
-                if (fullText) {
-                    chatMessages.push({ role: 'assistant', content: fullText });
+                // Finalize UI (only if still on same session)
+                if (currentReportId === sendSessionId) {
+                    finalizeStreamingMessage(streamingId);
                 }
+
+                // Save assistant message to the ORIGINAL session's array
+                const assistantContent = fullText || (errorText ? `Error: ${errorText}` : '');
+                if (assistantContent) {
+                    sendMessages.push({ role: 'assistant', content: assistantContent, timestamp: new Date().toISOString() });
+                }
+
+                // Persist to the ORIGINAL session in Supabase (not currentReportId)
+                await saveSessionMessages(sendSessionId, sendMessages);
 
             } catch (e) {
                 console.error('Generation failed:', e);
-                finalizeStreamingMessage(streamingId, `Error: ${e.message}`);
-                chatMessages.push({ role: 'assistant', content: `Error: ${e.message}` });
+                if (currentReportId === sendSessionId) {
+                    updateStreamingMessage(streamingId, `Error: ${e.message}`);
+                    finalizeStreamingMessage(streamingId);
+                }
+                sendMessages.push({ role: 'assistant', content: `Error: ${e.message}`, timestamp: new Date().toISOString() });
+                await saveSessionMessages(sendSessionId, sendMessages);
             } finally {
                 isGenerating = false;
                 setStatus('Ready');
@@ -1754,11 +1816,11 @@
             }
         }
 
-        function finalizeStreamingMessage(id, content) {
+        function finalizeStreamingMessage(id) {
             const wrapper = document.getElementById(id);
             if (wrapper) {
-                const bubble = wrapper.querySelector('.msg-assistant-bubble');
-                bubble.innerHTML = renderMarkdown(content);
+                const cursor = wrapper.querySelector('.streaming-cursor');
+                if (cursor) cursor.remove();
                 highlightCodeBlocks();
             }
         }
