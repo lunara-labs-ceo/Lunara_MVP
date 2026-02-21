@@ -4,12 +4,86 @@ from __future__ import annotations
 import os
 import base64
 import tempfile
-from contextlib import asynccontextmanager
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load environment variables FIRST, before any app module imports.
+# Service files read env vars at import time, so .env must be loaded before them.
+load_dotenv()
+
+IS_RENDER = os.getenv("RENDER") == "true"
+
+
+def setup_gcp_credentials() -> None:
+    """Set up GCP credentials from environment. Raises on misconfiguration.
+
+    Two modes:
+    - Production (Render/CI): set GOOGLE_APPLICATION_CREDENTIALS_JSON to the
+      base64-encoded contents of the service account JSON key file.
+    - Local dev: set GOOGLE_APPLICATION_CREDENTIALS to the path of the service
+      account JSON key file in backend/.env.
+    """
+    # Mode 1: base64-encoded JSON string (Render, CI)
+    creds_json_b64 = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+    if creds_json_b64:
+        try:
+            creds_json = base64.b64decode(creds_json_b64).decode("utf-8")
+            creds_path = Path(tempfile.gettempdir()) / "gcp_credentials.json"
+            creds_path.write_text(creds_json)
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(creds_path)
+            print("✓ GCP credentials loaded from GOOGLE_APPLICATION_CREDENTIALS_JSON")
+            return
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to decode GOOGLE_APPLICATION_CREDENTIALS_JSON: {e}"
+            ) from e
+
+    # Mode 2: path to local JSON key file (set GOOGLE_APPLICATION_CREDENTIALS in .env)
+    creds_path_str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if creds_path_str:
+        if Path(creds_path_str).exists():
+            print(f"✓ GCP credentials loaded from {creds_path_str}")
+            return
+        raise RuntimeError(
+            f"GOOGLE_APPLICATION_CREDENTIALS points to a file that does not exist: {creds_path_str}"
+        )
+
+    raise RuntimeError(
+        "No GCP credentials configured.\n"
+        "  Local dev : set GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json in backend/.env\n"
+        "  Production: set GOOGLE_APPLICATION_CREDENTIALS_JSON=<base64 JSON> in Render"
+    )
+
+
+def validate_gcp_config() -> None:
+    """Validate required Vertex AI env vars are present. Raises on missing vars."""
+    required = {
+        "GOOGLE_CLOUD_PROJECT": "your GCP project ID",
+        "GOOGLE_CLOUD_LOCATION": "Vertex AI region, e.g. us-central1",
+        "GOOGLE_GENAI_USE_VERTEXAI": "must be TRUE",
+    }
+    missing = [f"{k} ({hint})" for k, hint in required.items() if not os.getenv(k)]
+    if missing:
+        raise RuntimeError(
+            "Missing required GCP config env vars — add these to backend/.env:\n  "
+            + "\n  ".join(missing)
+        )
+    print(
+        f"✓ GCP config: project={os.getenv('GOOGLE_CLOUD_PROJECT')}, "
+        f"location={os.getenv('GOOGLE_CLOUD_LOCATION')}"
+    )
+
+
+setup_gcp_credentials()
+validate_gcp_config()
+
+
+# App imports come AFTER env vars and credentials are fully configured.
+from contextlib import asynccontextmanager
 from typing import Optional
 
 from cryptography.fernet import Fernet
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,30 +96,6 @@ from api.v1 import chat
 from api.v1 import reports
 from api.v1 import auth
 from services.bigquery import BigQueryService
-
-
-# Load environment variables
-load_dotenv()
-
-# Check if running on Render
-IS_RENDER = os.getenv("RENDER") == "true"
-
-# Handle GCP credentials from environment variable (for Render)
-def setup_gcp_credentials():
-    """Set up GCP credentials from base64-encoded env var."""
-    creds_json_b64 = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
-    if creds_json_b64:
-        try:
-            # Decode base64 and write to temp file
-            creds_json = base64.b64decode(creds_json_b64).decode('utf-8')
-            creds_path = Path(tempfile.gettempdir()) / "gcp_credentials.json"
-            creds_path.write_text(creds_json)
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(creds_path)
-            print(f"✓ GCP credentials loaded from environment")
-        except Exception as e:
-            print(f"⚠ Failed to load GCP credentials: {e}")
-
-setup_gcp_credentials()
 
 
 # Global BigQuery service instance

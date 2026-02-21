@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "/Users/shyam/Desktop/Lunara MVP/backend/venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "main:app", "--reload", "--port", "8000", "--app-dir", "/Users/shyam/Desktop/Lunara MVP/backend"],
+      "port": 8000
+    }
+  ]
+}

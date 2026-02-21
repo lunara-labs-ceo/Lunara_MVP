@@ -12,24 +12,7 @@ from typing import Optional, List, Dict, Any, AsyncGenerator
 from datetime import datetime
 from pathlib import Path
 
-# Configure for Vertex AI before importing ADK
-os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "lunara-dev")
-os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
-os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
-
-# Set up service account credentials
-# Check if already set (e.g., by main.py on Render), otherwise look for local file
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-CREDENTIALS_PATH = PROJECT_ROOT / "lunara-dev-094f5e9e682e.json"
-
-if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-    print(f"✓ Semantic Agent: Using credentials from env var")
-elif CREDENTIALS_PATH.exists():
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(CREDENTIALS_PATH)
-    print(f"✓ Semantic Agent: Using credentials from {CREDENTIALS_PATH}")
-else:
-    print(f"⚠ Semantic Agent: No credentials found")
-
+# GCP credentials and config are set up by main.py before this module is imported.
 from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
 from google.genai import types

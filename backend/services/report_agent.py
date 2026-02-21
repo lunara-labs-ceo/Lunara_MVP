@@ -16,14 +16,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-SERVICE_ACCOUNT_PATH = Path(__file__).parent.parent.parent / "lunara-dev-094f5e9e682e.json"
-if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS") and SERVICE_ACCOUNT_PATH.exists():
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(SERVICE_ACCOUNT_PATH)
-
-os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "true")
-os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "lunara-dev")
-os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
-
+# GCP credentials and config are set up by main.py before this module is imported.
 
 class ReportAgentService:
     """Minimal report agent service.

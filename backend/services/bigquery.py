@@ -213,35 +213,13 @@ class BigQueryService:
         Raises:
             Exception if not connected or query fails.
         """
-        # If we have a client from UI-uploaded credentials, use it
-        if self._client is not None:
-            query_job = self._client.query(sql)
-            results = query_job.result()
-            rows = []
-            for row in results:
-                rows.append(dict(row.items()))
-            return rows
-        
-        # Fallback: check GOOGLE_APPLICATION_CREDENTIALS or use local file
-        creds_from_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        project_root = Path(__file__).parent.parent.parent
-        credentials_path = project_root / "lunara-dev-094f5e9e682e.json"
-        
-        if creds_from_env and Path(creds_from_env).exists():
-            credentials = service_account.Credentials.from_service_account_file(creds_from_env)
-        elif credentials_path.exists():
-            credentials = service_account.Credentials.from_service_account_file(str(credentials_path))
-        else:
-            raise Exception("Not connected to BigQuery. Please connect via the UI or configure GOOGLE_APPLICATION_CREDENTIALS.")
-        
-        # Create client with the resolved credentials
-        client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-        
-        query_job = client.query(sql)
+        # Requires user-uploaded credentials connected via the UI.
+        if self._client is None:
+            raise Exception(
+                "Not connected to BigQuery. Please upload your service account credentials "
+                "via the connection page before running queries."
+            )
+
+        query_job = self._client.query(sql)
         results = query_job.result()
-        
-        rows = []
-        for row in results:
-            rows.append(dict(row.items()))
-        
-        return rows
+        return [dict(row.items()) for row in results]
