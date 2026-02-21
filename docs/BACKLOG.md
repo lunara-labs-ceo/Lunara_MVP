@@ -26,6 +26,9 @@
 - [ ] Save agent config to Supabase `agents` table
 - [ ] Nav buttons for Report/PPT/Dashboard builders
 
+### Agent Infrastructure
+- [ ] **ADK DatabaseSessionService for Chat Agent** — Replace `InMemorySessionService` + prompt-injection history with ADK's native `DatabaseSessionService` backed by Supabase Postgres so conversation context survives server restarts natively. See `docs/adk-session-persistence.md` for full implementation plan.
+
 ### Chat Agent — Open Items (Feb 17–18)
 - [ ] **Verify Save Artifact e2e** — Modal works but Supabase insert not confirmed with a live auth session
 - [ ] **Verify semantic model ID population** — Code wired up (`semanticModelId` stored and passed to `chat_sessions`), needs live verification
