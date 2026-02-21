@@ -67,17 +67,10 @@ async def generate_content(report_id: str, request: GenerateRequest):
         )
         
         try:
-            # Stream generation events
+            # Stream generation events — agent emits content_item + done inline
             async for event in agent.generate_content(request.prompt, history=request.history):
                 yield f"data: {json.dumps(event)}\n\n"
-            
-            # Collect generated items and emit them as content_item events
-            items = agent.get_content_items()
-            for item in items:
-                yield f"data: {json.dumps({'type': 'content_item', 'item': item})}\n\n"
-            
-            yield f"data: {json.dumps({'type': 'done', 'items_added': len(items)})}\n\n"
-            
+
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
     
