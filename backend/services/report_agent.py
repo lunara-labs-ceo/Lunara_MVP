@@ -25,7 +25,8 @@ from google.genai import types
 
 class ReportSection(BaseModel):
     heading: str
-    html: str  # text / lists / paragraphs only — NO image tags
+    html: str                         # text / lists / paragraphs only — NO image tags
+    chart_index: Optional[int] = None # 0-based index of chart to insert after this section
 
 
 class DynamicReport(BaseModel):
@@ -73,7 +74,12 @@ _REPORTER_AGENT = LlmAgent(
         "   NEVER include <img>, <figure>, <canvas>, or any image-related tags.\n"
         "3) chart_captions: list one short caption per chart the analyst created, in order.\n"
         "   If no charts were created, leave as an empty list.\n"
-        "4) Return ONLY valid JSON matching the schema — no markdown fences, no extra text."
+        "4) chart_index: for each section that should be immediately followed by a chart,\n"
+        "   set chart_index to the 0-based index of that chart (matching chart_captions order).\n"
+        "   Example: if chart 0 belongs after the 'Top Tracks' section, set chart_index=0 there.\n"
+        "   Leave chart_index null (omit it) for sections that have no chart.\n"
+        "   Each chart_index value should be used at most once across all sections.\n"
+        "5) Return ONLY valid JSON matching the schema — no markdown fences, no extra text."
     ),
     output_schema=DynamicReport,
     output_key="report_output",
@@ -133,14 +139,21 @@ class ReportAgentService:
         user_id: str,
         session_id: str,
         filename: str,
+        version: Optional[int] = None,
     ) -> Optional[str]:
-        """Load a PNG artifact and return base64-encoded string."""
+        """Load a PNG artifact and return base64-encoded string.
+
+        Pass version to retrieve a specific saved version (e.g. when the agent
+        saves multiple charts under the same filename as successive versions).
+        If version is None, the latest version is returned.
+        """
         try:
             artifact_part = await artifact_service.load_artifact(
                 app_name=app_name,
                 user_id=user_id,
                 session_id=session_id,
                 filename=filename,
+                version=version,
             )
             if not artifact_part or not getattr(artifact_part, "inline_data", None):
                 return None
@@ -158,20 +171,49 @@ class ReportAgentService:
         report_data: Dict[str, Any],
         chart_blocks: List[str],
     ) -> str:
-        """Compose a final HTML report from DynamicReport dict + rendered chart blocks."""
+        """Compose a final HTML report from DynamicReport dict + rendered chart blocks.
+
+        Charts are placed inline immediately after the section whose chart_index matches
+        their 0-based position in chart_blocks.  Any charts not referenced by a section
+        are appended at the end under a 'Charts' heading.
+        """
         title = report_data.get("title") or "Generated Report"
         summary_html = report_data.get("summary_html") or "<p>No summary provided.</p>"
         sections = report_data.get("sections") or []
         notes = report_data.get("notes") or ""
 
-        section_html = "".join(
-            f"<section><h2>{s.get('heading', 'Section')}</h2>{s.get('html', '')}</section>"
-            for s in sections
-        )
+        placed_chart_indices: set = set()
+        section_parts: List[str] = []
 
+        for s in sections:
+            heading = s.get("heading", "Section")
+            body_html = s.get("html", "")
+            chart_idx = s.get("chart_index")
+
+            section_parts.append(
+                f"<section><h2>{heading}</h2>{body_html}</section>"
+            )
+
+            # Insert chart inline right after this section when one is assigned
+            if (
+                chart_idx is not None
+                and isinstance(chart_idx, int)
+                and 0 <= chart_idx < len(chart_blocks)
+            ):
+                section_parts.append(chart_blocks[chart_idx])
+                placed_chart_indices.add(chart_idx)
+
+        section_html = "".join(section_parts)
+
+        # Any charts not placed inline → append at end under "Charts"
+        remaining = [
+            chart_blocks[i]
+            for i in range(len(chart_blocks))
+            if i not in placed_chart_indices
+        ]
         charts_html = (
-            "<section><h2>Charts</h2>" + "".join(chart_blocks) + "</section>"
-            if chart_blocks else ""
+            "<section><h2>Charts</h2>" + "".join(remaining) + "</section>"
+            if remaining else ""
         )
 
         notes_html = f"<p><em>{notes}</em></p>" if notes else ""
@@ -253,7 +295,11 @@ class ReportAgentService:
             artifact_service=artifact_service,
         )
 
-        png_filenames: List[str] = []
+        # List of (filename, version) tuples — one entry per artifact save event.
+        # The agent may save multiple charts under the same filename as successive
+        # versions (e.g. chart.png/0, chart.png/1, chart.png/2), so we must
+        # use .items() to capture every version rather than deduplicating on filename.
+        png_artifacts: List[tuple] = []
         yield {"type": "status", "content": "Analyzing data and generating charts..."}
 
         async for event in analyst_runner.run_async(
@@ -268,14 +314,15 @@ class ReportAgentService:
                     if text and text.strip() and not getattr(part, "thought", False):
                         yield {"type": "text", "content": text}
 
-            # Collect chart filenames from artifact_delta
+            # Collect (filename, version) pairs from artifact_delta.
+            # artifact_delta is dict[str, int]: filename → version number just saved.
             if (
                 getattr(event, "actions", None)
                 and getattr(event.actions, "artifact_delta", None)
             ):
-                for fn in event.actions.artifact_delta.keys():
+                for fn, ver in event.actions.artifact_delta.items():
                     if fn.lower().endswith(".png"):
-                        png_filenames.append(fn)
+                        png_artifacts.append((fn, ver))
 
         # ── Read analyst output from session state ────────────────────────────
         cur_session = await session_service.get_session(
@@ -339,16 +386,23 @@ class ReportAgentService:
             return
 
         # ── Load charts from artifact service ─────────────────────────────────
-        ordered_unique = list(dict.fromkeys(png_filenames))
+        # png_artifacts is a list of (filename, version) tuples in save order.
+        # Load each specific version so we get every chart the agent produced,
+        # even when multiple charts were saved under the same filename.
         chart_captions: List[str] = report_data.get("chart_captions") or []
         chart_blocks: List[str] = []
 
-        for idx, filename in enumerate(ordered_unique):
+        for filename, version in png_artifacts:
             img_b64 = await self._load_png_as_base64(
-                artifact_service, app_name, user_id, session.id, filename
+                artifact_service, app_name, user_id, session.id, filename, version=version
             )
             if not img_b64:
                 continue
+            # Skip blank/empty figures — a real chart base64-encodes to at least ~13 KB.
+            # Matplotlib sometimes saves an empty figure (~7 KB raw) before the real plot.
+            if len(img_b64) < 13000:
+                continue
+            idx = len(chart_blocks)
             caption = chart_captions[idx] if idx < len(chart_captions) else f"Chart {idx + 1}"
             chart_blocks.append(
                 "<figure style=\"margin: 20px 0;\">"
