@@ -41,7 +41,7 @@ class DynamicReport(BaseModel):
 # ─────────────────────────────────────────────
 
 _ANALYST_AGENT = LlmAgent(
-    model="gemini-2.0-flash",
+    model="gemini-3-flash-preview",
     name="Analyst",
     description="Analyzes data artifacts and generates charts via code execution",
     instruction=(
@@ -61,7 +61,7 @@ _ANALYST_AGENT = LlmAgent(
 )
 
 _REPORTER_AGENT = LlmAgent(
-    model="gemini-2.0-flash",
+    model="gemini-3-flash-preview",
     name="Reporter",
     description="Formats analyst findings into a structured HTML report",
     instruction=(
