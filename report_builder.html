@@ -15,6 +15,7 @@
         href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/python.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -484,6 +485,7 @@
             padding: 40px;
             display: flex;
             justify-content: center;
+            align-items: flex-start;
             background: var(--bg-stone);
         }
 
@@ -805,16 +807,77 @@
             color: var(--electric-blue);
         }
 
+        /* Column wrapper: holds bubble + code section(s) */
+        .msg-content-col {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-width: 85%;
+        }
+
         .msg-assistant-bubble {
             background: white;
             border: 1px solid var(--border-stone);
             padding: 10px 16px;
             border-radius: 16px 16px 16px 4px;
             font-size: 13px;
-            max-width: 85%;
             line-height: 1.5;
             color: var(--dark-text);
             box-shadow: var(--card-shadow);
+        }
+
+        /* Collapsible code section */
+        .msg-code-section {
+            border: 1px solid var(--border-stone);
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+            box-shadow: var(--card-shadow);
+        }
+
+        .code-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: white;
+            border: none;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--dark-text);
+            width: 100%;
+            text-align: left;
+            opacity: 0.65;
+            transition: opacity 0.15s, background 0.15s;
+        }
+
+        .code-toggle-btn:hover {
+            opacity: 1;
+            background: var(--bg-stone);
+        }
+
+        .code-toggle-btn .material-symbols-outlined {
+            font-size: 15px;
+        }
+
+        .code-toggle-btn .code-toggle-icon {
+            margin-left: auto;
+            transition: transform 0.2s ease;
+        }
+
+        .msg-code-section.expanded .code-toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .msg-code-body {
+            display: none;
+            border-top: 1px solid var(--border-stone);
+        }
+
+        .msg-code-section.expanded .msg-code-body {
+            display: block;
         }
 
         /* Markdown in chat */
@@ -1511,6 +1574,11 @@
                                     if (currentReportId === sendSessionId) {
                                         updateStreamingMessage(streamingId, fullText);
                                     }
+                                } else if (data.type === 'code' && data.content) {
+                                    // Show the Python code the agent generated in a collapsible section
+                                    if (currentReportId === sendSessionId) {
+                                        appendCodeSection(streamingId, data.content, data.language || 'python');
+                                    }
                                 } else if (data.type === 'error') {
                                     errorText = data.content;
                                     if (currentReportId === sendSessionId) {
@@ -1806,8 +1874,10 @@
                 <div class="msg-avatar">
                     <span class="material-symbols-outlined">auto_awesome</span>
                 </div>
-                <div class="msg-assistant-bubble">
-                    <span class="streaming-cursor">▋</span>
+                <div class="msg-content-col">
+                    <div class="msg-assistant-bubble">
+                        <span class="streaming-cursor">▋</span>
+                    </div>
                 </div>`;
             container.appendChild(wrapper);
             container.scrollTop = container.scrollHeight;
@@ -1830,6 +1900,46 @@
                 if (cursor) cursor.remove();
                 highlightCodeBlocks();
             }
+        }
+
+        function appendCodeSection(streamingId, code, language) {
+            const wrapper = document.getElementById(streamingId);
+            if (!wrapper) return;
+            const col = wrapper.querySelector('.msg-content-col');
+            if (!col) return;
+
+            const section = document.createElement('div');
+            section.className = 'msg-code-section';
+            section.innerHTML = `
+                <button class="code-toggle-btn" onclick="toggleCodeSection(this.closest('.msg-code-section'))">
+                    <span class="material-symbols-outlined">code</span>
+                    View generated code
+                    <span class="material-symbols-outlined code-toggle-icon">expand_more</span>
+                </button>
+                <div class="msg-code-body">
+                    <div class="code-block-wrapper">
+                        <button class="code-copy-btn" onclick="copyCodeBlock(this)">
+                            <span class="material-symbols-outlined">content_copy</span>Copy
+                        </button>
+                        <pre><code class="language-${language}">${escapeHtml(code)}</code></pre>
+                    </div>
+                </div>`;
+
+            col.appendChild(section);
+
+            // Apply syntax highlighting immediately
+            if (typeof hljs !== 'undefined') {
+                const codeEl = section.querySelector('code');
+                if (codeEl && !codeEl.dataset.highlighted) hljs.highlightElement(codeEl);
+            }
+
+            const container = document.getElementById('chatMessages');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function toggleCodeSection(section) {
+            if (!section) return;
+            section.classList.toggle('expanded');
         }
 
         function setStatus(text) {

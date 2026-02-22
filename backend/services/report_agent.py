@@ -308,12 +308,19 @@ class ReportAgentService:
             session_id=session.id,
             new_message=analyst_message,
         ):
-            # Stream analyst text to the UI
+            # Stream analyst text and generated code to the UI
             if event.content and event.content.parts:
                 for part in event.content.parts:
+                    # Plain text summary
                     text = getattr(part, "text", None)
                     if text and text.strip() and not getattr(part, "thought", False):
                         yield {"type": "text", "content": text}
+                    # Python code the agent writes for chart generation
+                    ec = getattr(part, "executable_code", None)
+                    if ec is not None:
+                        code_text = getattr(ec, "code", str(ec))
+                        if code_text and code_text.strip():
+                            yield {"type": "code", "language": "python", "content": code_text}
 
             # Collect max version per filename from artifact_delta.
             # artifact_delta = {filename: latest_version_number} for this block.
