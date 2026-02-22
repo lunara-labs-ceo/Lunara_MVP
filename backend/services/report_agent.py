@@ -295,11 +295,12 @@ class ReportAgentService:
             artifact_service=artifact_service,
         )
 
-        # List of (filename, version) tuples — one entry per artifact save event.
-        # The agent may save multiple charts under the same filename as successive
-        # versions (e.g. chart.png/0, chart.png/1, chart.png/2), so we must
-        # use .items() to capture every version rather than deduplicating on filename.
-        png_artifacts: List[tuple] = []
+        # artifact_delta fires once per code-execution block and reports
+        # {filename: latest_version_number} for every file touched in that block.
+        # A filename can have multiple versions (0, 1, …, max_ver) when the agent
+        # saves to the same filename more than once within a second.
+        # We track the max version per filename so we can enumerate ALL versions.
+        artifact_version_map: Dict[str, int] = {}   # filename → max version seen
         yield {"type": "status", "content": "Analyzing data and generating charts..."}
 
         async for event in analyst_runner.run_async(
@@ -314,15 +315,17 @@ class ReportAgentService:
                     if text and text.strip() and not getattr(part, "thought", False):
                         yield {"type": "text", "content": text}
 
-            # Collect (filename, version) pairs from artifact_delta.
-            # artifact_delta is dict[str, int]: filename → version number just saved.
+            # Collect max version per filename from artifact_delta.
+            # artifact_delta = {filename: latest_version_number} for this block.
             if (
                 getattr(event, "actions", None)
                 and getattr(event.actions, "artifact_delta", None)
             ):
                 for fn, ver in event.actions.artifact_delta.items():
                     if fn.lower().endswith(".png"):
-                        png_artifacts.append((fn, ver))
+                        artifact_version_map[fn] = max(
+                            artifact_version_map.get(fn, -1), int(ver)
+                        )
 
         # ── Read analyst output from session state ────────────────────────────
         cur_session = await session_service.get_session(
@@ -338,12 +341,42 @@ class ReportAgentService:
             artifact_service=artifact_service,
         )
 
+        # ── Load charts BEFORE Reporter so we know the exact count ───────────
+        # Enumerate all versions 0..max_ver for each filename from artifact_delta.
+        # This recovers charts that were saved multiple times to the same filename
+        # (each additional save creates a new version: filename/0, /1, /2, …).
+        chart_b64s: List[str] = []   # raw base64 strings; captions added after Reporter
+
+        for filename, max_ver in artifact_version_map.items():
+            for ver in range(max_ver + 1):
+                img_b64 = await self._load_png_as_base64(
+                    artifact_service, app_name, user_id, session.id,
+                    filename, version=ver,
+                )
+                if not img_b64:
+                    continue
+                # Skip blank/empty figures (< ~9.5 KB raw → < 13 KB b64).
+                # Matplotlib sometimes emits a blank figure before the real plot.
+                if len(img_b64) < 13000:
+                    continue
+                chart_b64s.append(img_b64)
+
+        # Tell the Reporter exactly how many valid charts we have
+        if chart_b64s:
+            chart_count_hint = (
+                f"\n\nThere are exactly {len(chart_b64s)} chart(s) available. "
+                f"Use chart_index values 0 to {len(chart_b64s) - 1} only."
+            )
+        else:
+            chart_count_hint = "\n\nNo charts were generated."
+
         reporter_message = types.Content(
             role="user",
             parts=[types.Part(
                 text=(
                     f"Original user request: {prompt}\n\n"
-                    f"Analyst findings:\n{analysis_text}\n\n"
+                    f"Analyst findings:\n{analysis_text}"
+                    f"{chart_count_hint}\n\n"
                     "Now generate the structured report."
                 )
             )],
@@ -385,24 +418,13 @@ class ReportAgentService:
             yield {"type": "done", "items_added": 1}
             return
 
-        # ── Load charts from artifact service ─────────────────────────────────
-        # png_artifacts is a list of (filename, version) tuples in save order.
-        # Load each specific version so we get every chart the agent produced,
-        # even when multiple charts were saved under the same filename.
+        # ── Build chart_blocks using captions from Reporter ───────────────────
+        # chart_b64s was loaded before the Reporter ran (so Reporter knew the count).
+        # Now attach the Reporter's captions to produce the final figure HTML.
         chart_captions: List[str] = report_data.get("chart_captions") or []
         chart_blocks: List[str] = []
 
-        for filename, version in png_artifacts:
-            img_b64 = await self._load_png_as_base64(
-                artifact_service, app_name, user_id, session.id, filename, version=version
-            )
-            if not img_b64:
-                continue
-            # Skip blank/empty figures — a real chart base64-encodes to at least ~13 KB.
-            # Matplotlib sometimes saves an empty figure (~7 KB raw) before the real plot.
-            if len(img_b64) < 13000:
-                continue
-            idx = len(chart_blocks)
+        for idx, img_b64 in enumerate(chart_b64s):
             caption = chart_captions[idx] if idx < len(chart_captions) else f"Chart {idx + 1}"
             chart_blocks.append(
                 "<figure style=\"margin: 20px 0;\">"
