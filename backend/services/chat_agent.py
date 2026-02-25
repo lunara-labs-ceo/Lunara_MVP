@@ -18,6 +18,8 @@ from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 
+from services.retry_utils import run_with_retry
+
 
 # SQLite database path for ADK session persistence
 DB_PATH = Path(__file__).parent.parent / "lunara.db"
@@ -425,10 +427,11 @@ Guidelines:
         
         # Stream the agent response
         try:
-            async for event in self._runner.run_async(
-                session_id=adk_session_id,
+            async for event in run_with_retry(
+                self._runner,
                 user_id=f"session_{session_id or 'default'}",
-                new_message=user_content
+                session_id=adk_session_id,
+                new_message=user_content,
             ):
                 if event.content and event.content.parts:
                     for part in event.content.parts:

@@ -18,6 +18,8 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
+from services.retry_utils import run_with_retry
+
 # GCP credentials and config are set up by main.py before this module is imported.
 
 
@@ -340,7 +342,8 @@ class ReportAgentService:
 
         artifact_version_map: Dict[str, int] = {}  # filename → version
 
-        async for event in analyst_runner.run_async(
+        async for event in run_with_retry(
+            analyst_runner,
             user_id=user_id,
             session_id=session.id,
             new_message=analyst_message,
@@ -438,7 +441,8 @@ class ReportAgentService:
 
         yield {"type": "status", "content": "Formatting report..."}
 
-        async for _event in reporter_runner.run_async(
+        async for _event in run_with_retry(
+            reporter_runner,
             user_id=user_id,
             session_id=session.id,
             new_message=reporter_message,

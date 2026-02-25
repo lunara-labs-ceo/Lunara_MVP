@@ -17,6 +17,8 @@ from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
+from services.retry_utils import run_with_retry
+
 
 class SemanticAgentService:
     """Service for generating semantic layers using LLM agent."""
@@ -190,10 +192,11 @@ Output your thinking step-by-step as you work. At the end, provide a summary of 
         
         # Stream the agent response
         try:
-            async for event in self._runner.run_async(
-                session_id=self._session_id,
+            async for event in run_with_retry(
+                self._runner,
                 user_id="system",
-                new_message=user_content
+                session_id=self._session_id,
+                new_message=user_content,
             ):
                 if event.content and event.content.parts:
                     for part in event.content.parts:
