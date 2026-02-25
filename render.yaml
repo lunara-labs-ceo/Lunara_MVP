@@ -16,4 +16,6 @@ services:
         generateValue: true
       - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
         sync: false  # Must be set manually in dashboard
+      - key: AGENT_ENGINE_RESOURCE_NAME
+        sync: false  # Must be set manually in dashboard
     healthCheckPath: /health

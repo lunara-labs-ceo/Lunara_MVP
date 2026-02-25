@@ -7,16 +7,33 @@ import os
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from google.adk.agents import LlmAgent
 from google.adk.artifacts import GcsArtifactService, InMemoryArtifactService
-from google.adk.code_executors import BuiltInCodeExecutor
+from google.adk.code_executors.agent_engine_sandbox_code_executor import (
+    AgentEngineSandboxCodeExecutor,
+)
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 # GCP credentials and config are set up by main.py before this module is imported.
+
+
+# ─────────────────────────────────────────────
+# Pydantic schema for the Analyst → Reporter handoff
+# ─────────────────────────────────────────────
+
+class ChartEntry(BaseModel):
+    filename: str = Field(description="The exact filename of the generated chart (e.g., '0.png')")
+    description: str = Field(description="What the chart shows and its key insight")
+    placement_hint: str = Field(description="Where this chart belongs in the report narrative")
+
+
+class AnalysisManifest(BaseModel):
+    summary_text: str = Field(description="Plain-text summary of the overall analysis findings")
+    charts: List[ChartEntry] = Field(default=[], description="List of all generated charts, in chronological order")
 
 
 # ─────────────────────────────────────────────
@@ -41,45 +58,67 @@ class DynamicReport(BaseModel):
 # Agent definitions (module-level singletons)
 # ─────────────────────────────────────────────
 
+# Agent Engine resource name (auto-creates sandboxes per session).
+_AGENT_ENGINE_RESOURCE_NAME = os.environ.get(
+    "AGENT_ENGINE_RESOURCE_NAME",
+    "projects/1025045538344/locations/us-central1/"
+    "reasoningEngines/651943325061873664",
+)
+
 _ANALYST_AGENT = LlmAgent(
     model="gemini-3-flash-preview",
     name="Analyst",
     description="Analyzes data artifacts and generates charts via code execution",
     instruction=(
-        "You are a data analyst. You will be given JSON data artifacts and a user request.\n\n"
-        "Your job:\n"
-        "1) Analyze the data and identify key insights.\n"
-        "2) If the user asks for charts, generate them with Python (matplotlib) using code execution.\n"
-        "   Save each chart with a SEQUENTIAL filename: chart_1.png, chart_2.png, chart_3.png, …\n"
-        "   NEVER use timestamps or reuse the same filename for different charts.\n"
-        "3) Write a concise plain-text summary of:\n"
-        "   - Key findings from the data\n"
-        "   - Which charts you created and what each shows\n"
-        "Output ONLY your plain-text summary — no JSON, no schema, no markdown headers."
+        "You are Lunara's friendly data analyst. You're warm, approachable, and genuinely\n"
+        "excited about helping users explore their data. Think of yourself as a sharp but kind\n"
+        "colleague who makes data feel accessible and interesting.\n\n"
+        "CONVERSATION FLOW — this is important:\n"
+        "- If the user greets you (hi, hello, hey, etc.), greet them back warmly! Mention\n"
+        "  that you can see their data artifacts and ask what they'd like to explore or build.\n"
+        "  Do NOT immediately start analyzing or generating charts.\n"
+        "- If the user asks a question about the data, answer it conversationally. Explain\n"
+        "  findings like you're talking to a smart friend, not writing a textbook.\n"
+        "- ONLY when the user explicitly asks you to build a report, generate charts, or\n"
+        "  analyze the data (e.g. 'build me a report', 'create some charts', 'analyze this'),\n"
+        "  should you run code and generate charts.\n\n"
+        "When you DO generate charts (only when asked):\n"
+        "   CRITICAL RULES:\n"
+        "   - Generate EACH chart in its OWN SEPARATE code execution block.\n"
+        "   - Use ONLY plt.savefig() to save. NEVER call plt.show().\n"
+        "   - Call plt.close() after each savefig() to clear the figure.\n"
+        "   - Use descriptive filenames: revenue_bar.png, users_line.png, etc.\n"
+        "   - NEVER reuse the same filename for different charts.\n\n"
+        "After charts are done, wrap up with a conversational summary. Tell the story\n"
+        "the data is telling — what's interesting, surprising, or noteworthy.\n"
     ),
-    code_executor=BuiltInCodeExecutor(),
+    code_executor=AgentEngineSandboxCodeExecutor(
+        agent_engine_resource_name=_AGENT_ENGINE_RESOURCE_NAME,
+    ),
     output_key="analysis",
 )
 
 _REPORTER_AGENT = LlmAgent(
     model="gemini-3-flash-preview",
     name="Reporter",
-    description="Formats analyst findings into a structured HTML report",
+    description="Formats analyst findings into a polished, structured HTML report",
     instruction=(
-        "You are a report formatter. You will receive an analyst's findings and must produce a\n"
-        "structured report conforming exactly to the required JSON schema.\n\n"
-        "Rules:\n"
+        "You are Lunara's report writer. You take an analyst's findings and craft them into\n"
+        "a polished, well-structured report that feels professional yet approachable.\n\n"
+        "Your writing style: clear, confident, and warm. Use natural language — not robotic bullet\n"
+        "points. Write as if you're presenting insights to a stakeholder who's smart but busy.\n"
+        "Make the report feel like something worth reading, not a chore.\n\n"
+        "Rules for the JSON output:\n"
         "1) Use ONLY the analyst's findings — do not invent data.\n"
-        "2) section 'html' fields: plain HTML text only — <p>, <ul>, <li>, <strong>, <em>.\n"
+        "2) section 'html' fields: use <p>, <ul>, <li>, <strong>, <em>.\n"
         "   NEVER include <img>, <figure>, <canvas>, or any image-related tags.\n"
-        "3) chart_captions: list one short caption per chart the analyst created, in order.\n"
-        "   If no charts were created, leave as an empty list.\n"
-        "4) chart_index: for each section that should be immediately followed by a chart,\n"
-        "   set chart_index to the 0-based index of that chart (matching chart_captions order).\n"
-        "   Example: if chart 0 belongs after the 'Top Tracks' section, set chart_index=0 there.\n"
-        "   Leave chart_index null (omit it) for sections that have no chart.\n"
-        "   Each chart_index value should be used at most once across all sections.\n"
-        "5) Return ONLY valid JSON matching the schema — no markdown fences, no extra text."
+        "3) chart_captions: one short, descriptive caption per chart, in order.\n"
+        "   If no charts, leave as an empty list.\n"
+        "4) chart_index: for sections that should be followed by a chart, set chart_index\n"
+        "   to the 0-based index of that chart (matching chart_captions order).\n"
+        "   Leave null for sections without a chart. Each index used at most once.\n"
+        "5) Return ONLY valid JSON matching the schema — no markdown fences, no extra text.\n"
+        "6) Write a compelling title and summary_html that give the reader immediate value.\n"
     ),
     output_schema=DynamicReport,
     output_key="report_output",
@@ -91,14 +130,16 @@ _REPORTER_AGENT = LlmAgent(
 # ─────────────────────────────────────────────
 
 class ReportAgentService:
-    """Two-agent report pipeline.
+    """Two-agent report pipeline with structured handoff.
 
     Architecture:
-    - Agent 1 (Analyst): code_executor=BuiltInCodeExecutor(), output_key="analysis"
-      → generates charts saved as GCS artifacts, writes text summary to session state
+    - Agent 1 (Analyst): code_executor + output_schema=AnalysisManifest
+      → generates charts saved as GCS artifacts, outputs a validated manifest
+        listing every chart filename, description, and placement hint in order.
     - Agent 2 (Reporter): output_schema=DynamicReport, output_key="report_output"
-      → reads analyst summary, produces validated DynamicReport dict in session state
-    - Backend loads charts from GcsArtifactService and composes final HTML
+      → reads the structured manifest, produces validated DynamicReport dict.
+    - Backend loads charts using the manifest's explicit filename list and
+      composes the final HTML with charts placed in the correct order.
     """
 
     APP_NAME = "lunara_reports"
@@ -295,19 +336,20 @@ class ReportAgentService:
             artifact_service=artifact_service,
         )
 
-        # artifact_delta fires once per code-execution block and reports
-        # {filename: latest_version_number} for every file touched in that block.
-        # A filename can have multiple versions (0, 1, …, max_ver) when the agent
-        # saves to the same filename more than once within a second.
-        # We track the max version per filename so we can enumerate ALL versions.
-        artifact_version_map: Dict[str, int] = {}   # filename → max version seen
         yield {"type": "status", "content": "Analyzing data and generating charts..."}
+
+        artifact_version_map: Dict[str, int] = {}  # filename → version
 
         async for event in analyst_runner.run_async(
             user_id=user_id,
             session_id=session.id,
             new_message=analyst_message,
         ):
+            # Track artifact filenames from the executor
+            if getattr(event, "actions", None) and getattr(event.actions, "artifact_delta", None):
+                for fn, ver in event.actions.artifact_delta.items():
+                    artifact_version_map[fn] = ver
+
             # Stream analyst text and generated code to the UI
             if event.content and event.content.parts:
                 for part in event.content.parts:
@@ -322,23 +364,19 @@ class ReportAgentService:
                         if code_text and code_text.strip():
                             yield {"type": "code", "language": "python", "content": code_text}
 
-            # Collect max version per filename from artifact_delta.
-            # artifact_delta = {filename: latest_version_number} for this block.
-            if (
-                getattr(event, "actions", None)
-                and getattr(event.actions, "artifact_delta", None)
-            ):
-                for fn, ver in event.actions.artifact_delta.items():
-                    if fn.lower().endswith(".png"):
-                        artifact_version_map[fn] = max(
-                            artifact_version_map.get(fn, -1), int(ver)
-                        )
-
-        # ── Read analyst output from session state ────────────────────────────
+        # ── Read analysis text from session state ──────────────────────────────
         cur_session = await session_service.get_session(
             app_name=app_name, user_id=user_id, session_id=session.id
         )
         analysis_text = cur_session.state.get("analysis", "")
+
+        # ── If no charts were generated, this was just a conversation — skip report ──
+        named_artifacts = [
+            fn for fn in artifact_version_map
+            if not fn.startswith("code_execution_image_") and fn.lower().endswith(".png")
+        ]
+        if not named_artifacts:
+            return
 
         # ── Step 2: Run Reporter (structured output, no tools) ────────────────
         reporter_runner = Runner(
@@ -348,34 +386,43 @@ class ReportAgentService:
             artifact_service=artifact_service,
         )
 
-        # ── Load charts BEFORE Reporter so we know the exact count ───────────
-        # Enumerate all versions 0..max_ver for each filename from artifact_delta.
-        # This recovers charts that were saved multiple times to the same filename
-        # (each additional save creates a new version: filename/0, /1, /2, …).
-        chart_b64s: List[str] = []   # raw base64 strings; captions added after Reporter
+        # ── Load charts from artifact deltas ──────────────────────────────────
+        # The sandbox executor creates both auto-named files (code_execution_image_*)
+        # and our custom-named files (from plt.savefig). We keep only the custom ones.
+        chart_b64s: List[str] = []
+        chart_filenames: List[str] = []
 
-        for filename, max_ver in artifact_version_map.items():
-            for ver in range(max_ver + 1):
-                img_b64 = await self._load_png_as_base64(
-                    artifact_service, app_name, user_id, session.id,
-                    filename, version=ver,
-                )
-                if not img_b64:
-                    continue
-                # Skip blank/empty figures (< ~9.5 KB raw → < 13 KB b64).
-                # Matplotlib sometimes emits a blank figure before the real plot.
-                if len(img_b64) < 13000:
-                    continue
-                chart_b64s.append(img_b64)
+        for filename in sorted(artifact_version_map.keys()):
+            # Skip auto-generated sandbox images
+            if filename.startswith("code_execution_image_"):
+                continue
+            if not filename.lower().endswith(".png"):
+                continue
+            img_b64 = await self._load_png_as_base64(
+                artifact_service, app_name, user_id, session.id,
+                filename,
+            )
+            if not img_b64:
+                continue
+            # Skip blank/empty figures (< ~9.5 KB raw → < 13 KB b64).
+            if len(img_b64) < 13000:
+                continue
+            chart_b64s.append(img_b64)
+            chart_filenames.append(filename)
 
-        # Tell the Reporter exactly how many valid charts we have
-        if chart_b64s:
-            chart_count_hint = (
-                f"\n\nThere are exactly {len(chart_b64s)} chart(s) available. "
-                f"Use chart_index values 0 to {len(chart_b64s) - 1} only."
+        # ── Build the Reporter prompt with chart info ─────────────────────────
+        chart_manifest_text = ""
+        if chart_filenames:
+            chart_lines = []
+            for idx, fname in enumerate(chart_filenames):
+                chart_lines.append(f"  chart_index={idx}: {fname}")
+            chart_manifest_text = (
+                f"\n\nThere are exactly {len(chart_b64s)} chart(s) available.\n"
+                + "\n".join(chart_lines)
+                + f"\nUse chart_index values 0 to {len(chart_b64s) - 1} only."
             )
         else:
-            chart_count_hint = "\n\nNo charts were generated."
+            chart_manifest_text = "\n\nNo charts were generated."
 
         reporter_message = types.Content(
             role="user",
@@ -383,7 +430,7 @@ class ReportAgentService:
                 text=(
                     f"Original user request: {prompt}\n\n"
                     f"Analyst findings:\n{analysis_text}"
-                    f"{chart_count_hint}\n\n"
+                    f"{chart_manifest_text}\n\n"
                     "Now generate the structured report."
                 )
             )],
@@ -404,13 +451,14 @@ class ReportAgentService:
         )
         report_data: Dict[str, Any] = final_session.state.get("report_output") or {}
 
-        # Fallback: if Reporter produced no output, show analyst text raw
+        # Fallback: if Reporter produced no output, show analyst manifest text raw
         if not report_data:
+            fallback_text = analysis_text or json.dumps(manifest, indent=2) or "No output from agent."
             fallback_html = (
                 "<div class=\"lunara-report\">"
                 "<h1>Generated Report</h1>"
                 "<section><h2>Response</h2>"
-                f"<pre>{html.escape(analysis_text or 'No output from agent.')}</pre>"
+                f"<pre>{html.escape(fallback_text)}</pre>"
                 "</section></div>"
             )
             item = {
@@ -425,14 +473,20 @@ class ReportAgentService:
             yield {"type": "done", "items_added": 1}
             return
 
-        # ── Build chart_blocks using captions from Reporter ───────────────────
-        # chart_b64s was loaded before the Reporter ran (so Reporter knew the count).
-        # Now attach the Reporter's captions to produce the final figure HTML.
-        chart_captions: List[str] = report_data.get("chart_captions") or []
+        # ── Build chart_blocks using manifest descriptions + Reporter captions ─
+        # Primary caption source: Reporter's chart_captions (human-friendly).
+        # Fallback: manifest descriptions from the Analyst.
+        reporter_captions: List[str] = report_data.get("chart_captions") or []
         chart_blocks: List[str] = []
 
         for idx, img_b64 in enumerate(chart_b64s):
-            caption = chart_captions[idx] if idx < len(chart_captions) else f"Chart {idx + 1}"
+            # Prefer Reporter caption, fall back to manifest description
+            if idx < len(reporter_captions) and reporter_captions[idx]:
+                caption = reporter_captions[idx]
+            elif idx < len(chart_descriptions):
+                caption = chart_descriptions[idx]
+            else:
+                caption = f"Chart {idx + 1}"
             chart_blocks.append(
                 "<figure style=\"margin: 20px 0;\">"
                 f"<img src=\"data:image/png;base64,{img_b64}\" alt=\"{caption}\""
