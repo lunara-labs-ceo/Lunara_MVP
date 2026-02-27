@@ -534,6 +534,87 @@
             }
         }
 
+        /* SQL Editor Tabs */
+        .editor-tabs {
+            display: flex;
+            align-items: center;
+            background: var(--bg-stone);
+            border-bottom: 1px solid var(--border-stone);
+            overflow-x: auto;
+            padding: 0 4px;
+            gap: 2px;
+            min-height: 36px;
+        }
+
+        .editor-tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-family: 'Inter', sans-serif;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            color: var(--dark-text);
+            opacity: 0.6;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+
+        .editor-tab:hover {
+            opacity: 0.9;
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        .editor-tab.active {
+            opacity: 1;
+            border-bottom-color: var(--electric-blue);
+            color: var(--electric-blue);
+        }
+
+        .editor-tab .tab-close {
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.15s;
+            cursor: pointer;
+            border-radius: 3px;
+            padding: 0 2px;
+        }
+
+        .editor-tab:hover .tab-close {
+            opacity: 0.5;
+        }
+
+        .editor-tab .tab-close:hover {
+            opacity: 1;
+            background: rgba(220, 38, 38, 0.1);
+            color: #DC2626;
+        }
+
+        .editor-tab-add {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 4px;
+            color: var(--dark-text);
+            opacity: 0.4;
+            font-size: 18px;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .editor-tab-add:hover {
+            opacity: 0.8;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
         /* SQL Editor */
         .sql-editor-wrap {
             flex: 1;
@@ -565,17 +646,53 @@
 
         /* Results Panel */
         .results-panel {
-            height: 260px;
-            border-top: 1px solid var(--border-stone);
+            height: 600px;
+            border-top: none;
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
+        }
+
+        /* Results Resize Divider */
+        .results-divider {
+            height: 5px;
+            cursor: row-resize;
+            background: transparent;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+            transition: background 0.15s;
+        }
+
+        .results-divider:hover,
+        .results-divider.active {
+            background: var(--electric-blue);
+        }
+
+        .results-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            height: 3px;
+            width: 32px;
+            border-radius: 2px;
+            background: var(--border-stone);
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .results-divider:hover::after {
+            opacity: 1;
         }
 
         .results-header {
             display: flex;
             align-items: center;
             padding: 0 16px;
+            background: var(--bg-stone);
+            border-top: 1px solid var(--border-stone);
             border-bottom: 1px solid var(--border-stone);
             flex-shrink: 0;
         }
@@ -661,7 +778,7 @@
 
         /* ─── Chat Panel ─── */
         .chat-panel {
-            width: 380px;
+            width: 700px;
             background: white;
             display: flex;
             flex-direction: column;
@@ -1047,6 +1164,34 @@
             font-size: 14px;
         }
 
+        .code-run-btn {
+            position: absolute;
+            top: 6px;
+            right: 72px;
+            background: rgba(74, 222, 128, 0.15);
+            border: none;
+            border-radius: 6px;
+            padding: 4px 8px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 4px;
+            color: #4ade80;
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.15s ease;
+            z-index: 1;
+        }
+
+        .code-run-btn:hover {
+            background: rgba(74, 222, 128, 0.3);
+            color: #22c55e;
+        }
+
+        .code-run-btn .material-symbols-outlined {
+            font-size: 14px;
+        }
+
         /* Fallback for pre blocks not inside wrapper */
         .msg-assistant-bubble>pre {
             background: #1e293b;
@@ -1170,12 +1315,19 @@
                 </div>
             </div>
 
+            <div id="editor-tabs" class="editor-tabs">
+                <!-- Tabs rendered by JS -->
+            </div>
+
             <div class="sql-editor-wrap">
                 <textarea id="sql-editor" class="sql-editor"
                     placeholder="-- SQL will appear here when you ask a question..."></textarea>
             </div>
 
-            <div class="results-panel">
+            <!-- Results Resize Divider -->
+            <div class="results-divider" id="resultsDivider"></div>
+
+            <div class="results-panel" id="resultsPanel">
                 <div class="results-header">
                     <span class="results-tab">Query Results</span>
                     <div class="results-spacer"></div>
@@ -1260,6 +1412,103 @@
         let semanticModelId = null;  // UUID from Supabase semantic_models table
         let lastQueryResults = null;
         let currentSQL = '';
+
+        // ─── Tab Management ───
+        let editorTabs = [];
+        let activeTabIndex = 0;
+        let tabCounter = 0;
+
+        function createTab(sql = '', autoRun = false) {
+            // Save current tab state before switching
+            saveActiveTabState();
+
+            tabCounter++;
+            const tab = {
+                id: tabCounter,
+                name: `Query ${tabCounter}`,
+                sql: sql,
+                results: null,
+                resultsMeta: '',
+                queryStatus: '<div class="status-dot"></div>Ready'
+            };
+            editorTabs.push(tab);
+            activeTabIndex = editorTabs.length - 1;
+            renderTabs();
+            loadTabState(activeTabIndex);
+
+            if (autoRun && sql) {
+                executeQuery();
+            }
+        }
+
+        function switchTab(index) {
+            if (index === activeTabIndex || index < 0 || index >= editorTabs.length) return;
+            saveActiveTabState();
+            activeTabIndex = index;
+            loadTabState(index);
+            renderTabs();
+        }
+
+        function closeTab(index, event) {
+            if (event) event.stopPropagation();
+            if (editorTabs.length <= 1) {
+                // Don't close the last tab, just clear it
+                clearEditor();
+                return;
+            }
+            editorTabs.splice(index, 1);
+            if (activeTabIndex >= editorTabs.length) {
+                activeTabIndex = editorTabs.length - 1;
+            } else if (activeTabIndex > index) {
+                activeTabIndex--;
+            }
+            loadTabState(activeTabIndex);
+            renderTabs();
+        }
+
+        function saveActiveTabState() {
+            if (!editorTabs[activeTabIndex]) return;
+            const tab = editorTabs[activeTabIndex];
+            tab.sql = document.getElementById('sql-editor').value;
+            tab.results = document.getElementById('results-container').innerHTML;
+            tab.resultsMeta = document.getElementById('results-meta').textContent;
+            tab.queryStatus = document.getElementById('query-status').innerHTML;
+        }
+
+        function loadTabState(index) {
+            const tab = editorTabs[index];
+            if (!tab) return;
+            document.getElementById('sql-editor').value = tab.sql;
+            currentSQL = tab.sql;
+            document.getElementById('results-container').innerHTML =
+                tab.results || '<div class="results-empty">Run a query to see results</div>';
+            document.getElementById('results-meta').textContent = tab.resultsMeta || '';
+            document.getElementById('query-status').innerHTML =
+                tab.queryStatus || '<div class="status-dot"></div>Ready';
+            // Update save button state based on whether tab has results
+            document.getElementById('save-artifact-btn').disabled = !tab.results || tab.results.includes('results-empty');
+        }
+
+        function renderTabs() {
+            const container = document.getElementById('editor-tabs');
+            container.innerHTML = editorTabs.map((tab, i) =>
+                `<button class="editor-tab ${i === activeTabIndex ? 'active' : ''}" onclick="switchTab(${i})">
+                    <span>${tab.name}</span>
+                    <span class="tab-close material-symbols-outlined" onclick="closeTab(${i}, event)">close</span>
+                </button>`
+            ).join('') +
+                `<button class="editor-tab-add" onclick="createTab()" title="New tab">+</button>`;
+        }
+
+        // Save SQL to active tab on every keystroke
+        document.getElementById('sql-editor').addEventListener('input', function () {
+            if (editorTabs[activeTabIndex]) {
+                editorTabs[activeTabIndex].sql = this.value;
+            }
+        });
+
+        // Initialize first tab
+        createTab();
         let currentSessionId = null;
         let chatMessages = []; // local mirror of messages for current session
         let currentStreamingId = null;
@@ -1415,8 +1664,10 @@
                 loadChatSessions();
 
                 // Clear editor and results for fresh start
-                document.getElementById('sql-editor').value = '';
-                currentSQL = '';
+                editorTabs = [];
+                activeTabIndex = 0;
+                tabCounter = 0;
+                createTab();
                 lastQueryResults = null;
                 document.getElementById('results-container').innerHTML =
                     '<div class="results-empty">Run a query to see results</div>';
@@ -1586,8 +1837,7 @@
         }
 
         function loadArtifact(id, sql) {
-            document.getElementById('sql-editor').value = sql;
-            currentSQL = sql;
+            createTab(sql);
         }
 
         function saveAsArtifact() {
@@ -1789,6 +2039,9 @@
                                     if (currentSessionId === sendSessionId) {
                                         document.getElementById('sql-editor').value = generatedSQL;
                                         currentSQL = generatedSQL;
+                                        if (editorTabs[activeTabIndex]) {
+                                            editorTabs[activeTabIndex].sql = generatedSQL;
+                                        }
                                     }
                                 } else if (data.type === 'error') {
                                     if (currentSessionId === sendSessionId) {
@@ -1874,6 +2127,9 @@
                     '<div class="status-dot error"></div>Error';
                 document.getElementById('save-artifact-btn').disabled = true;
             }
+
+            // Persist results to the active tab
+            saveActiveTabState();
         }
 
         function renderResults(data) {
@@ -1909,6 +2165,18 @@
         function clearEditor() {
             document.getElementById('sql-editor').value = '';
             currentSQL = '';
+            if (editorTabs[activeTabIndex]) {
+                editorTabs[activeTabIndex].sql = '';
+                editorTabs[activeTabIndex].results = null;
+                editorTabs[activeTabIndex].resultsMeta = '';
+            }
+            lastQueryResults = null;
+            document.getElementById('results-container').innerHTML =
+                '<div class="results-empty">Run a query to see results</div>';
+            document.getElementById('results-meta').textContent = '';
+            document.getElementById('save-artifact-btn').disabled = true;
+            document.getElementById('query-status').innerHTML =
+                '<div class="status-dot"></div>Ready';
         }
 
         // ─── Utilities ───
@@ -1918,7 +2186,15 @@
                     let html = marked.parse(text, { breaks: true, gfm: true });
                     // Wrap <pre> blocks with a container that has a copy button
                     html = html.replace(/<pre><code([^>]*)>(.*?)<\/code><\/pre>/gs, function (match, attrs, code) {
+                        // Detect if it's SQL — check class attribute or content
+                        const isSql = /class=".*sql/i.test(attrs) ||
+                            /^\s*(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP)\b/i.test(code.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' '));
+                        const runBtn = isSql
+                            ? '<button class="code-run-btn" style="display:flex" onclick="runInEditor(this)">' +
+                            '<span class="material-symbols-outlined">play_arrow</span>Run</button>'
+                            : '';
                         return '<div class="code-block-wrapper">' +
+                            runBtn +
                             '<button class="code-copy-btn" onclick="copyCodeBlock(this)">' +
                             '<span class="material-symbols-outlined">content_copy</span>Copy</button>' +
                             '<pre><code' + attrs + '>' + code + '</code></pre></div>';
@@ -1952,6 +2228,23 @@
                     btn.style.color = '';
                 }, 2000);
             });
+        }
+
+        function runInEditor(btn) {
+            const pre = btn.closest('.code-block-wrapper').querySelector('code');
+            const sql = pre.textContent.trim();
+            if (!sql) return;
+
+            // Create a new tab with this SQL and auto-run
+            createTab(sql, true);
+
+            // Visual feedback
+            btn.innerHTML = '<span class="material-symbols-outlined">check</span>Sent!';
+            btn.style.color = '#22c55e';
+            setTimeout(function () {
+                btn.innerHTML = '<span class="material-symbols-outlined">play_arrow</span>Run';
+                btn.style.color = '';
+            }, 2000);
         }
 
         function toggleSection(headerEl) {
@@ -2022,6 +2315,43 @@
                 const maxW = containerWidth * 0.6;
                 if (chatWidth >= minW && chatWidth <= maxW) {
                     chatPanel.style.width = chatWidth + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    divider.classList.remove('active');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+        })();
+
+        // ─── Results Resize Divider ───
+        (function initResultsResize() {
+            const divider = document.getElementById('resultsDivider');
+            const resultsPanel = document.getElementById('resultsPanel');
+            if (!divider || !resultsPanel) return;
+            let isDragging = false;
+
+            divider.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                divider.classList.add('active');
+                document.body.style.cursor = 'row-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const centerPanel = resultsPanel.parentElement;
+                const panelRect = centerPanel.getBoundingClientRect();
+                const resultsHeight = panelRect.bottom - e.clientY;
+                const minH = 120;
+                const maxH = panelRect.height * 0.7;
+                if (resultsHeight >= minH && resultsHeight <= maxH) {
+                    resultsPanel.style.height = resultsHeight + 'px';
                 }
             });
 

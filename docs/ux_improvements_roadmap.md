@@ -5,8 +5,8 @@
 - [x] **429 Retry Handling** — exponential backoff on Gemini rate limits (backend)
 - [x] **Resizable Chat Panel** — draggable divider on both Report Builder and Query Agent pages
 - [x] **Remove localStorage Semantic Layer Fallback** — only load from Supabase per project
-- [ ] **SQL Query Tabs** — "Run in Editor" buttons on chat code blocks
-- [ ] **Inline Visualizations** — Chart.js toggle on SQL query results
+- [x] **SQL Query Tabs** — "Run in Editor" button on SQL chat code blocks
+- [ ] ~~**Inline Visualizations**~~ — **PARKED.** The Report Builder already handles visualizations. Chat Agent should stay focused on analysis. Revisit only if users request it.
 
 ---
 
