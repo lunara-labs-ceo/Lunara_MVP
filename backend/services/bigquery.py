@@ -1,12 +1,27 @@
 """BigQuery service for connection management."""
 import json
 import os
+from datetime import date, datetime, time
+from decimal import Decimal
 from pathlib import Path
-from datetime import datetime
 from typing import Optional, Tuple
+
 from cryptography.fernet import Fernet
 from google.cloud import bigquery
 from google.oauth2 import service_account
+
+
+def _serialize_value(val):
+    """Convert non-JSON-serializable types to strings."""
+    if val is None:
+        return val
+    if isinstance(val, (datetime, date, time)):
+        return val.isoformat()
+    if isinstance(val, Decimal):
+        return float(val)
+    if isinstance(val, bytes):
+        return val.decode("utf-8", errors="replace")
+    return val
 
 from models.connection import ConnectionStatus
 
@@ -222,4 +237,7 @@ class BigQueryService:
 
         query_job = self._client.query(sql)
         results = query_job.result()
-        return [dict(row.items()) for row in results]
+        return [
+            {k: _serialize_value(v) for k, v in row.items()}
+            for row in results
+        ]

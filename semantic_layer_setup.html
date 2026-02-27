@@ -798,7 +798,6 @@
     <script>
         // API Configuration
         const API_BASE_URL = '';
-        const STORAGE_KEY = 'lunara_semantic_model';
 
         // Supabase Configuration
         const SUPABASE_URL = 'https://tufhdojlsaysrkivdfym.supabase.co';
@@ -862,38 +861,16 @@
             }
         }
 
-        // LocalStorage functions
+        // Save semantic model data (in-memory only, persisted to Supabase via Save button)
         function saveSemanticModel() {
-            const data = {
-                tables: semanticModel?.tables || [],
-                relationships: detectedRelationships,
-                savedAt: new Date().toISOString()
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            // No-op for localStorage — model is saved to Supabase via the Save button
         }
 
-        function loadSemanticModel() {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                try {
-                    const data = JSON.parse(stored);
-                    semanticModel = { tables: data.tables };
-                    detectedRelationships = data.relationships || [];
-                    renderModels();
-                    if (semanticModel.tables.length > 0) {
-                        selectTable(0);
-                    }
-                } catch (e) {
-                    console.error('Failed to load semantic model:', e);
-                }
-            }
-        }
-
-        // Load semantic model from Supabase (primary) with localStorage fallback
+        // Load semantic model from Supabase only — no localStorage fallback
         async function loadSemanticModelFromSupabase() {
             if (!projectId) {
-                // No project ID, fall back to localStorage
-                loadSemanticModel();
+                // No project ID — show blank state
+                agentStatus.textContent = `${selectedTables.length} tables ready for analysis`;
                 return;
             }
 
@@ -933,18 +910,11 @@
 
                     console.log('Loaded semantic model from Supabase:', savedModel.id);
                 } else {
-                    // No model in Supabase, try localStorage
-                    loadSemanticModel();
-                    if (semanticModel?.tables?.length > 0) {
-                        agentStatus.textContent = `${semanticModel.tables.length} tables loaded from local cache`;
-                    } else {
-                        agentStatus.textContent = `${selectedTables.length} tables ready for analysis`;
-                    }
+                    // No model in Supabase — show blank state
+                    agentStatus.textContent = `${selectedTables.length} tables ready for analysis`;
                 }
             } catch (err) {
                 console.error('Failed to load from Supabase:', err);
-                // Fall back to localStorage
-                loadSemanticModel();
                 agentStatus.textContent = `${selectedTables.length} tables ready for analysis`;
             }
         }

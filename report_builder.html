@@ -707,6 +707,40 @@
             flex-shrink: 0;
         }
 
+        /* ─── Resize Divider ─── */
+        .resize-divider {
+            width: 5px;
+            cursor: col-resize;
+            background: transparent;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+            transition: background 0.15s;
+        }
+
+        .resize-divider:hover,
+        .resize-divider.active {
+            background: var(--electric-blue);
+        }
+
+        .resize-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 3px;
+            height: 32px;
+            border-radius: 2px;
+            background: var(--border-stone);
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .resize-divider:hover::after {
+            opacity: 1;
+        }
+
         .chat-header {
             padding: 14px 20px;
             border-bottom: 1px solid var(--border-stone);
@@ -1182,8 +1216,11 @@
             </div>
         </section>
 
+        <!-- Resize Divider -->
+        <div class="resize-divider" id="resizeDivider"></div>
+
         <!-- Chat Panel -->
-        <aside class="chat-panel">
+        <aside class="chat-panel" id="chatPanel">
             <div class="chat-header">
                 <span class="material-symbols-outlined">auto_awesome</span>
                 <span class="chat-header-title">Report Copilot</span>
@@ -2051,6 +2088,42 @@
             loadReportSessions();
             loadArtifacts();
         }
+
+        // ─── Resize Divider ───
+        (function initResize() {
+            const divider = document.getElementById('resizeDivider');
+            const chatPanel = document.getElementById('chatPanel');
+            if (!divider || !chatPanel) return;
+            let isDragging = false;
+
+            divider.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                divider.classList.add('active');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const containerWidth = document.body.clientWidth;
+                const chatWidth = containerWidth - e.clientX;
+                const minW = 280;
+                const maxW = containerWidth * 0.6;
+                if (chatWidth >= minW && chatWidth <= maxW) {
+                    chatPanel.style.width = chatWidth + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    divider.classList.remove('active');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+        })();
 
         init();
     </script>
