@@ -268,3 +268,6 @@ async def serve_login():
 async def serve_data_sources():
     """Serve data sources page."""
     return FileResponse(FRONTEND_DIR / "data_sources.html")
+
+# Serve static assets (images, etc.)
+app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")
