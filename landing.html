@@ -87,6 +87,50 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+
+        /* Fade + slide up on scroll */
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .scroll-reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Screenshot hover lift */
+        .screenshot-hover {
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+        }
+        .screenshot-hover:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Checkmark cascade */
+        .check-item {
+            opacity: 0;
+            transform: translateX(-12px);
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+        }
+        .check-item.is-visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Number badge pulse */
+        .badge-pulse {
+            transition: transform 0.4s ease;
+        }
+        .badge-pulse.is-visible {
+            animation: badgePop 0.6s ease-out;
+        }
+        @keyframes badgePop {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 
@@ -129,24 +173,22 @@
             style="background-image: linear-gradient(#BAB8B0 1px, transparent 1px), linear-gradient(90deg, #BAB8B0 1px, transparent 1px); background-size: 40px 40px;">
         </div>
         <div class="container mx-auto px-6 relative z-10">
-            <div class="max-w-4xl">
+            <div class="max-w-full text-center">
                 <div
                     class="inline-flex items-center gap-2 px-3 py-1 border border-dark-text/20 rounded-full mb-8 bg-white/50 backdrop-blur-sm">
                     <span class="size-2 rounded-full bg-electric-blue animate-pulse"></span>
                     <span class="text-xs font-mono uppercase tracking-wider">Agentic BI for modern data teams</span>
                 </div>
                 <h1
-                    class="text-6xl md:text-8xl font-extrabold uppercase tracking-tighter leading-[0.9] text-dark-text mb-8">
-                    AI Agents That <br />
-                    <span class="text-electric-blue">Actually Understand</span><br />
-                    Your Data.
+                    class="text-5xl md:text-7xl font-extrabold uppercase tracking-tighter leading-[0.9] text-dark-text mb-8">
+                    AI Agents That <span class="text-electric-blue">Actually Understand</span> Your Data.
                 </h1>
                 <p
-                    class="text-xl md:text-2xl text-dark-text/70 max-w-2xl font-light mb-12 text-balance leading-relaxed">
+                    class="text-xl md:text-2xl text-dark-text/70 max-w-3xl mx-auto font-light mb-12 leading-relaxed">
                     Lunara builds a semantic layer on top of your warehouse, so anyone can explore data, generate
                     reports, and get answers — all within minutes.
                 </p>
-                <div class="flex flex-wrap gap-4 mb-20">
+                <div class="flex flex-wrap gap-4 mb-20 justify-center">
                     <button id="ctaSignupBtn"
                         class="px-8 py-4 bg-dark-text text-white font-bold uppercase tracking-wide hover:bg-electric-blue transition-colors shadow-lg">
                         Get Early Access
@@ -159,8 +201,8 @@
             </div>
         </div>
         <div class="container mx-auto px-6 -mb-32 relative z-20">
-            <div
-                class="relative rounded-t-xl overflow-hidden border-stone bg-white shadow-2xl transition-transform hover:-translate-y-2 duration-500">
+            <div class="relative rounded-t-xl overflow-hidden border-stone bg-white shadow-2xl transition-transform hover:-translate-y-2 duration-500">
+                <!-- Browser chrome -->
                 <div class="bg-[#F8F8F8] border-b-stone h-10 flex items-center px-4 gap-2">
                     <div class="flex gap-1.5">
                         <div class="size-3 rounded-full bg-stone-300"></div>
@@ -169,278 +211,193 @@
                     </div>
                     <div class="ml-4 h-6 bg-stone-200 rounded w-64"></div>
                 </div>
-                <div class="flex h-[600px] bg-stone-50">
-                    <div class="w-64 border-r-stone bg-white hidden md:flex flex-col p-4 gap-4">
-                        <div class="h-8 bg-stone-100 rounded w-full"></div>
-                        <div class="space-y-2">
-                            <div
-                                class="h-12 border border-dashed border-stone-300 rounded flex items-center justify-center text-xs text-stone-400 uppercase">
-                                Artifacts</div>
-                            <div class="h-16 bg-blue-50 border border-blue-100 rounded p-2">
-                                <div class="h-2 w-24 bg-blue-200 rounded mb-2"></div>
-                                <div class="text-[10px] font-mono text-electric-blue">Shared Context Agent</div>
-                                <div class="h-4 w-full bg-white rounded opacity-50 mt-1"></div>
-                            </div>
-                            <div class="h-16 bg-white border border-stone-200 rounded p-2">
-                                <div class="h-2 w-20 bg-stone-200 rounded mb-2"></div>
-                                <div class="text-[10px] font-mono text-stone-400">SQL Generator</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div
-                        class="flex-1 p-8 bg-[radial-gradient(#BAB8B0_1px,transparent_1px)] [background-size:20px_20px]">
-                        <div class="bg-white border-stone shadow-lg p-8 max-w-3xl mx-auto min-h-full relative">
-                            <div class="absolute top-4 right-4 text-xs font-mono text-stone-400">AGENT_OUTPUT_V2</div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <span
-                                    class="bg-electric-blue/10 text-electric-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Auto-Refresh
-                                    Active</span>
-                            </div>
-                            <h2 class="text-3xl font-bold mb-2">Q3 Revenue Analysis</h2>
-                            <div class="h-px bg-stone-200 w-full mb-6"></div>
-                            <div class="grid grid-cols-2 gap-4 mb-6">
-                                <div class="p-4 border border-stone-100 bg-stone-50 rounded">
-                                    <div class="text-sm text-stone-500 mb-1">Total Revenue</div>
-                                    <div class="text-2xl font-bold">$1.24M</div>
-                                </div>
-                                <div class="p-4 border border-stone-100 bg-stone-50 rounded">
-                                    <div class="text-sm text-stone-500 mb-1">Growth</div>
-                                    <div class="text-2xl font-bold text-green-600">+12.5%</div>
-                                </div>
-                            </div>
-                            <div
-                                class="h-64 bg-stone-50 border border-stone-100 rounded flex items-end justify-between px-4 pb-4 gap-2">
-                                <div class="w-full bg-electric-blue/20 h-[40%]"></div>
-                                <div class="w-full bg-electric-blue/40 h-[60%]"></div>
-                                <div class="w-full bg-electric-blue/30 h-[50%]"></div>
-                                <div class="w-full bg-electric-blue/60 h-[80%] relative group cursor-pointer">
-                                    <div
-                                        class="absolute -top-8 left-1/2 -translate-x-1/2 bg-dark-text text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100">
-                                        80%</div>
-                                </div>
-                                <div class="w-full bg-electric-blue h-[70%]"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="w-80 border-l-stone bg-white flex flex-col">
-                        <div
-                            class="p-4 border-b-stone font-mono text-xs uppercase font-bold tracking-wider text-stone-500">
-                            Agent Co-Pilot</div>
-                        <div class="flex-1 p-4 space-y-4">
-                            <div class="flex gap-2">
-                                <div class="size-6 bg-electric-blue rounded-full shrink-0"></div>
-                                <div class="bg-stone-100 p-3 rounded-tr-xl rounded-b-xl text-xs text-stone-700">
-                                    I've connected to BigQuery. Autonomous agents are scanning schema semantics.
-                                </div>
-                            </div>
-                            <div class="flex gap-2 flex-row-reverse">
-                                <div class="size-6 bg-stone-300 rounded-full shrink-0"></div>
-                                <div class="bg-electric-blue text-white p-3 rounded-tl-xl rounded-b-xl text-xs">
-                                    Confirm the 'orders' table relationship for Q3 sales.
-                                </div>
-                            </div>
-                            <div class="flex gap-2">
-                                <div class="size-6 bg-electric-blue rounded-full shrink-0"></div>
-                                <div class="bg-stone-100 p-3 rounded-tr-xl rounded-b-xl text-xs text-stone-700">
-                                    Relationship confirmed. Agent created a shared semantic context for all future
-                                    reports.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Image carousel -->
+                <div id="heroCarousel" class="relative bg-stone-100">
+                    <img src="/assets/images/chat agent.png" alt="Lunara SQL Chat Agent" class="hero-slide w-full block opacity-100 transition-opacity duration-1000">
+                    <img src="/assets/images/reporting agent.png" alt="Lunara Report Builder" class="hero-slide w-full block opacity-0 transition-opacity duration-1000 absolute inset-0">
+                </div>
+                <!-- Carousel indicators -->
+                <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                    <button class="carousel-dot size-2 rounded-full bg-white/90 shadow transition-all" data-index="0"></button>
+                    <button class="carousel-dot size-2 rounded-full bg-white/40 shadow transition-all" data-index="1"></button>
+                </div>
+                <!-- Labels -->
+                <div class="absolute bottom-4 right-4 z-10">
+                    <span id="carouselLabel" class="bg-dark-text/70 text-white text-[10px] font-mono uppercase tracking-wider px-3 py-1 rounded-full backdrop-blur-sm">SQL Agent</span>
                 </div>
             </div>
+            <script>
+                (function() {
+                    const slides = document.querySelectorAll('.hero-slide');
+                    const dots = document.querySelectorAll('.carousel-dot');
+                    const label = document.getElementById('carouselLabel');
+                    const labels = ['SQL Agent', 'Report Builder'];
+                    let current = 0;
+
+                    function goTo(index) {
+                        slides.forEach((s, i) => {
+                            s.style.opacity = i === index ? '1' : '0';
+                        });
+                        dots.forEach((d, i) => {
+                            d.style.background = i === index ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)';
+                        });
+                        label.textContent = labels[index];
+                        current = index;
+                    }
+
+                    dots.forEach(d => d.addEventListener('click', () => goTo(parseInt(d.dataset.index))));
+
+                    setInterval(() => goTo((current + 1) % slides.length), 4000);
+                })();
+            </script>
         </div>
     </section>
     <section class="bg-dark-text py-5 border-y border-stone-600 overflow-hidden relative z-30">
         <div class="marquee-container">
             <div class="marquee-content">
-                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Automated Semantic
-                    Layers</span> •
-                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Supercharged AI
-                    Agents</span> •
-                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Natural Language
-                    Queries</span> •
-                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Instant Reports</span>
-                •
-                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Dashboards</span>
-                •
-                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Automated Semantic
-                    Layers</span> •
-                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Supercharged AI
-                    Agents</span> •
-                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Natural Language
-                    Queries</span> •
-                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Instant Reports</span>
-                •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Natural Language to SQL Agent</span> •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">AI Semantic Agents</span> •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">AI Report Agents</span> •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Agentic Analytics</span> •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Human-in-the-Loop</span> •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Natural Language to SQL Agent</span> •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">AI Semantic Agents</span> •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">AI Report Agents</span> •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Agentic Analytics</span> •
+                <span class="text-stone-300 font-mono text-sm uppercase tracking-[0.3em] px-8">Human-in-the-Loop</span> •
             </div>
         </div>
     </section>
-    <section class="border-b-stone">
-        <div class="container mx-auto">
-            <div class="border-x-stone max-w-[1920px] mx-auto">
-                <div class="grid grid-cols-1 md:grid-cols-4 border-b-stone">
-                    <div class="p-8 md:p-12 md:col-span-4 bg-bg-stone">
-                        <h2 class="text-4xl font-extrabold uppercase tracking-tight mb-2">Human-in-the-Loop Intelligence
-                        </h2>
-                        <p class="text-stone-600 max-w-xl text-lg">Engineered for accuracy and trust. Lunara's agents
-                            propose semantic models and insights that your team validates, ensuring 100% reliable
-                            analytics.</p>
-                    </div>
+    <!-- Meet Your Agents — zigzag section -->
+    <section class="border-b-stone py-24">
+        <div class="container mx-auto px-6">
+            <!-- Section header -->
+            <div class="text-center mb-20">
+                <div class="inline-flex items-center gap-2 px-3 py-1 border border-dark-text/20 rounded-full mb-6 bg-white/50">
+                    <span class="size-2 rounded-full bg-electric-blue animate-pulse"></span>
+                    <span class="text-xs font-mono uppercase tracking-wider">Meet Your Agents</span>
                 </div>
-                <div
-                    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 lg:divide-x divide-[#BAB8B0] bg-white">
-                    <div class="p-8 md:p-12 group hover:bg-bg-stone transition-colors relative">
-                        <div
-                            class="absolute top-6 right-6 text-stone-400 group-hover:text-electric-blue transition-colors">
-                            <span class="material-symbols-outlined">psychology</span>
-                        </div>
-                        <div class="h-12 w-px bg-electric-blue mb-6"></div>
-                        <div class="text-5xl font-bold mb-2 tracking-tighter">AI</div>
-                        <div class="font-mono text-xs uppercase tracking-wider text-stone-500 mb-3">Semantic
-                            Understanding</div>
-                        <p class="text-sm text-stone-600 leading-relaxed">Agents learn your business context and data
-                            relationships automatically.</p>
+                <h2 class="text-4xl md:text-5xl font-extrabold uppercase tracking-tight mb-4">Three Agents.<br>One Platform.</h2>
+                <p class="text-lg text-stone-500 max-w-2xl mx-auto">From raw schema to polished reports — each agent handles a different stage of your analytics workflow.</p>
+            </div>
+
+            <!-- Row 1: Semantic Agent — image left, text right -->
+            <div class="scroll-reveal grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center mb-24">
+                <div class="rounded-xl overflow-hidden border-stone shadow-xl screenshot-hover">
+                    <img src="/assets/images/meet the agents/Semantic agent analysis section. .png" alt="Semantic Agent — AI Analysis Output" class="w-full block">
+                </div>
+                <div>
+                    <div class="badge-pulse inline-flex items-center gap-2 px-3 py-1 bg-electric-blue/10 rounded-full mb-4">
+                        <span class="text-xs font-mono uppercase tracking-wider text-electric-blue font-bold">01</span>
                     </div>
-                    <div class="p-8 md:p-12 group hover:bg-bg-stone transition-colors relative">
-                        <div
-                            class="absolute top-6 right-6 text-stone-400 group-hover:text-electric-blue transition-colors">
-                            <span class="material-symbols-outlined">supervisor_account</span>
-                        </div>
-                        <div class="h-12 w-px bg-electric-blue mb-6"></div>
-                        <div class="text-5xl font-bold mb-2 tracking-tighter">100%</div>
-                        <div class="font-mono text-xs uppercase tracking-wider text-stone-500 mb-3">Human Validated
-                        </div>
-                        <p class="text-sm text-stone-600 leading-relaxed">Every insight and semantic definition is
-                            reviewed and approved by your team.</p>
-                    </div>
-                    <div class="p-8 md:p-12 group hover:bg-bg-stone transition-colors relative">
-                        <div
-                            class="absolute top-6 right-6 text-stone-400 group-hover:text-electric-blue transition-colors">
-                            <span class="material-symbols-outlined">schema</span>
-                        </div>
-                        <div class="h-12 w-px bg-electric-blue mb-6"></div>
-                        <div class="text-5xl font-bold mb-2 tracking-tighter">Auto</div>
-                        <div class="font-mono text-xs uppercase tracking-wider text-stone-500 mb-3">Schema to Insights
-                        </div>
-                        <p class="text-sm text-stone-600 leading-relaxed">Connect your warehouse and get a semantic
-                            layer generated in minutes.</p>
-                    </div>
-                    <div class="p-8 md:p-12 group hover:bg-bg-stone transition-colors relative">
-                        <div
-                            class="absolute top-6 right-6 text-stone-400 group-hover:text-electric-blue transition-colors">
-                            <span class="material-symbols-outlined">autorenew</span>
-                        </div>
-                        <div class="h-12 w-px bg-electric-blue mb-6"></div>
-                        <div class="text-5xl font-bold mb-2 tracking-tighter">Live</div>
-                        <div class="font-mono text-xs uppercase tracking-wider text-stone-500 mb-3">Real-time Reports
-                        </div>
-                        <p class="text-sm text-stone-600 leading-relaxed">Dashboards and reports that refresh
-                            automatically from your live data.</p>
-                    </div>
+                    <h3 class="text-3xl md:text-4xl font-extrabold uppercase tracking-tight mb-4">Semantic Agent</h3>
+                    <p class="text-lg text-stone-600 leading-relaxed mb-6">
+                        Connect your BigQuery warehouse and the Semantic Agent automatically analyzes your schema — tables, columns, relationships, and business logic. It generates a semantic layer that gives every future query the context it needs.
+                    </p>
+                    <ul class="space-y-3">
+                        <li class="check-item flex items-start gap-3 text-sm text-stone-600">
+                            <span class="text-electric-blue font-bold mt-0.5">&#10003;</span>
+                            Auto-discovers table relationships and join paths
+                        </li>
+                        <li class="check-item flex items-start gap-3 text-sm text-stone-600">
+                            <span class="text-electric-blue font-bold mt-0.5">&#10003;</span>
+                            Maps columns to business-friendly descriptions
+                        </li>
+                        <li class="check-item flex items-start gap-3 text-sm text-stone-600">
+                            <span class="text-electric-blue font-bold mt-0.5">&#10003;</span>
+                            You review and approve before anything runs
+                        </li>
+                    </ul>
                 </div>
             </div>
-        </div>
-    </section>
-    <section class="border-b-stone bg-bg-stone">
-        <div class="container mx-auto">
-            <div class="border-x-stone max-w-[1920px] mx-auto">
-                <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
-                    <div
-                        class="lg:col-span-4 p-12 flex flex-col justify-between border-b-stone lg:border-b-0 lg:border-r-stone bg-bg-stone">
-                        <div>
-                            <div class="inline-block px-3 py-1 border border-stone-400 rounded-full mb-6">
-                                <span class="text-xs font-mono uppercase tracking-wider text-stone-600">Context-Ready
-                                    Agents</span>
-                            </div>
-                            <h2 class="text-4xl font-extrabold uppercase tracking-tight mb-6 leading-tight">
-                                From Raw Data <br /><span class="text-electric-blue">To Intelligence</span>
-                            </h2>
-                            <p class="text-stone-600 leading-relaxed text-lg mb-8">
-                                Package your semantic layers with specialized agents (SQL, Data Science, Reporting).
-                                Share these context-rich agents across your organization to standardize definitions and
-                                insights.
-                            </p>
-                        </div>
-                        <div class="space-y-4">
-                            <div class="flex items-center gap-4 group cursor-pointer">
-                                <div
-                                    class="size-8 rounded bg-white border border-stone flex items-center justify-center text-stone-400 group-hover:text-electric-blue group-hover:border-electric-blue transition-colors">
-                                    1</div>
-                                <span class="font-bold uppercase tracking-wide text-sm">Deploy Semantic Agents</span>
-                            </div>
-                            <div class="flex items-center gap-4 group cursor-pointer">
-                                <div
-                                    class="size-8 rounded bg-white border border-stone flex items-center justify-center text-stone-400 group-hover:text-electric-blue group-hover:border-electric-blue transition-colors">
-                                    2</div>
-                                <span class="font-bold uppercase tracking-wide text-sm">Human Validation Loop</span>
-                            </div>
-                            <div class="flex items-center gap-4 group cursor-pointer">
-                                <div
-                                    class="size-8 rounded bg-white border border-stone flex items-center justify-center text-stone-400 group-hover:text-electric-blue group-hover:border-electric-blue transition-colors">
-                                    3</div>
-                                <span class="font-bold uppercase tracking-wide text-sm">Autonomous Reports &amp;
-                                    Dashboards</span>
-                            </div>
-                        </div>
+
+            <!-- Row 2: SQL Agent — text left, image right -->
+            <div class="scroll-reveal grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center mb-24">
+                <div class="order-2 lg:order-1">
+                    <div class="badge-pulse inline-flex items-center gap-2 px-3 py-1 bg-electric-blue/10 rounded-full mb-4">
+                        <span class="text-xs font-mono uppercase tracking-wider text-electric-blue font-bold">02</span>
                     </div>
-                    <div
-                        class="lg:col-span-8 bg-stone-100 relative overflow-hidden flex items-center justify-center p-12">
-                        <div class="absolute inset-0 pointer-events-none opacity-30"
-                            style="background-image: linear-gradient(#BAB8B0 1px, transparent 1px), linear-gradient(90deg, #BAB8B0 1px, transparent 1px); background-size: 20px 20px;">
-                        </div>
-                        <div class="relative z-10 w-full max-w-3xl">
-                            <div class="absolute top-1/2 left-0 w-full h-0.5 bg-stone-300 -translate-y-1/2 z-0"></div>
-                            <div class="flex justify-between items-center relative z-10">
-                                <div
-                                    class="bg-white p-6 border-stone shadow-lg rounded w-48 h-40 flex flex-col items-center justify-center gap-4 text-center group hover:-translate-y-1 transition-transform duration-300">
-                                    <div class="size-12 rounded-full bg-stone-100 flex items-center justify-center">
-                                        <span class="material-symbols-outlined text-stone-500">database</span>
-                                    </div>
-                                    <div>
-                                        <div class="font-bold text-sm uppercase">Warehouse</div>
-                                        <div class="text-xs text-stone-500 mt-1 font-mono">BigQuery / Snowflake</div>
-                                    </div>
-                                </div>
-                                <div class="bg-white px-3 py-1 rounded-full border border-stone shadow-sm z-20">
-                                    <span
-                                        class="material-symbols-outlined text-stone-400 animate-pulse">arrow_forward</span>
-                                </div>
-                                <div
-                                    class="bg-white p-6 border-2 border-electric-blue shadow-xl rounded w-56 h-48 flex flex-col items-center justify-center gap-4 text-center z-20 scale-110">
-                                    <div
-                                        class="size-14 rounded-full bg-electric-blue flex items-center justify-center shadow-lg shadow-electric-blue/30">
-                                        <span class="material-symbols-outlined text-white text-2xl">smart_toy</span>
-                                    </div>
-                                    <div>
-                                        <div class="font-bold text-base uppercase text-electric-blue">Agent Swarm</div>
-                                        <div class="text-xs text-stone-500 mt-1 font-mono">Semantic Reasoning</div>
-                                    </div>
-                                    <div
-                                        class="absolute -top-3 -right-3 bg-dark-text text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                                        Autonomous</div>
-                                </div>
-                                <div class="bg-white px-3 py-1 rounded-full border border-stone shadow-sm z-20">
-                                    <span
-                                        class="material-symbols-outlined text-stone-400 animate-pulse">arrow_forward</span>
-                                </div>
-                                <div
-                                    class="bg-white p-6 border-stone shadow-lg rounded w-48 h-40 flex flex-col items-center justify-center gap-4 text-center group hover:-translate-y-1 transition-transform duration-300">
-                                    <div class="size-12 rounded-full bg-stone-100 flex items-center justify-center">
-                                        <span class="material-symbols-outlined text-stone-500">monitoring</span>
-                                    </div>
-                                    <div>
-                                        <div class="font-bold text-sm uppercase">Auto-Reports</div>
-                                        <div class="text-xs text-stone-500 mt-1 font-mono">Dashboards / API</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <h3 class="text-3xl md:text-4xl font-extrabold uppercase tracking-tight mb-4">SQL Agent</h3>
+                    <p class="text-lg text-stone-600 leading-relaxed mb-6">
+                        Ask questions in plain English. The SQL Agent uses your semantic layer to generate accurate, optimized SQL — complete with the right joins, filters, and aggregations. You run it when you're ready.
+                    </p>
+                    <ul class="space-y-3">
+                        <li class="check-item flex items-start gap-3 text-sm text-stone-600">
+                            <span class="text-electric-blue font-bold mt-0.5">&#10003;</span>
+                            Natural language to SQL in seconds
+                        </li>
+                        <li class="check-item flex items-start gap-3 text-sm text-stone-600">
+                            <span class="text-electric-blue font-bold mt-0.5">&#10003;</span>
+                            Looks up column values, date ranges, and stats automatically
+                        </li>
+                        <li class="check-item flex items-start gap-3 text-sm text-stone-600">
+                            <span class="text-electric-blue font-bold mt-0.5">&#10003;</span>
+                            You control when queries execute — never runs without approval
+                        </li>
+                    </ul>
+                </div>
+                <div class="order-1 lg:order-2 rounded-xl overflow-hidden border-stone shadow-xl screenshot-hover">
+                    <img src="/assets/images/meet the agents/sql agent chat zoomed.png" alt="SQL Agent — Chat & Generated Query" class="w-full block">
+                </div>
+            </div>
+
+            <!-- Row 3: Report Agent — image left, text right -->
+            <div class="scroll-reveal grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+                <div class="rounded-xl overflow-hidden border-stone shadow-xl screenshot-hover">
+                    <img src="/assets/images/meet the agents/report agent sample output.png" alt="Report Agent — Generated Report with Charts" class="w-full block">
+                </div>
+                <div>
+                    <div class="badge-pulse inline-flex items-center gap-2 px-3 py-1 bg-electric-blue/10 rounded-full mb-4">
+                        <span class="text-xs font-mono uppercase tracking-wider text-electric-blue font-bold">03</span>
                     </div>
+                    <h3 class="text-3xl md:text-4xl font-extrabold uppercase tracking-tight mb-4">Report Agent</h3>
+                    <p class="text-lg text-stone-600 leading-relaxed mb-6">
+                        Tell it what you need — "Scout the top players in the market" — and the Report Agent runs the analysis, generates charts, and writes a narrative summary. Two AI agents work together: one analyzes, one reports.
+                    </p>
+                    <ul class="space-y-3">
+                        <li class="check-item flex items-start gap-3 text-sm text-stone-600">
+                            <span class="text-electric-blue font-bold mt-0.5">&#10003;</span>
+                            AI-generated charts and data visualizations
+                        </li>
+                        <li class="check-item flex items-start gap-3 text-sm text-stone-600">
+                            <span class="text-electric-blue font-bold mt-0.5">&#10003;</span>
+                            Written narrative with key insights and trends
+                        </li>
+                        <li class="check-item flex items-start gap-3 text-sm text-stone-600">
+                            <span class="text-electric-blue font-bold mt-0.5">&#10003;</span>
+                            Two-agent pipeline: Analyst Agent + Reporter Agent
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
     </section>
+    <script>
+        (function() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+
+                    // Fade + slide up the row
+                    entry.target.classList.add('is-visible');
+
+                    // Badge pulse
+                    const badge = entry.target.querySelector('.badge-pulse');
+                    if (badge) badge.classList.add('is-visible');
+
+                    // Staggered checkmark cascade
+                    const checks = entry.target.querySelectorAll('.check-item');
+                    checks.forEach((check, i) => {
+                        setTimeout(() => check.classList.add('is-visible'), 600 + (i * 150));
+                    });
+
+                    observer.unobserve(entry.target);
+                });
+            }, { threshold: 0.2 });
+
+            document.querySelectorAll('.scroll-reveal').forEach(el => observer.observe(el));
+        })();
+    </script>
     <footer class="bg-bg-stone border-b-stone">
         <div class="border-t-stone border-b-stone py-24 px-6 relative overflow-hidden">
             <div class="absolute inset-0 pointer-events-none opacity-10"
@@ -474,23 +431,9 @@
                         <span class="text-stone-400 mx-2">|</span>
                         <span class="text-xs text-stone-500 font-mono">TORONTO, CANADA 🇨🇦</span>
                     </div>
-                    <div class="flex gap-8">
-                        <a class="text-xs font-bold uppercase text-stone-500 hover:text-electric-blue transition-colors"
-                            href="#">Twitter</a>
-                        <a class="text-xs font-bold uppercase text-stone-500 hover:text-electric-blue transition-colors"
-                            href="#">LinkedIn</a>
-                        <a class="text-xs font-bold uppercase text-stone-500 hover:text-electric-blue transition-colors"
-                            href="#">Github</a>
-                        <a class="text-xs font-bold uppercase text-stone-500 hover:text-electric-blue transition-colors"
-                            href="#">Docs</a>
-                    </div>
-                    <div class="flex gap-2 items-center">
-                        <div class="size-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <span class="text-[10px] font-mono font-bold text-stone-400 uppercase">Agents Online</span>
-                    </div>
                 </div>
                 <div class="mt-8 text-center md:text-left text-[10px] text-stone-400 uppercase tracking-widest">
-                    © 2024 Lunara. All rights reserved.
+                    © 2026 Lunara. All rights reserved.
                 </div>
             </div>
         </div>
