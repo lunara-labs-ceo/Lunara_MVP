@@ -42,7 +42,7 @@ export function Hero() {
             </Badge>
           </AnimatedGroup>
 
-          <h1 className="font-serif text-5xl font-normal tracking-tight sm:text-6xl lg:text-7xl xl:text-8xl">
+          <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl xl:text-8xl">
             <TextEffect preset="fade-in-blur" speedReveal={1.1} speedSegment={0.3} per="word">
               AI Agents That
             </TextEffect>{" "}

@@ -70,7 +70,7 @@ export function Integrations() {
 
           {/* Text + CTA */}
           <div className="bg-linear-to-t from-background relative z-20 mx-auto mt-12 max-w-lg space-y-6 from-55% text-center">
-            <h2 className="text-balance font-serif text-3xl font-normal md:text-4xl">
+            <h2 className="text-balance text-3xl font-semibold md:text-4xl">
               Integrate with Your Favorite Data Sources
             </h2>
             <p className="text-muted-foreground">

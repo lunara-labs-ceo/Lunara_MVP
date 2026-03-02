@@ -49,7 +49,7 @@ export function Agents() {
                     {agent.number}
                   </Badge>
 
-                  <h3 className="mb-4 font-serif text-3xl font-normal tracking-tight md:text-4xl">
+                  <h3 className="mb-4 text-3xl font-semibold tracking-tight md:text-4xl">
                     {agent.name}
                   </h3>
 

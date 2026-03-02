@@ -17,7 +17,7 @@ export function CTA() {
       />
 
       <div className="relative z-10 mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-        <h2 className="font-serif text-4xl font-normal tracking-tight md:text-6xl lg:text-7xl">
+        <h2 className="text-4xl font-semibold tracking-tight md:text-6xl lg:text-7xl">
           <TextEffect preset="fade-in-blur" speedReveal={1.1} speedSegment={0.3} per="word">
             Ready to Put Your
           </TextEffect>{" "}

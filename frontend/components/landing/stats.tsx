@@ -11,7 +11,7 @@ export function Stats() {
         {STATS.map((stat, i) => (
           <ScrollReveal key={stat.label} delay={i * 0.1}>
             <div className="text-center">
-              <div className="font-serif text-4xl font-normal tracking-tight text-foreground md:text-5xl lg:text-6xl">
+              <div className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl lg:text-6xl">
                 {stat.value}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{stat.label}</p>

@@ -36,7 +36,7 @@ export function Pricing() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-xl">{tier.name}</CardTitle>
                 <div className="mt-2">
-                  <span className="font-serif text-4xl font-normal">{tier.price}</span>
+                  <span className="text-4xl font-semibold">{tier.price}</span>
                 </div>
                 <CardDescription className="mt-2">{tier.description}</CardDescription>
               </CardHeader>

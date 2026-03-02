@@ -16,7 +16,7 @@ export function SectionHeader({ badge, title, subtitle, className, align = "cent
         <span className="mr-2 inline-block size-1.5 rounded-full bg-primary animate-pulse" />
         {badge}
       </Badge>
-      <h2 className="font-serif text-4xl font-normal tracking-tight md:text-5xl lg:text-6xl">{title}</h2>
+      <h2 className="text-4xl font-semibold tracking-tight md:text-5xl lg:text-6xl">{title}</h2>
       {subtitle && (
         <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">{subtitle}</p>
       )}
