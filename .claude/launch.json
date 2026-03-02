@@ -6,6 +6,12 @@
       "runtimeExecutable": "/Users/shyam/Desktop/Lunara MVP/backend/venv/bin/python",
       "runtimeArgs": ["-m", "uvicorn", "main:app", "--reload", "--port", "8000", "--app-dir", "/Users/shyam/Desktop/Lunara MVP/backend"],
       "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "/Users/shyam/Desktop/Lunara MVP/frontend", "dev"],
+      "port": 3000
     }
   ]
 }
