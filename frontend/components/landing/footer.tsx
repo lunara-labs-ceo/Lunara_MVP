@@ -25,7 +25,13 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="size-6 rounded-md bg-primary" />
+              <svg width={24} height={24} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 4L18 4L18 26L32 26L32 36L8 36L8 4Z" className="fill-foreground" />
+                <path d="M20 8L28 8L28 24L20 24L20 8Z" className="fill-background" />
+                <circle cx="30" cy="8" r="2" className="fill-foreground" />
+                <circle cx="30" cy="16" r="2" className="fill-foreground" />
+                <circle cx="12" cy="32" r="2" className="fill-foreground" />
+              </svg>
               <span className="text-base font-bold uppercase tracking-tight">Lunara</span>
             </Link>
             <p className="mt-3 text-sm text-muted-foreground">

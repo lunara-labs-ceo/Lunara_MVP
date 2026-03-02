@@ -56,7 +56,13 @@ export function Integrations() {
                   className="shadow-black-950/10 dark:bg-background size-24 border-black/20 shadow-xl dark:border-white/25 dark:shadow-white/15"
                   isCenter
                 >
-                  <Image src="/lunara_logo.svg" alt="Lunara" width={48} height={48} className="size-12" />
+                  <svg width={48} height={48} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 4L18 4L18 26L32 26L32 36L8 36L8 4Z" className="fill-foreground" />
+                    <path d="M20 8L28 8L28 24L20 24L20 8Z" className="fill-background" />
+                    <circle cx="30" cy="8" r="2" className="fill-foreground" />
+                    <circle cx="30" cy="16" r="2" className="fill-foreground" />
+                    <circle cx="12" cy="32" r="2" className="fill-foreground" />
+                  </svg>
                 </IntegrationCard>
               </div>
             </div>
