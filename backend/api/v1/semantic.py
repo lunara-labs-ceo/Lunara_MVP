@@ -11,6 +11,7 @@ from services.bigquery import BigQueryService
 from services.semantic_agent import SemanticAgentService
 from services.relationship_agent import RelationshipAgentService
 from api.v1.connection import get_bigquery_service
+from middleware.clerk_auth import ClerkUser, get_current_user
 
 
 router = APIRouter(prefix="/semantic", tags=["semantic"])
@@ -41,8 +42,9 @@ def get_relationship_agent() -> RelationshipAgentService:
 @router.post("/generate")
 async def generate_semantic_layer(
     request: GenerateRequest,
+    user: ClerkUser = Depends(get_current_user),
     semantic_agent: SemanticAgentService = Depends(get_semantic_agent),
-    relationship_agent: RelationshipAgentService = Depends(get_relationship_agent)
+    relationship_agent: RelationshipAgentService = Depends(get_relationship_agent),
 ):
     """
     Generate semantic layer for selected tables with relationship detection.
@@ -112,7 +114,9 @@ async def generate_semantic_layer(
 
 
 @router.get("/models")
-async def list_semantic_models() -> List[SemanticModel]:
+async def list_semantic_models(
+    user: ClerkUser = Depends(get_current_user),
+) -> List[SemanticModel]:
     """
     List all saved semantic models.
     
@@ -125,7 +129,10 @@ async def list_semantic_models() -> List[SemanticModel]:
 
 
 @router.get("/models/{model_id}")
-async def get_semantic_model(model_id: str) -> SemanticModel:
+async def get_semantic_model(
+    model_id: str,
+    user: ClerkUser = Depends(get_current_user),
+) -> SemanticModel:
     """
     Get a specific semantic model by ID.
     
@@ -140,7 +147,10 @@ async def get_semantic_model(model_id: str) -> SemanticModel:
 
 
 @router.delete("/models/{model_id}")
-async def delete_semantic_model(model_id: str):
+async def delete_semantic_model(
+    model_id: str,
+    user: ClerkUser = Depends(get_current_user),
+):
     """
     Delete a semantic model.
     
@@ -154,7 +164,8 @@ async def delete_semantic_model(model_id: str):
 @router.post("/detect-relationships")
 async def detect_relationships(
     request: RelationshipRequest,
-    agent: RelationshipAgentService = Depends(get_relationship_agent)
+    user: ClerkUser = Depends(get_current_user),
+    agent: RelationshipAgentService = Depends(get_relationship_agent),
 ):
     """
     Detect foreign key relationships between tables using LLM reasoning.

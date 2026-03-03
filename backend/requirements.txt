@@ -12,6 +12,7 @@ pydantic-settings==2.7.0
 
 # Security / encryption
 cryptography==44.0.0
+pyjwt[crypto]>=2.8.0
 
 # Environment management
 python-dotenv==1.0.1

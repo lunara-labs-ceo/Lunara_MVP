@@ -94,7 +94,6 @@ from api.v1 import datasets
 from api.v1 import semantic
 from api.v1 import chat
 from api.v1 import reports
-from api.v1 import auth
 from services.bigquery import BigQueryService
 
 
@@ -183,6 +182,11 @@ if render_url:
     cors_origins.append(render_url)
     cors_origins.append(render_url.replace("https://", "http://"))
 
+# Add frontend URL (for Next.js frontend on separate domain)
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    cors_origins.append(frontend_url)
+
 # For development/demo - allow all origins
 if IS_RENDER or os.getenv("ALLOW_ALL_ORIGINS") == "true":
     cors_origins = ["*"]
@@ -202,7 +206,6 @@ app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(semantic.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
-app.include_router(auth.router, prefix="/api/v1")
 
 
 @app.get("/health")

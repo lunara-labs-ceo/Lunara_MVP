@@ -10,6 +10,7 @@ from models.datasets import (
 )
 from services.bigquery import BigQueryService
 from api.v1.connection import get_bigquery_service
+from middleware.clerk_auth import ClerkUser, get_current_user
 
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
@@ -17,7 +18,8 @@ router = APIRouter(prefix="/datasets", tags=["datasets"])
 
 @router.get("", response_model=DatasetsResponse)
 async def list_datasets(
-    bq_service: BigQueryService = Depends(get_bigquery_service)
+    user: ClerkUser = Depends(get_current_user),
+    bq_service: BigQueryService = Depends(get_bigquery_service),
 ) -> DatasetsResponse:
     """List all datasets in the connected BigQuery project.
     
@@ -59,7 +61,8 @@ async def list_datasets(
 @router.get("/{dataset_id}/tables", response_model=TablesResponse)
 async def list_tables(
     dataset_id: str,
-    bq_service: BigQueryService = Depends(get_bigquery_service)
+    user: ClerkUser = Depends(get_current_user),
+    bq_service: BigQueryService = Depends(get_bigquery_service),
 ) -> TablesResponse:
     """List all tables in a specific dataset.
     

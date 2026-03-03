@@ -2,6 +2,7 @@
 # https://render.com/docs/blueprint-spec
 
 services:
+  # ── Backend (FastAPI) ──────────────────────────────────────────────────────
   - type: web
     name: lunara-backend
     runtime: python
@@ -15,7 +16,27 @@ services:
       - key: ENCRYPTION_KEY
         generateValue: true
       - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
-        sync: false  # Must be set manually in dashboard
+        sync: false
       - key: AGENT_ENGINE_RESOURCE_NAME
-        sync: false  # Must be set manually in dashboard
+        sync: false
+      - key: CLERK_ISSUER_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
     healthCheckPath: /health
+
+  # ── Frontend (Next.js) ─────────────────────────────────────────────────────
+  - type: web
+    name: lunara-frontend
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: cd frontend && npm install -g pnpm && pnpm install && pnpm build
+    startCommand: cd frontend && pnpm start
+    envVars:
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: NEXT_PUBLIC_API_URL
+        sync: false

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from services.bigquery import BigQueryService
 from services.chat_agent import ChatAgentService
 from api.v1.connection import get_bigquery_service
+from middleware.clerk_auth import ClerkUser, get_current_user
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -49,7 +50,8 @@ def get_chat_agent(
 @router.post("/query")
 async def chat_query(
     request: ChatRequest,
-    chat_agent: ChatAgentService = Depends(get_chat_agent)
+    user: ClerkUser = Depends(get_current_user),
+    chat_agent: ChatAgentService = Depends(get_chat_agent),
 ):
     """
     Process a chat message and generate SQL.
@@ -88,7 +90,8 @@ async def chat_query(
 @router.post("/execute")
 async def execute_query(
     request: ExecuteRequest,
-    chat_agent: ChatAgentService = Depends(get_chat_agent)
+    user: ClerkUser = Depends(get_current_user),
+    chat_agent: ChatAgentService = Depends(get_chat_agent),
 ):
     """
     Execute a SQL query against BigQuery.

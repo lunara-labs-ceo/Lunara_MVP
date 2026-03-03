@@ -6,9 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:public": "playwright test --project=public",
+    "test:e2e:auth": "playwright test --project=auth-flows",
+    "test:e2e:protected": "playwright test --project=route-protection",
+    "test:e2e:authenticated": "playwright test --project=authenticated",
+    "test:e2e:api": "playwright test --project=api-auth"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.39.0",
+    "@clerk/themes": "^2.4.57",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -22,6 +32,8 @@
     "tailwind-merge": "^3.4.1"
   },
   "devDependencies": {
+    "@clerk/testing": "^1.14.3",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

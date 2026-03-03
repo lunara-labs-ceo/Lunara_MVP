@@ -8,6 +8,7 @@ from models.connection import (
     ConnectionStatusResponse,
 )
 from services.bigquery import BigQueryService
+from middleware.clerk_auth import ClerkUser, get_current_user
 
 
 router = APIRouter(prefix="/connection", tags=["connection"])
@@ -24,7 +25,8 @@ def get_bigquery_service() -> BigQueryService:
 @router.post("/bigquery", response_model=ConnectionResponse)
 async def connect_bigquery(
     request: ConnectionRequest,
-    bq_service: BigQueryService = Depends(get_bigquery_service)
+    user: ClerkUser = Depends(get_current_user),
+    bq_service: BigQueryService = Depends(get_bigquery_service),
 ) -> ConnectionResponse:
     """Connect to BigQuery using service account credentials.
     
@@ -47,7 +49,8 @@ async def connect_bigquery(
 
 @router.get("/status", response_model=ConnectionStatusResponse)
 async def get_connection_status(
-    bq_service: BigQueryService = Depends(get_bigquery_service)
+    user: ClerkUser = Depends(get_current_user),
+    bq_service: BigQueryService = Depends(get_bigquery_service),
 ) -> ConnectionStatusResponse:
     """Get the current BigQuery connection status.
     
@@ -68,7 +71,8 @@ async def get_connection_status(
 
 @router.delete("/disconnect")
 async def disconnect(
-    bq_service: BigQueryService = Depends(get_bigquery_service)
+    user: ClerkUser = Depends(get_current_user),
+    bq_service: BigQueryService = Depends(get_bigquery_service),
 ) -> dict:
     """Disconnect from BigQuery and remove stored credentials.
     

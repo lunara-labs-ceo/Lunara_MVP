@@ -10,11 +10,12 @@ from __future__ import annotations
 import json
 from typing import Optional, List, Dict, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from services.report_agent import ReportAgentService
+from middleware.clerk_auth import ClerkUser, get_current_user
 
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -43,7 +44,11 @@ class GenerateRequest(BaseModel):
 # ============================================================================
 
 @router.post("/{report_id}/generate")
-async def generate_content(report_id: str, request: GenerateRequest):
+async def generate_content(
+    report_id: str,
+    request: GenerateRequest,
+    user: ClerkUser = Depends(get_current_user),
+):
     """Generate content using AI copilot.
     
     Streams SSE events:

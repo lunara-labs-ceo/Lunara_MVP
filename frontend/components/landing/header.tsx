@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Menu, X, Sun, Moon } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { useTheme } from "next-themes"
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { NAV_LINKS } from "@/lib/constants"
 
@@ -52,12 +53,20 @@ export function Header() {
             <Sun className="size-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute size-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
           </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <a href="/login.html">Log In</a>
-          </Button>
-          <Button size="sm" asChild>
-            <a href="/login.html">Get Access</a>
-          </Button>
+          <SignedOut>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/sign-in">Log In</Link>
+            </Button>
+            <Button size="sm" asChild>
+              <Link href="/sign-up">Get Access</Link>
+            </Button>
+          </SignedOut>
+          <SignedIn>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
+            <UserButton />
+          </SignedIn>
         </div>
 
         {/* Mobile hamburger */}
@@ -91,12 +100,19 @@ export function Header() {
                 </Link>
               ))}
               <div className="mt-3 flex flex-col gap-2 border-t border-border pt-4">
-                <Button variant="outline" asChild className="w-full">
-                  <a href="/login.html">Log In</a>
-                </Button>
-                <Button asChild className="w-full">
-                  <a href="/login.html">Get Access</a>
-                </Button>
+                <SignedOut>
+                  <Button variant="outline" asChild className="w-full">
+                    <Link href="/sign-in">Log In</Link>
+                  </Button>
+                  <Button asChild className="w-full">
+                    <Link href="/sign-up">Get Access</Link>
+                  </Button>
+                </SignedOut>
+                <SignedIn>
+                  <Button variant="outline" asChild className="w-full">
+                    <Link href="/dashboard">Dashboard</Link>
+                  </Button>
+                </SignedIn>
               </div>
             </div>
           </motion.div>
