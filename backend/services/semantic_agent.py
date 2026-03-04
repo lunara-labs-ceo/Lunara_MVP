@@ -1,60 +1,81 @@
 """
 Semantic Layer Generation Agent using Google ADK.
 
-This agent analyzes BigQuery table schemas and generates semantic layer definitions
-with dimensions, measures, and time columns.
+This agent analyzes data warehouse table schemas and generates semantic layer
+definitions with dimensions, measures, and time columns.
+
+Works with any warehouse backend that implements the WarehouseProvider protocol.
 """
 from __future__ import annotations
 
-import os
-import json
 from typing import Optional, List, Dict, Any, AsyncGenerator
 from datetime import datetime
-from pathlib import Path
-
-# GCP credentials and config are set up by main.py before this module is imported.
-from google.adk.agents import Agent
+from pydantic import BaseModel, Field
+from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
 from services.retry_utils import run_with_retry
+from services.warehouse_provider import WarehouseProvider
+
+
+class SemanticColumnOutput(BaseModel):
+    """Structured output for a single column classification."""
+    name: str = Field(description="Column name")
+    semantic_type: str = Field(description="One of: dimension, measure, time")
+    description: str = Field(description="Business-friendly description of the column")
+    aggregation: Optional[str] = Field(None, description="For measures: SUM, AVG, COUNT, MIN, MAX")
+
+
+class SemanticTableOutput(BaseModel):
+    """Structured output for a single table's semantic layer."""
+    table_id: str = Field(description="Fully qualified table name (schema.table)")
+    columns: List[SemanticColumnOutput] = Field(description="Classified columns")
+
+
+class SemanticLayerOutput(BaseModel):
+    """Structured output from the semantic layer agent."""
+    tables: List[SemanticTableOutput] = Field(description="All analyzed tables with classified columns")
+    summary: str = Field(description="Brief summary of the semantic layer")
 
 
 class SemanticAgentService:
     """Service for generating semantic layers using LLM agent."""
-    
-    def __init__(self, bigquery_service):
+
+    def __init__(self, provider: WarehouseProvider):
         """Initialize the semantic agent.
-        
+
         Args:
-            bigquery_service: BigQueryService instance for schema access.
+            provider: WarehouseProvider instance for schema access.
         """
-        self.bq_service = bigquery_service
+        self.provider = provider
         self._runner: Optional[InMemoryRunner] = None
         self._session_id: Optional[str] = None
-        self._table_cache: Dict[str, List[dict]] = {}  # Cache for LLM-classified columns
-        
+        self._schema_cache: Dict[str, dict] = {}  # Pre-fetched schemas from provider
+
         # Create the agent with tools
-        self.agent = Agent(
+        self.agent = LlmAgent(
             model="gemini-3-flash-preview",
             name="semantic_layer_agent",
-            description="Analyzes BigQuery schemas and generates semantic layer definitions",
+            description="Analyzes data warehouse schemas and generates semantic layer definitions",
             instruction=self._get_system_instruction(),
             tools=[
                 self.get_table_schema,
-                self.classify_table_columns,
             ],
+            output_schema=SemanticLayerOutput,
+            output_key="semantic_output",
         )
     
     def _get_system_instruction(self) -> str:
         """Get the system instruction for the agent."""
-        return """You are an expert data modeler for the Lunara BI platform.
+        dialect = self.provider.get_sql_dialect()
+        return f"""You are an expert data modeler for the Lunara BI platform.
 
-Your task is to analyze BigQuery table schemas and generate semantic layer definitions.
+Your task is to analyze {dialect} table schemas and generate semantic layer definitions.
 
 For each table:
 1. Fetch the schema using get_table_schema
-2. Analyze ALL columns together, then call classify_table_columns ONCE with a JSON array of all classifications
+2. Analyze ALL columns and classify each as dimension, measure, or time
 
 When classifying columns, for each column provide:
 - name: column name
@@ -62,10 +83,13 @@ When classifying columns, for each column provide:
 - description: clear, business-friendly description (e.g., "Customer's first name")
 - aggregation: for measures only, specify SUM, AVG, COUNT, MIN, MAX
 
-Output your thinking conversationally:
-- "🔍 Analyzing table X with Y columns..."
-- Brief summary of what you found
-- "✅ Classified X dimensions, Y measures, Z time columns"
+Column types come from {dialect}. Map them to semantic types using these guidelines:
+- INTEGER, BIGINT, NUMERIC, FLOAT, DOUBLE, DECIMAL, REAL → likely 'measure' (unless it's an ID/FK)
+- VARCHAR, TEXT, CHAR, STRING, BOOLEAN, ENUM → likely 'dimension'
+- DATE, TIMESTAMP, DATETIME, TIME, TIMESTAMPTZ → likely 'time'
+- Columns ending in '_id' or 'id' are typically 'dimension' (foreign keys), not measures
+
+Return your analysis as structured JSON matching the output schema with all tables and their classified columns.
 
 Be concise. Process each table completely before moving to the next."""
 
@@ -83,69 +107,56 @@ Be concise. Process each table completely before moving to the next."""
             )
             self._session_id = session.id
 
+    async def _prefetch_schemas(self, tables: List[str]) -> None:
+        """Pre-fetch all table schemas from the provider.
+
+        Called before the agent runs so the synchronous get_table_schema tool
+        can serve results from cache (ADK tools must be synchronous).
+
+        Args:
+            tables: List of qualified table names in 'schema.table' format.
+        """
+        self._schema_cache = {}
+        for table_id in tables:
+            try:
+                schema_name, table_name = self._parse_table_id(table_id)
+                result = await self.provider.get_table_schema(schema_name, table_name)
+                columns = []
+                for col in result.get("columns", []):
+                    columns.append({
+                        "name": col["name"],
+                        "type": col.get("type", "UNKNOWN"),
+                        "nullable": col.get("nullable", "YES"),
+                        "description": col.get("description", ""),
+                    })
+                self._schema_cache[table_id] = {
+                    "table_id": table_id,
+                    "columns": columns,
+                    "column_count": len(columns),
+                }
+            except Exception as e:
+                self._schema_cache[table_id] = {"error": str(e)}
+
+    @staticmethod
+    def _parse_table_id(table_id: str) -> tuple[str, str]:
+        """Parse a 'schema.table' identifier into (schema, table).
+
+        Falls back to ('public', table_id) when there is no dot separator.
+        """
+        if "." in table_id:
+            parts = table_id.split(".", 1)
+            return parts[0], parts[1]
+        return "public", table_id
+
     def get_table_schema(self, table_id: str) -> dict:
-        """Get the schema of a BigQuery table.
-        
-        table_id: Full table reference in format 'dataset.table' (e.g., 'thelook_ecom.users')
-        """
-        if self.bq_service.client is None:
-            return {"error": "Not connected to BigQuery"}
-        
-        try:
-            table_ref = self.bq_service.client.get_table(table_id)
-            columns = []
-            for field in table_ref.schema:
-                columns.append({
-                    "name": field.name,
-                    "type": field.field_type,
-                    "mode": field.mode,
-                    "description": field.description or ""
-                })
-            
-            return {
-                "table_id": table_id,
-                "row_count": table_ref.num_rows,
-                "columns": columns,
-                "column_count": len(columns)
-            }
-        except Exception as e:
-            return {"error": str(e)}
+        """Get the schema of a data warehouse table.
 
-    def classify_table_columns(
-        self, 
-        table_id: str,
-        columns: str
-    ) -> dict:
-        """Classify all columns in a table at once.
-        
-        table_id: Full table identifier (e.g., 'thelook_ecom.users')
-        columns: JSON array of column classifications with name, semantic_type, description, aggregation
+        table_id: Full table reference in format 'schema.table' (e.g., 'public.users')
         """
-        try:
-            # Parse the JSON array of columns
-            column_list = json.loads(columns) if isinstance(columns, str) else columns
-            
-            # Store in cache for later retrieval
-            self._table_cache[table_id] = column_list
-            
-            # Count by type
-            dimensions = sum(1 for c in column_list if c.get('semantic_type') == 'dimension')
-            measures = sum(1 for c in column_list if c.get('semantic_type') == 'measure')
-            time_cols = sum(1 for c in column_list if c.get('semantic_type') == 'time')
-            
-            return {
-                "status": "success",
-                "table_id": table_id,
-                "columns_classified": len(column_list),
-                "dimensions": dimensions,
-                "measures": measures,
-                "time_columns": time_cols
-            }
-        except json.JSONDecodeError as e:
-            return {"error": f"Invalid JSON: {str(e)}"}
-        except Exception as e:
-            return {"error": str(e)}
-
+        cached = self._schema_cache.get(table_id)
+        if cached is not None:
+            return cached
+        return {"error": f"Schema not pre-fetched for table: {table_id}"}
 
     async def generate_semantic_layer(
         self,
@@ -162,27 +173,22 @@ Be concise. Process each table completely before moving to the next."""
             Final event includes type='model' with structured semantic model data.
         """
         await self.initialize()
-        
-        # Clear the table cache for fresh LLM classifications
-        self._table_cache = {}
-        
+
+        # Pre-fetch all schemas so the synchronous ADK tool can serve them
+        await self._prefetch_schemas(tables)
+
         # Build the prompt
+        dialect = self.provider.get_sql_dialect()
         tables_str = ", ".join(tables)
-        prompt = f"""Please analyze these BigQuery tables and generate a semantic layer:
+        prompt = f"""Please analyze these {dialect} tables and generate a semantic layer:
 
 Tables: {tables_str}
 
 For each table:
 1. Use get_table_schema to fetch the schema
-2. For EACH column, call analyze_column with:
-   - column_name: the column name
-   - column_type: the BigQuery data type
-   - table_context: the full table ID
-   - description: a clear, human-readable description you generate
-   - semantic_type: 'dimension', 'measure', or 'time'
-   - aggregation: for measures, specify SUM, AVG, COUNT, etc.
+2. Analyze ALL columns and classify each one
 
-Output your thinking step-by-step as you work. At the end, provide a summary of the semantic model you've created."""
+Return your full analysis as structured JSON with all tables and their classified columns."""
 
         # Create user message
         user_content = types.Content(
@@ -211,35 +217,47 @@ Output your thinking step-by-step as you work. At the end, provide a summary of 
                                 "content": f"🔧 Calling {part.function_call.name}..."
                             }
             
-            # After LLM finishes, collect structured data using cached table classifications
+            # Read structured output from session state
+            session = await self._runner.session_service.get_session(
+                app_name="lunara_semantic",
+                user_id="system",
+                session_id=self._session_id,
+            )
+            semantic_output = session.state.get("semantic_output") if session else None
+
             collected_tables = []
-            for table_id in tables:
-                schema = self.get_table_schema(table_id)
-                if "error" not in schema:
-                    # Get LLM classifications from cache
-                    llm_columns = {c.get('name'): c for c in self._table_cache.get(table_id, [])}
-                    
+            if semantic_output and isinstance(semantic_output, dict):
+                for table_data in semantic_output.get("tables", []):
+                    table_id = table_data.get("table_id", "")
+                    schema = self.get_table_schema(table_id)
+
+                    # Merge LLM classifications with pre-fetched schema data
+                    llm_columns = {
+                        c.get("name"): c for c in table_data.get("columns", [])
+                    }
+
                     classified_columns = []
                     for col in schema.get("columns", []):
                         col_name = col["name"]
                         llm_data = llm_columns.get(col_name, {})
-                        
+                        nullable = col.get("nullable", "YES")
+                        mode = "NULLABLE" if nullable == "YES" else "REQUIRED"
+
                         classified_columns.append({
                             "name": col_name,
                             "type": col["type"],
-                            "mode": col.get("mode", "NULLABLE"),
+                            "mode": mode,
                             "description": llm_data.get("description", ""),
                             "semantic_type": llm_data.get("semantic_type", "dimension"),
                             "aggregation": llm_data.get("aggregation"),
                         })
-                    
+
                     collected_tables.append({
                         "table_id": table_id,
                         "name": table_id.split(".")[-1] if "." in table_id else table_id,
-                        "row_count": schema.get("row_count"),
                         "columns": classified_columns,
                     })
-            
+
             # Yield the structured model data for the relationship agent
             yield {
                 "type": "model",

@@ -1,104 +1,146 @@
-"""API endpoints for dataset and table browsing."""
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends
+"""API endpoints for schema / table / column browsing.
 
+Replaces the BigQuery dataset browser with a generic schema browser that
+works with any WarehouseProvider (currently PostgreSQL).  Each endpoint
+loads a provider via the ConnectionManager and delegates to the provider's
+protocol methods.
+"""
+from __future__ import annotations
+
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from middleware.clerk_auth import ClerkUser, get_current_user
 from models.datasets import (
-    DatasetInfo,
+    ColumnInfo,
+    ColumnsResponse,
+    SchemaInfo,
+    SchemasResponse,
     TableInfo,
-    DatasetsResponse,
     TablesResponse,
 )
-from services.bigquery import BigQueryService
-from api.v1.connection import get_bigquery_service
-from middleware.clerk_auth import ClerkUser, get_current_user
+from services.connection_manager import ConnectionManager
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/schemas", tags=["schemas"])
 
 
-router = APIRouter(prefix="/datasets", tags=["datasets"])
+# ---------------------------------------------------------------------------
+# Dependency stubs — overridden in main.py via dependency_overrides
+# ---------------------------------------------------------------------------
 
 
-@router.get("", response_model=DatasetsResponse)
-async def list_datasets(
-    user: ClerkUser = Depends(get_current_user),
-    bq_service: BigQueryService = Depends(get_bigquery_service),
-) -> DatasetsResponse:
-    """List all datasets in the connected BigQuery project.
-    
-    Args:
-        bq_service: Injected BigQuery service.
-        
-    Returns:
-        DatasetsResponse with list of datasets.
+def get_connection_manager() -> ConnectionManager:
+    """Dependency to get the ConnectionManager singleton.
+
+    Overridden in main.py at startup.
     """
-    if bq_service.client is None:
-        raise HTTPException(status_code=400, detail="Not connected to BigQuery")
-    
+    raise NotImplementedError("ConnectionManager not initialized")
+
+
+def get_supabase():
+    """Dependency to get the Supabase admin client.
+
+    Overridden in main.py at startup.
+    """
+    raise NotImplementedError("Supabase client not initialized")
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{connection_id}/schemas", response_model=SchemasResponse)
+async def list_schemas(
+    connection_id: str,
+    user: ClerkUser = Depends(get_current_user),
+    conn_mgr: ConnectionManager = Depends(get_connection_manager),
+    supabase=Depends(get_supabase),
+) -> SchemasResponse:
+    """List all schemas in the connected database.
+
+    Excludes internal PostgreSQL schemas (pg_catalog, information_schema, etc.).
+    """
     try:
-        datasets = []
-        for dataset in bq_service.client.list_datasets():
-            dataset_ref = bq_service.client.get_dataset(dataset.dataset_id)
-            
-            # Count tables in dataset
-            tables = list(bq_service.client.list_tables(dataset.dataset_id))
-            table_count = len(tables)
-            
-            datasets.append(DatasetInfo(
-                dataset_id=dataset.dataset_id,
-                location=dataset_ref.location,
-                description=dataset_ref.description,
-                created=dataset_ref.created.isoformat() if dataset_ref.created else None,
-                table_count=table_count,
-            ))
-        
-        return DatasetsResponse(
-            project_id=bq_service.project_id,
-            datasets=datasets,
-            count=len(datasets),
+        provider = await conn_mgr.get_provider(connection_id, supabase)
+        schemas_raw = await provider.list_schemas()
+
+        schemas = [SchemaInfo(**s) for s in schemas_raw]
+        return SchemasResponse(
+            connection_id=connection_id,
+            schemas=schemas,
+            count=len(schemas),
         )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to list schemas for %s: %s", connection_id, e)
+        raise HTTPException(status_code=500, detail=f"Failed to list schemas: {e}")
 
 
-@router.get("/{dataset_id}/tables", response_model=TablesResponse)
+@router.get("/{connection_id}/schemas/{schema_name}/tables", response_model=TablesResponse)
 async def list_tables(
-    dataset_id: str,
+    connection_id: str,
+    schema_name: str,
     user: ClerkUser = Depends(get_current_user),
-    bq_service: BigQueryService = Depends(get_bigquery_service),
+    conn_mgr: ConnectionManager = Depends(get_connection_manager),
+    supabase=Depends(get_supabase),
 ) -> TablesResponse:
-    """List all tables in a specific dataset.
-    
-    Args:
-        dataset_id: The dataset identifier.
-        bq_service: Injected BigQuery service.
-        
-    Returns:
-        TablesResponse with list of tables.
-    """
-    if bq_service.client is None:
-        raise HTTPException(status_code=400, detail="Not connected to BigQuery")
-    
+    """List all tables and views in a specific schema."""
     try:
-        tables = []
-        for table in bq_service.client.list_tables(dataset_id):
-            # Get full table metadata
-            table_ref = bq_service.client.get_table(f"{dataset_id}.{table.table_id}")
-            
-            tables.append(TableInfo(
-                table_id=table.table_id,
-                dataset_id=dataset_id,
-                table_type=table_ref.table_type,
-                row_count=table_ref.num_rows,
-                size_bytes=table_ref.num_bytes,
-                last_modified=table_ref.modified.isoformat() if table_ref.modified else None,
-                description=table_ref.description,
-            ))
-        
+        provider = await conn_mgr.get_provider(connection_id, supabase)
+        tables_raw = await provider.list_tables(schema_name)
+
+        tables = [TableInfo(**t) for t in tables_raw]
         return TablesResponse(
-            project_id=bq_service.project_id,
-            dataset_id=dataset_id,
+            connection_id=connection_id,
+            schema_name=schema_name,
             tables=tables,
             count=len(tables),
         )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        if "Not found" in str(e):
-            raise HTTPException(status_code=404, detail=f"Dataset '{dataset_id}' not found")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to list tables for %s/%s: %s", connection_id, schema_name, e)
+        raise HTTPException(status_code=500, detail=f"Failed to list tables: {e}")
+
+
+@router.get(
+    "/{connection_id}/tables/{schema_name}/{table_name}/columns",
+    response_model=ColumnsResponse,
+)
+async def get_table_columns(
+    connection_id: str,
+    schema_name: str,
+    table_name: str,
+    user: ClerkUser = Depends(get_current_user),
+    conn_mgr: ConnectionManager = Depends(get_connection_manager),
+    supabase=Depends(get_supabase),
+) -> ColumnsResponse:
+    """Get column definitions for a specific table."""
+    try:
+        provider = await conn_mgr.get_provider(connection_id, supabase)
+        result = await provider.get_table_schema(schema_name, table_name)
+
+        columns = [ColumnInfo(**c) for c in result.get("columns", [])]
+        return ColumnsResponse(
+            connection_id=connection_id,
+            schema_name=schema_name,
+            table_name=table_name,
+            columns=columns,
+            count=len(columns),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(
+            "Failed to get columns for %s/%s.%s: %s",
+            connection_id,
+            schema_name,
+            table_name,
+            e,
+        )
+        raise HTTPException(status_code=500, detail=f"Failed to get columns: {e}")

@@ -1,22 +1,27 @@
-"""API endpoints for chat agent."""
+"""API endpoints for chat agent.
+
+Uses the WarehouseProvider abstraction so the chat agent works with
+any supported data warehouse (PostgreSQL, BigQuery, etc.).
+"""
 from __future__ import annotations
 
 import json
 from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, HTTPException, Depends
+
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from services.bigquery import BigQueryService
 from services.chat_agent import ChatAgentService
-from api.v1.connection import get_bigquery_service
+from services.connection_manager import ConnectionManager
+from api.v1.connection import get_connection_manager, get_supabase
 from middleware.clerk_auth import ClerkUser, get_current_user
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-# Global chat agent instance
-_chat_agent: Optional[ChatAgentService] = None
+# Cache chat agents per data_source_id (they hold ADK session state)
+_chat_agents: Dict[str, ChatAgentService] = {}
 
 
 # Request/Response models
@@ -37,30 +42,43 @@ class ExecuteRequest(BaseModel):
     sql: str
 
 
-def get_chat_agent(
-    bq_service: BigQueryService = Depends(get_bigquery_service)
+async def _get_chat_agent(
+    data_source_id: str,
+    conn_mgr: ConnectionManager,
+    supabase: Any,
 ) -> ChatAgentService:
-    """Get or create the chat agent service."""
-    global _chat_agent
-    if _chat_agent is None:
-        _chat_agent = ChatAgentService(bq_service)
-    return _chat_agent
+    """Get or create a chat agent for the given data source.
+
+    Chat agents are cached per data_source_id because they hold ADK
+    session state that should persist across requests.
+    """
+    if data_source_id not in _chat_agents:
+        provider = await conn_mgr.get_provider(data_source_id, supabase)
+        _chat_agents[data_source_id] = ChatAgentService(provider)
+    return _chat_agents[data_source_id]
 
 
 @router.post("/query")
 async def chat_query(
     request: ChatRequest,
+    data_source_id: str = Query(..., description="Data source ID to connect to"),
     user: ClerkUser = Depends(get_current_user),
-    chat_agent: ChatAgentService = Depends(get_chat_agent),
+    conn_mgr: ConnectionManager = Depends(get_connection_manager),
+    supabase=Depends(get_supabase),
 ):
     """
     Process a chat message and generate SQL.
-    
+
     Returns an SSE stream with agent responses and generated SQL.
     """
     if not request.message:
         raise HTTPException(status_code=400, detail="No message provided")
-    
+
+    try:
+        chat_agent = await _get_chat_agent(data_source_id, conn_mgr, supabase)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
     async def event_stream():
         """Generate SSE events from chat agent."""
         try:
@@ -75,7 +93,7 @@ async def chat_query(
         except Exception as e:
             error_event = {"type": "error", "content": str(e)}
             yield f"data: {json.dumps(error_event)}\n\n"
-    
+
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
@@ -90,21 +108,28 @@ async def chat_query(
 @router.post("/execute")
 async def execute_query(
     request: ExecuteRequest,
+    data_source_id: str = Query(..., description="Data source ID to connect to"),
     user: ClerkUser = Depends(get_current_user),
-    chat_agent: ChatAgentService = Depends(get_chat_agent),
+    conn_mgr: ConnectionManager = Depends(get_connection_manager),
+    supabase=Depends(get_supabase),
 ):
     """
-    Execute a SQL query against BigQuery.
-    
+    Execute a SQL query against the data warehouse.
+
     Returns query results.
     """
     if not request.sql:
         raise HTTPException(status_code=400, detail="No SQL provided")
-    
+
+    try:
+        chat_agent = await _get_chat_agent(data_source_id, conn_mgr, supabase)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
     result = await chat_agent.execute_query(request.sql)
-    
+
     if not result.get("success"):
         error_msg = result.get("error", "Query failed")
         raise HTTPException(status_code=400, detail=f"Query execution failed: {error_msg}")
-    
+
     return result

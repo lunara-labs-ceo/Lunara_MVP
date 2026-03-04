@@ -3,7 +3,6 @@ fastapi==0.127.0
 uvicorn==0.34.0
 
 # Google Cloud
-google-cloud-bigquery==3.27.0
 google-cloud-storage>=2.0.0
 
 # Data validation
@@ -25,3 +24,6 @@ sse-starlette==3.1.2
 
 # Supabase
 supabase>=2.0.0
+
+# PostgreSQL async driver
+asyncpg

@@ -3,32 +3,21 @@ from __future__ import annotations
 
 import json
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from models.semantic import GenerateRequest, SemanticModel, StreamEvent, RelationshipRequest
-from services.bigquery import BigQueryService
 from services.semantic_agent import SemanticAgentService
 from services.relationship_agent import RelationshipAgentService
-from api.v1.connection import get_bigquery_service
+from services.connection_manager import ConnectionManager
+from api.v1.connection import get_connection_manager, get_supabase
 from middleware.clerk_auth import ClerkUser, get_current_user
 
 
 router = APIRouter(prefix="/semantic", tags=["semantic"])
 
-# Global semantic agent instance (initialized on first use)
-_semantic_agent: Optional[SemanticAgentService] = None
+# Relationship agent is stateless — one instance is fine
 _relationship_agent: Optional[RelationshipAgentService] = None
-
-
-def get_semantic_agent(
-    bq_service: BigQueryService = Depends(get_bigquery_service)
-) -> SemanticAgentService:
-    """Get or create the semantic agent service."""
-    global _semantic_agent
-    if _semantic_agent is None:
-        _semantic_agent = SemanticAgentService(bq_service)
-    return _semantic_agent
 
 
 def get_relationship_agent() -> RelationshipAgentService:
@@ -42,29 +31,39 @@ def get_relationship_agent() -> RelationshipAgentService:
 @router.post("/generate")
 async def generate_semantic_layer(
     request: GenerateRequest,
+    data_source_id: str = Query(..., description="Data source ID to connect to"),
     user: ClerkUser = Depends(get_current_user),
-    semantic_agent: SemanticAgentService = Depends(get_semantic_agent),
+    conn_mgr: ConnectionManager = Depends(get_connection_manager),
+    supabase=Depends(get_supabase),
     relationship_agent: RelationshipAgentService = Depends(get_relationship_agent),
 ):
     """
     Generate semantic layer for selected tables with relationship detection.
-    
+
     Runs two agents sequentially:
     1. Semantic Agent: Analyzes tables and classifies columns
     2. Relationship Agent: Detects foreign key relationships
-    
+
     Returns an SSE stream of agent thinking and results.
-    
+
     Args:
-        request: GenerateRequest with list of table IDs
-        semantic_agent: Injected semantic agent service
+        request: GenerateRequest with list of table IDs (schema.table format)
+        data_source_id: The data source connection to use
         relationship_agent: Injected relationship agent service
-        
+
     Returns:
         StreamingResponse with SSE events
     """
     if not request.tables:
         raise HTTPException(status_code=400, detail="No tables provided")
+
+    # Get the provider for this data source — creates a fresh agent per request
+    try:
+        provider = await conn_mgr.get_provider(data_source_id, supabase)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    semantic_agent = SemanticAgentService(provider)
     
     async def event_stream():
         """Generate SSE events from both agents."""

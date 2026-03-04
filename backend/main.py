@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 
 # Load environment variables FIRST, before any app module imports.
 # Service files read env vars at import time, so .env must be loaded before them.
-load_dotenv()
+# Use explicit path — CWD may differ from backend/ when launched via launch.json
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 IS_RENDER = os.getenv("RENDER") == "true"
 
@@ -86,19 +87,22 @@ from typing import Optional
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+
+from supabase import create_client as create_supabase_client
 
 from api.v1 import connection
 from api.v1 import datasets
+from api.v1 import projects
 from api.v1 import semantic
 from api.v1 import chat
 from api.v1 import reports
-from services.bigquery import BigQueryService
+from services.connection_manager import ConnectionManager
 
 
-# Global BigQuery service instance
-_bq_service: Optional[BigQueryService] = None
+# Global singletons initialised at startup
+_connection_manager: Optional[ConnectionManager] = None
+_supabase_client = None
+_fernet: Optional[Fernet] = None
 
 
 def get_or_create_encryption_key() -> str:
@@ -138,22 +142,39 @@ def get_or_create_encryption_key() -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown."""
-    global _bq_service
-    
+    global _connection_manager, _supabase_client, _fernet
+
     # Startup
     encryption_key = get_or_create_encryption_key()
-    _bq_service = BigQueryService(encryption_key)
-    
-    # Override the dependency using FastAPI's proper mechanism
-    app.dependency_overrides[connection.get_bigquery_service] = lambda: _bq_service
-    
-    print("🚀 Lunara backend started")
-    
+    _fernet = Fernet(encryption_key.encode() if isinstance(encryption_key, str) else encryption_key)
+    _connection_manager = ConnectionManager(encryption_key)
+
+    # Initialise Supabase admin client (service role)
+    sb_url = os.getenv("SUPABASE_URL")
+    sb_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if sb_url and sb_key and sb_key != "REPLACE_WITH_SERVICE_ROLE_KEY":
+        _supabase_client = create_supabase_client(sb_url, sb_key)
+    else:
+        print("WARNING: Supabase not configured — connection/schema APIs will fail")
+        _supabase_client = None
+
+    # Wire shared dependencies for connection + datasets routers
+    app.dependency_overrides[connection.get_connection_manager] = lambda: _connection_manager
+    app.dependency_overrides[connection.get_supabase] = lambda: _supabase_client
+    app.dependency_overrides[connection.get_fernet] = lambda: _fernet
+    app.dependency_overrides[datasets.get_connection_manager] = lambda: _connection_manager
+    app.dependency_overrides[datasets.get_supabase] = lambda: _supabase_client
+    app.dependency_overrides[projects.get_supabase] = lambda: _supabase_client
+
+    print("Lunara backend started")
+
     yield
-    
+
     # Shutdown
+    if _connection_manager:
+        await _connection_manager.close_all()
     app.dependency_overrides.clear()
-    print("👋 Lunara backend shutting down")
+    print("Lunara backend shutting down")
 
 
 # Create FastAPI application
@@ -201,6 +222,7 @@ app.add_middleware(
 
 
 # Include routers
+app.include_router(projects.router, prefix="/api/v1")
 app.include_router(connection.router, prefix="/api/v1")
 app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(semantic.router, prefix="/api/v1")
@@ -212,65 +234,3 @@ app.include_router(reports.router, prefix="/api/v1")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "lunara-backend"}
-
-
-# Static file serving for frontend pages
-FRONTEND_DIR = Path(__file__).parent.parent  # Parent of backend folder
-
-@app.get("/")
-async def serve_index():
-    """Serve the landing page as homepage."""
-    return FileResponse(FRONTEND_DIR / "landing.html")
-
-@app.get("/landing.html")
-async def serve_landing():
-    """Serve landing page."""
-    return FileResponse(FRONTEND_DIR / "landing.html")
-
-@app.get("/bq_connection.html")
-async def serve_bq_connection():
-    """Serve BigQuery connection page."""
-    return FileResponse(FRONTEND_DIR / "bq_connection.html")
-
-@app.get("/schema_browser.html")
-async def serve_schema_browser():
-    """Serve schema browser page."""
-    return FileResponse(FRONTEND_DIR / "schema_browser.html")
-
-@app.get("/semantic_layer_setup.html")
-async def serve_semantic_layer():
-    """Serve semantic layer setup page."""
-    return FileResponse(FRONTEND_DIR / "semantic_layer_setup.html")
-
-@app.get("/chat_agent.html")
-async def serve_chat_agent():
-    """Serve chat agent page."""
-    return FileResponse(FRONTEND_DIR / "chat_agent.html")
-
-@app.get("/report_builder.html")
-async def serve_report_builder():
-    """Serve report builder page."""
-    return FileResponse(FRONTEND_DIR / "report_builder.html")
-
-@app.get("/dashboard.html")
-async def serve_dashboard():
-    """Serve dashboard page."""
-    return FileResponse(FRONTEND_DIR / "dashboard.html")
-
-@app.get("/auth/callback.html")
-async def serve_auth_callback():
-    """Serve auth callback page."""
-    return FileResponse(FRONTEND_DIR / "auth" / "callback.html")
-
-@app.get("/login.html")
-async def serve_login():
-    """Serve login page."""
-    return FileResponse(FRONTEND_DIR / "login.html")
-
-@app.get("/data_sources.html")
-async def serve_data_sources():
-    """Serve data sources page."""
-    return FileResponse(FRONTEND_DIR / "data_sources.html")
-
-# Serve static assets (images, etc.)
-app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")
