@@ -6,17 +6,19 @@ Currency: USD
 
 ## 1) Packaging and pricing strategy
 
-Lunara is an AI-first BI product with bring-your-own-warehouse (BigQuery).  
+Lunara is an AI-first BI product with bring-your-own-warehouse (BigQuery, Supabase/PostgreSQL, and more planned).
 The biggest Lunara-side cost drivers are AI inference and platform operations, not warehouse compute.
 
 Recommended launch pricing:
 
-| Plan | Monthly price | Annual price | Included seats | Projects | BigQuery data sources | AI credits / month | Best for |
+| Plan | Monthly price | Annual price | Included seats | Projects | Data sources | AI credits / month | Best for |
 |---|---:|---:|---:|---:|---:|---:|---|
 | Starter (Free) | $0 | $0 | 2 | 1 | 1 | 300 | Solo builders evaluating product fit |
 | Growth | $79 | $790 | 10 | 5 | 3 | 5,000 | Small teams running regular analysis |
 | Scale | $249 | $2,490 | 25 | 20 | 10 | 20,000 | Multi-team ops and decision workflows |
 | Enterprise | Custom (start around $1,500/mo) | Annual contract | Custom | Custom | Custom | Custom | Security/compliance-heavy organizations |
+
+Supported data sources: BigQuery, Supabase (PostgreSQL), with more integrations planned (Snowflake, Redshift, Databricks, etc.).
 
 Annual discount embedded in pricing: ~17% (roughly 2 months free).
 
