@@ -119,11 +119,20 @@ async def get_current_user(
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Authentication failed: {e}")
 
+    # Clerk v2 session tokens use compact "o" object for org claims:
+    #   { "o": { "id": "org_...", "slg": "slug", "rol": "admin", ... } }
+    # Clerk v1 (deprecated) used top-level: org_id, org_slug, org_role
+    org_claims = payload.get("o") or {}
     user = ClerkUser(
         user_id=payload.get("sub", ""),
-        org_id=payload.get("org_id"),
-        org_role=payload.get("org_role"),
-        org_slug=payload.get("org_slug"),
+        org_id=org_claims.get("id") or payload.get("org_id"),
+        org_role=org_claims.get("rol") or payload.get("org_role"),
+        org_slug=org_claims.get("slg") or payload.get("org_slug"),
+    )
+
+    logger.debug(
+        "Clerk JWT — user=%s, org_id=%s, org_role=%s",
+        user.user_id, user.org_id, user.org_role,
     )
 
     # Lazy sync to Supabase (fire-and-forget, non-blocking on failure)

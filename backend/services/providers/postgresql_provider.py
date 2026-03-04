@@ -11,6 +11,7 @@ import datetime
 import uuid
 from decimal import Decimal
 from typing import Any, Optional
+from urllib.parse import quote_plus
 
 import asyncpg
 
@@ -49,12 +50,16 @@ class PostgreSQLProvider:
         user: Optional[str],
         password: Optional[str],
     ) -> str:
-        """Build a PostgreSQL DSN from individual parameters."""
+        """Build a PostgreSQL DSN from individual parameters.
+
+        URL-encodes user and password so special chars (@ # / : etc.)
+        don't break the URI parsing.
+        """
         user_part = ""
         if user:
-            user_part = user
+            user_part = quote_plus(user)
             if password:
-                user_part += f":{password}"
+                user_part += f":{quote_plus(password)}"
             user_part += "@"
         return f"postgresql://{user_part}{host}:{port}/{database}"
 
