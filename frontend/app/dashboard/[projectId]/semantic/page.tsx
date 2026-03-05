@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Sparkles,
@@ -24,6 +24,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtStep,
+} from "@/components/ai-elements/chain-of-thought";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,9 +69,10 @@ interface SemanticModelData {
   tables: SemanticTable[];
 }
 
-interface StreamMessage {
-  content: string;
-  type: "text" | "status" | "phase" | "done" | "complete" | "error";
+interface PhaseState {
+  status: "pending" | "active" | "complete" | "error";
+  reasoningText: string;
+  label: string;
 }
 
 type TabKey = "dimensions" | "measures" | "time" | "relationships";
@@ -105,10 +117,21 @@ export default function SemanticLayerPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("dimensions");
   const [existingModelId, setExistingModelId] = useState<string | null>(null);
 
-  // Streaming / generation
+  // Selected tables from localStorage
+  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const [dataSourceId, setDataSourceId] = useState<string | null>(null);
+
+  // Streaming / generation — phase-based state
   const [isGenerating, setIsGenerating] = useState(false);
-  const [streamMessages, setStreamMessages] = useState<StreamMessage[]>([]);
-  const [agentStatus, setAgentStatus] = useState("Waiting to start...");
+  const INITIAL_PHASES: PhaseState[] = [
+    { status: "pending", reasoningText: "", label: "Understanding your schema" },
+    { status: "pending", reasoningText: "", label: "Discovering table connections" },
+  ];
+  const [phases, setPhases] = useState<PhaseState[]>(INITIAL_PHASES);
+  const [activePhaseIndex, setActivePhaseIndex] = useState(-1);
+  const activePhaseRef = useRef(-1); // ref mirror — always current inside event handler
+  const [phaseStreaming, setPhaseStreaming] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   // Save
   const [isSaving, setIsSaving] = useState(false);
@@ -118,17 +141,16 @@ export default function SemanticLayerPage() {
   const [isLoadingModel, setIsLoadingModel] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Selected tables from localStorage
-  const [selectedTables, setSelectedTables] = useState<string[]>([]);
-  const [dataSourceId, setDataSourceId] = useState<string | null>(null);
-
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // -- Auto-scroll chat output ----------------------------------------------
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [streamMessages]);
+  // Derived agent status for the header
+  const tableCount = model?.tables?.length ?? 0;
+  const agentStatus = useMemo(() => {
+    if (isGenerating) return "Atlas is mapping your schema...";
+    if (generationError) return "Atlas encountered an error";
+    if (phases.every((p) => p.status === "complete")) return `Atlas mapped ${tableCount} tables successfully`;
+    if (model) return `${tableCount} tables mapped`;
+    if (selectedTables.length > 0) return `${selectedTables.length} tables ready for Atlas`;
+    return "Select tables from Schema Browser to get started";
+  }, [isGenerating, generationError, phases, model, selectedTables.length, tableCount]);
 
   // -- Load selected tables from localStorage -------------------------------
 
@@ -144,18 +166,37 @@ export default function SemanticLayerPage() {
     }
 
     const storedDsId = localStorage.getItem("lunara_data_source_id");
-    if (storedDsId) setDataSourceId(storedDsId);
+    if (storedDsId) {
+      setDataSourceId(storedDsId);
+    }
   }, []);
 
-  // -- Update agent status based on table count -----------------------------
+  // -- Fallback: resolve dataSourceId from project's connections -----------
 
   useEffect(() => {
-    if (!isLoadingModel && !model && selectedTables.length > 0) {
-      setAgentStatus(`${selectedTables.length} tables ready for analysis`);
-    } else if (!isLoadingModel && !model && selectedTables.length === 0) {
-      setAgentStatus("No tables selected. Go back to Schema Browser.");
+    if (dataSourceId || !projectId) return;
+
+    let cancelled = false;
+    async function resolveDataSource() {
+      try {
+        const connections = await fetchApi<
+          { id: string; status: string }[]
+        >(
+          `/api/v1/connections?project_id=${encodeURIComponent(projectId)}`
+        );
+        const connected = connections.find((c) => c.status === "connected");
+        if (connected && !cancelled) {
+          setDataSourceId(connected.id);
+        }
+      } catch {
+        // non-fatal — user can still view a previously saved model
+      }
     }
-  }, [isLoadingModel, model, selectedTables.length]);
+    resolveDataSource();
+    return () => {
+      cancelled = true;
+    };
+  }, [dataSourceId, projectId, fetchApi]);
 
   // -- Load existing model from API -----------------------------------------
 
@@ -175,7 +216,6 @@ export default function SemanticLayerPage() {
         setExistingModelId(data.id);
         setModel({ tables: data.model.tables || [] });
         setRelationships(data.model.relationships || []);
-        setAgentStatus(`Loaded saved model (${data.model.tables?.length || 0} tables)`);
       }
     } catch (err) {
       // 404 means no model yet -- that's fine
@@ -201,21 +241,23 @@ export default function SemanticLayerPage() {
   async function startGeneration() {
     if (isGenerating || selectedTables.length === 0) return;
     if (!dataSourceId) {
-      setStreamMessages([
-        {
-          content:
-            "No data source selected. Please connect a data source and select tables from the Schema Browser first.",
-          type: "error",
-        },
-      ]);
+      setGenerationError(
+        "No data source connected. Head to Schema Browser to connect and select tables."
+      );
       return;
     }
 
     setIsGenerating(true);
-    setStreamMessages([]);
+    setPhases([
+      { status: "pending", reasoningText: "", label: "Understanding your schema" },
+      { status: "pending", reasoningText: "", label: "Discovering table connections" },
+    ]);
+    setActivePhaseIndex(-1);
+    activePhaseRef.current = -1;
+    setPhaseStreaming(false);
+    setGenerationError(null);
     setModel(null);
     setRelationships([]);
-    setAgentStatus("Processing...");
     setSelectedTableIndex(0);
 
     try {
@@ -247,68 +289,116 @@ export default function SemanticLayerPage() {
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
-              const data = JSON.parse(line.slice(6));
-              handleStreamEvent(data);
+              const eventData = JSON.parse(line.slice(6));
+              handleStreamEvent(eventData);
             } catch {
               // ignore unparseable lines
             }
           }
         }
       }
-
-      setAgentStatus("Generation complete!");
     } catch (err) {
       console.error("Generation error:", err);
       const msg = err instanceof Error ? err.message : "Unknown error";
-      setStreamMessages((prev) => [
-        ...prev,
-        { content: `Failed to connect: ${msg}`, type: "error" },
-      ]);
-      setAgentStatus("Generation failed");
+      setGenerationError(`Atlas couldn't connect: ${msg}`);
     } finally {
       setIsGenerating(false);
+      setPhaseStreaming(false);
     }
   }
 
   function handleStreamEvent(data: { type: string; content?: string; data?: Record<string, unknown> }) {
     switch (data.type) {
-      case "text":
-      case "status":
-      case "phase":
-      case "done":
-      case "complete":
-      case "error":
-        setStreamMessages((prev) => [
-          ...prev,
-          { content: data.content || "", type: data.type as StreamMessage["type"] },
-        ]);
+      case "phase": {
+        const content = data.content || "";
+        let phaseIdx: number;
+        if (content.includes("Phase 1") || content.toLowerCase().includes("analyzing")) {
+          phaseIdx = 0;
+        } else if (content.includes("Phase 2") || content.toLowerCase().includes("relationship")) {
+          phaseIdx = 1;
+        } else {
+          phaseIdx = 0;
+        }
+
+        activePhaseRef.current = phaseIdx;
+        setActivePhaseIndex(phaseIdx);
+        setPhaseStreaming(true);
+        setPhases((prev) =>
+          prev.map((p, i) =>
+            i === phaseIdx ? { ...p, status: "active" } : p
+          )
+        );
         break;
-      case "model":
+      }
+
+      case "text":
+      case "status": {
+        const text = data.content || "";
+        const idx = activePhaseRef.current;
+        if (idx < 0) break; // no active phase yet
+        setPhases((prev) =>
+          prev.map((p, i) => {
+            if (i !== idx) return p;
+            return {
+              ...p,
+              reasoningText: p.reasoningText + (p.reasoningText ? "\n" : "") + text,
+            };
+          })
+        );
+        break;
+      }
+
+      case "model": {
         if (data.data) {
           const modelData = data.data as unknown as SemanticModelData;
           setModel(modelData);
-          setStreamMessages((prev) => [
-            ...prev,
-            {
-              content: `Generated semantic model with ${modelData.tables?.length || 0} tables`,
-              type: "status",
-            },
-          ]);
         }
         break;
-      case "relationships":
+      }
+
+      case "relationships": {
         if (data.data && (data.data as Record<string, unknown>).relationships) {
           const rels = (data.data as { relationships: Relationship[] }).relationships;
           setRelationships(rels);
-          setStreamMessages((prev) => [
-            ...prev,
-            {
-              content: `Detected ${rels.length} relationships`,
-              type: "status",
-            },
-          ]);
         }
         break;
+      }
+
+      case "done": {
+        const idx = activePhaseRef.current;
+        setPhaseStreaming(false);
+        setPhases((prev) =>
+          prev.map((p, i) =>
+            i === idx ? { ...p, status: "complete" } : p
+          )
+        );
+        break;
+      }
+
+      case "complete": {
+        setPhaseStreaming(false);
+        setPhases((prev) =>
+          prev.map((p) => (p.status !== "complete" ? { ...p, status: "complete" } : p))
+        );
+        break;
+      }
+
+      case "error": {
+        const idx = activePhaseRef.current;
+        setPhaseStreaming(false);
+        setGenerationError(data.content || "Unknown error");
+        setPhases((prev) =>
+          prev.map((p, i) => {
+            if (i !== idx) return p;
+            return {
+              ...p,
+              status: "error",
+              reasoningText: p.reasoningText + "\n" + (data.content || ""),
+            };
+          })
+        );
+        break;
+      }
     }
   }
 
@@ -333,20 +423,9 @@ export default function SemanticLayerPage() {
       });
 
       setSaveSuccess(true);
-      setAgentStatus("Model saved!");
-      setStreamMessages((prev) => [
-        ...prev,
-        { content: "Semantic model saved to database!", type: "done" },
-      ]);
-
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch (err) {
       console.error("Save error:", err);
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      setStreamMessages((prev) => [
-        ...prev,
-        { content: `Failed to save: ${msg}`, type: "error" },
-      ]);
     } finally {
       setIsSaving(false);
     }
@@ -410,29 +489,22 @@ export default function SemanticLayerPage() {
     relationships: tableRelationships.length,
   };
 
-  // -- Render helpers -------------------------------------------------------
+  // -- Phase icon helper ----------------------------------------------------
 
-  function getMessageIcon(type: StreamMessage["type"]) {
-    switch (type) {
-      case "error": return "x";
-      case "status": return "~";
-      case "done": return "+";
-      case "complete": return "*";
-      case "phase": return ">";
-      default: return "-";
+  function getPhaseIcon(status: PhaseState["status"]) {
+    switch (status) {
+      case "complete": return CheckCircle;
+      case "active": return Loader2;
+      case "error": return AlertCircle;
+      default: return Sparkles;
     }
   }
 
-  function getMessageColor(type: StreamMessage["type"]) {
-    switch (type) {
-      case "error": return "text-red-400";
-      case "status": return "text-amber-400";
-      case "done": return "text-green-400";
-      case "complete": return "text-green-400";
-      case "phase": return "text-blue-400";
-      default: return "text-zinc-400";
-    }
+  function getPhaseIconClassName(status: PhaseState["status"]) {
+    return status === "active" ? "animate-spin" : undefined;
   }
+
+  const hasStarted = phases.some((p) => p.status !== "pending") || !!generationError;
 
   // -- Render: Loading state ------------------------------------------------
 
@@ -458,15 +530,15 @@ export default function SemanticLayerPage() {
     return (
       <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Semantic Layer</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Atlas</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Generate and manage your semantic layer for AI-powered analytics.
+            Semantic layer agent — analyzes your schema, classifies columns, and maps relationships automatically.
           </p>
         </div>
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 flex items-start gap-3">
           <AlertCircle className="size-5 text-destructive shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-destructive">Failed to load model</p>
+            <p className="text-sm font-medium text-destructive">Failed to load semantic layer</p>
             <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
             <Button
               variant="outline"
@@ -490,11 +562,9 @@ export default function SemanticLayerPage() {
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Semantic Layer
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Atlas</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Generate and configure your semantic layer from selected tables.
+            Semantic layer agent — analyzes your schema, classifies columns, and maps relationships automatically.
           </p>
         </div>
         <Button
@@ -503,19 +573,17 @@ export default function SemanticLayerPage() {
           onClick={() => router.push(`/dashboard/${projectId}/chat`)}
         >
           <MessageSquare className="size-3.5" />
-          Query Agent
+          Chat with Data
         </Button>
       </div>
 
-      {/* AI Analysis panel */}
+      {/* Atlas panel */}
       <section className="rounded-xl border bg-card">
+        {/* Header bar */}
         <div className="flex items-center gap-3 p-4 border-b">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
-            <Sparkles className="size-4 text-primary" />
-          </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">AI Analysis</p>
-            <p className="text-xs text-muted-foreground truncate">{agentStatus}</p>
+            <p className="text-sm font-bold">Atlas</p>
+            <p className="text-sm text-muted-foreground truncate">{agentStatus}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -536,8 +604,8 @@ export default function SemanticLayerPage() {
                 : saveSuccess
                   ? "Saved!"
                   : existingModelId
-                    ? "Update Layer"
-                    : "Save Layer"}
+                    ? "Save Changes"
+                    : "Save"}
             </Button>
             <Button
               size="sm"
@@ -552,39 +620,58 @@ export default function SemanticLayerPage() {
                 <Play className="size-3.5" />
               )}
               {isGenerating
-                ? "Generating..."
+                ? "Atlas is thinking..."
                 : model
-                  ? "Regenerate"
-                  : "Start Generation"}
+                  ? "Re-analyze"
+                  : "Run Atlas"}
             </Button>
           </div>
         </div>
 
-        {/* Chat output */}
-        <div className="bg-zinc-950 dark:bg-zinc-900/50 rounded-b-xl">
-          <ScrollArea className="h-56">
-            <div className="p-4 font-mono text-[13px] leading-relaxed space-y-0.5">
-              {streamMessages.length === 0 && (
-                <p className="text-zinc-500 italic">
-                  {selectedTables.length > 0
-                    ? 'Click "Start Generation" to begin analyzing your tables...'
-                    : "No tables selected. Go to Schema Browser to pick tables."}
-                </p>
-              )}
-              {streamMessages.map((msg, i) => (
-                <div key={i} className={`flex gap-2 ${getMessageColor(msg.type)}`}>
-                  <span className="shrink-0 select-none">{getMessageIcon(msg.type)}</span>
-                  <span className="whitespace-pre-wrap break-words">{msg.content}</span>
-                </div>
-              ))}
-              {isGenerating && (
-                <span className="inline-block text-green-400 animate-pulse">
-                  _
-                </span>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-          </ScrollArea>
+        {/* ChainOfThought + Reasoning — replaces the old terminal */}
+        <div className="p-4">
+          {!hasStarted ? (
+            <p className="text-sm text-muted-foreground italic">
+              {selectedTables.length > 0
+                ? 'Click "Run Atlas" to map your schema...'
+                : "No tables selected — head to Schema Browser to pick tables."}
+            </p>
+          ) : (
+            <ChainOfThought defaultOpen>
+              <ChainOfThoughtHeader>Atlas Progress</ChainOfThoughtHeader>
+              <ChainOfThoughtContent>
+                {phases.map((phase, index) => (
+                  <ChainOfThoughtStep
+                    key={index}
+                    icon={getPhaseIcon(phase.status)}
+                    iconClassName={getPhaseIconClassName(phase.status)}
+                    label={phase.label}
+                    status={phase.status}
+                  >
+                    {(phase.status === "active" ||
+                      phase.status === "complete" ||
+                      phase.status === "error") &&
+                      phase.reasoningText && (
+                        <Reasoning
+                          isStreaming={phase.status === "active" && phaseStreaming}
+                          defaultOpen={phase.status === "active"}
+                        >
+                          <ReasoningTrigger />
+                          <ReasoningContent>{phase.reasoningText}</ReasoningContent>
+                        </Reasoning>
+                      )}
+                  </ChainOfThoughtStep>
+                ))}
+
+                {generationError && (
+                  <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive mt-2">
+                    <AlertCircle className="size-4 mt-0.5 shrink-0" />
+                    <span>{generationError}</span>
+                  </div>
+                )}
+              </ChainOfThoughtContent>
+            </ChainOfThought>
+          )}
         </div>
       </section>
 
@@ -594,7 +681,7 @@ export default function SemanticLayerPage() {
         <div className="rounded-xl border bg-card flex flex-col overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Generated Models
+              Tables
             </span>
             <Badge variant="secondary" className="text-[11px]">
               {model?.tables?.length ?? 0} tables
@@ -606,10 +693,10 @@ export default function SemanticLayerPage() {
               <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
                 <Table2 className="size-10 text-muted-foreground/30 mb-3" />
                 <p className="text-sm font-medium text-muted-foreground">
-                  No models generated yet
+                  No tables mapped yet
                 </p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
-                  Run generation to analyze your tables
+                  Run Atlas to map your schema
                 </p>
               </div>
             ) : (
@@ -667,11 +754,11 @@ export default function SemanticLayerPage() {
             <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 text-center">
               <Layers className="size-14 text-muted-foreground/20 mb-4" />
               <h3 className="text-lg font-semibold text-muted-foreground">
-                No Table Selected
+                Select a Table
               </h3>
               <p className="text-sm text-muted-foreground/60 mt-1 max-w-xs">
-                Run generation to analyze your tables, then select one from the
-                sidebar to view and edit its columns.
+                Run Atlas to analyze your schema, then pick a table from the
+                sidebar to inspect and edit its columns.
               </p>
             </div>
           ) : (

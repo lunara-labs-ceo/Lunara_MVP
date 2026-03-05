@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -12,6 +13,8 @@ from services.relationship_agent import RelationshipAgentService
 from services.connection_manager import ConnectionManager
 from api.v1.connection import get_connection_manager, get_supabase
 from middleware.clerk_auth import ClerkUser, get_current_user
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/semantic", tags=["semantic"])
@@ -112,52 +115,98 @@ async def generate_semantic_layer(
     )
 
 
-@router.get("/models")
-async def list_semantic_models(
+@router.get("/model")
+async def get_project_model(
+    project_id: str = Query(..., description="Project ID"),
     user: ClerkUser = Depends(get_current_user),
-) -> List[SemanticModel]:
-    """
-    List all saved semantic models.
-    
-    Returns:
-        List of semantic models.
-    """
-    # TODO: Implement persistence
-    # For MVP, return empty list
-    return []
-
-
-@router.get("/models/{model_id}")
-async def get_semantic_model(
-    model_id: str,
-    user: ClerkUser = Depends(get_current_user),
-) -> SemanticModel:
-    """
-    Get a specific semantic model by ID.
-    
-    Args:
-        model_id: The model identifier.
-        
-    Returns:
-        The semantic model.
-    """
-    # TODO: Implement persistence
-    raise HTTPException(status_code=404, detail="Model not found")
-
-
-@router.delete("/models/{model_id}")
-async def delete_semantic_model(
-    model_id: str,
-    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
 ):
+    """Get the semantic model for a project.
+
+    Returns the most recently updated model or 404 if none exists.
     """
-    Delete a semantic model.
-    
-    Args:
-        model_id: The model identifier.
+    try:
+        result = (
+            supabase.table("semantic_models")
+            .select("id, project_id, name, description, model, source_type, table_count, created_at, updated_at")
+            .eq("project_id", project_id)
+            .order("updated_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(status_code=404, detail="No semantic model found for this project")
+        return result.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to load semantic model: %s", e)
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+
+@router.post("/model")
+async def save_project_model(
+    body: dict,
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """Save or update the semantic model for a project.
+
+    If a model already exists for the project, it updates it.
+    Otherwise creates a new one.
     """
-    # TODO: Implement persistence
-    raise HTTPException(status_code=404, detail="Model not found")
+    project_id = body.get("project_id")
+    model_data = body.get("model")
+    if not project_id or not model_data:
+        raise HTTPException(status_code=400, detail="project_id and model are required")
+
+    table_count = len(model_data.get("tables", []))
+
+    try:
+        # Check if a model already exists for this project
+        existing = (
+            supabase.table("semantic_models")
+            .select("id")
+            .eq("project_id", project_id)
+            .limit(1)
+            .execute()
+        )
+
+        if existing.data:
+            # Update existing model
+            model_id = existing.data[0]["id"]
+            result = (
+                supabase.table("semantic_models")
+                .update({
+                    "model": model_data,
+                    "table_count": table_count,
+                    "source_type": "postgres",
+                })
+                .eq("id", model_id)
+                .execute()
+            )
+            return {"id": model_id, "status": "updated"}
+        else:
+            # Insert new model
+            result = (
+                supabase.table("semantic_models")
+                .insert({
+                    "project_id": project_id,
+                    "name": f"Semantic Layer ({table_count} tables)",
+                    "model": model_data,
+                    "source_type": "postgres",
+                    "table_count": table_count,
+                    "created_by": user.user_id,
+                })
+                .execute()
+            )
+            new_id = result.data[0]["id"] if result.data else None
+            return {"id": new_id, "status": "created"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to save semantic model: %s", e)
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 
 @router.post("/detect-relationships")

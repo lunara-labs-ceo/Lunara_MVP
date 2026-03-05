@@ -243,11 +243,12 @@ export default function SchemaPage() {
 
   // ---- Generate handler --------------------------------------------------
   function handleGenerate() {
-    if (selectedCount === 0) return;
+    if (selectedCount === 0 || !connectionId) return;
     localStorage.setItem(
       "lunara_selected_tables",
       JSON.stringify([...selectedTables])
     );
+    localStorage.setItem("lunara_data_source_id", connectionId);
     router.push(`/dashboard/${projectId}/semantic`);
   }
 
