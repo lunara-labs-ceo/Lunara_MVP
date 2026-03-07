@@ -42,6 +42,25 @@ class ExecuteRequest(BaseModel):
     sql: str
 
 
+class SessionCreateRequest(BaseModel):
+    project_id: str
+    name: str = "New Chat"
+    messages: Optional[List[Dict[str, Any]]] = None
+
+
+class SessionUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    messages: Optional[List[Dict[str, Any]]] = None
+
+
+class ArtifactCreateRequest(BaseModel):
+    project_id: str
+    title: str
+    sql: str
+    data: Optional[List[Dict[str, Any]]] = None
+    session_id: Optional[str] = None
+
+
 async def _get_chat_agent(
     data_source_id: str,
     conn_mgr: ConnectionManager,
@@ -133,3 +152,145 @@ async def execute_query(
         raise HTTPException(status_code=400, detail=f"Query execution failed: {error_msg}")
 
     return result
+
+
+# ---- Session CRUD ----
+
+@router.get("/sessions")
+async def list_sessions(
+    project_id: str = Query(...),
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """List chat sessions for a project, newest first."""
+    result = supabase.table("chat_sessions") \
+        .select("*") \
+        .eq("project_id", project_id) \
+        .order("created_at", desc=True) \
+        .execute()
+    return result.data
+
+
+@router.post("/sessions")
+async def create_session(
+    request: SessionCreateRequest,
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """Create a new chat session."""
+    result = supabase.table("chat_sessions").insert({
+        "project_id": request.project_id,
+        "name": request.name,
+        "messages": json.dumps(request.messages or []),
+        "created_by": user.user_id,
+    }).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create session")
+    return result.data[0]
+
+
+@router.get("/sessions/{session_id}")
+async def get_session(
+    session_id: str,
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """Get a single chat session by ID."""
+    result = supabase.table("chat_sessions") \
+        .select("*") \
+        .eq("id", session_id) \
+        .single() \
+        .execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return result.data
+
+
+@router.patch("/sessions/{session_id}")
+async def update_session(
+    session_id: str,
+    request: SessionUpdateRequest,
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """Update a chat session (name and/or messages)."""
+    update_data: Dict[str, Any] = {}
+    if request.name is not None:
+        update_data["name"] = request.name
+    if request.messages is not None:
+        update_data["messages"] = json.dumps(request.messages)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+
+    result = supabase.table("chat_sessions") \
+        .update(update_data) \
+        .eq("id", session_id) \
+        .execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return result.data[0]
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(
+    session_id: str,
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """Delete a chat session."""
+    supabase.table("chat_sessions") \
+        .delete() \
+        .eq("id", session_id) \
+        .execute()
+    return {"ok": True}
+
+
+# ---- Artifact CRUD ----
+
+@router.get("/artifacts")
+async def list_artifacts(
+    project_id: str = Query(...),
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """List saved artifacts for a project, newest first."""
+    result = supabase.table("chat_artifacts") \
+        .select("*") \
+        .eq("project_id", project_id) \
+        .order("created_at", desc=True) \
+        .execute()
+    return result.data
+
+
+@router.post("/artifacts")
+async def create_artifact(
+    request: ArtifactCreateRequest,
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """Save a query + results as a reusable artifact."""
+    result = supabase.table("chat_artifacts").insert({
+        "project_id": request.project_id,
+        "title": request.title,
+        "sql": request.sql,
+        "data": json.dumps(request.data or []),
+        "session_id": request.session_id,
+        "created_by": user.user_id,
+    }).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create artifact")
+    return result.data[0]
+
+
+@router.delete("/artifacts/{artifact_id}")
+async def delete_artifact(
+    artifact_id: str,
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """Delete an artifact."""
+    supabase.table("chat_artifacts") \
+        .delete() \
+        .eq("id", artifact_id) \
+        .execute()
+    return {"ok": True}

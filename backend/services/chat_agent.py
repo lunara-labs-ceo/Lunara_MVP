@@ -15,9 +15,11 @@ from pydantic import BaseModel, Field
 
 # GCP credentials and config are set up by main.py before this module is imported.
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
 from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from google.genai import types
+from google.genai.types import ThinkingConfig
 
 from services.retry_utils import run_with_retry
 from services.warehouse_provider import WarehouseProvider
@@ -49,6 +51,9 @@ class ChatAgentService:
         self._active_sessions: Dict[str, str] = {}  # supabase_session_id -> adk_session_id
 
         # Create the agent with tools
+        # BuiltInPlanner with ThinkingConfig enables Gemini's native
+        # thinking/reasoning — the model exposes its internal reasoning
+        # as Part objects with thought=True, which we stream to the UI.
         self.agent = LlmAgent(
             model="gemini-3-flash-preview",
             name="chat_agent",
@@ -64,6 +69,12 @@ class ChatAgentService:
             ],
             output_schema=ChatQueryResponse,
             output_key="chat_output",
+            planner=BuiltInPlanner(
+                thinking_config=ThinkingConfig(
+                    include_thoughts=True,
+                    thinking_budget=2048,
+                ),
+            ),
         )
 
         # SQLite session service for ADK persistence
@@ -528,6 +539,10 @@ Guidelines:
         )
 
         # Stream the agent response
+        # NOTE: The agent uses output_schema (structured output), so the final
+        # LLM text is a raw JSON blob like {"explanation":"...","sql_query":"..."}.
+        # We skip that raw JSON during streaming and instead use the parsed
+        # chat_output from session state after the stream completes.
         try:
             async for event in run_with_retry(
                 self._runner,
@@ -538,10 +553,21 @@ Guidelines:
                 if event.content and event.content.parts:
                     for part in event.content.parts:
                         if hasattr(part, 'text') and part.text:
-                            yield {
-                                "type": "text",
-                                "content": part.text
-                            }
+                            if getattr(part, 'thought', False):
+                                yield {
+                                    "type": "thinking",
+                                    "content": part.text
+                                }
+                            else:
+                                # Skip raw JSON structured output — we'll parse
+                                # it from chat_output below for clean display
+                                text = part.text.strip()
+                                if text.startswith('{') and ('explanation' in text or 'sql_query' in text):
+                                    continue
+                                yield {
+                                    "type": "text",
+                                    "content": part.text
+                                }
                         elif hasattr(part, 'function_call') and part.function_call:
                             yield {
                                 "type": "status",
@@ -581,6 +607,9 @@ Guidelines:
             Query results with columns and rows.
         """
         try:
+            # Strip trailing semicolons — PostgreSQL prepared statements
+            # reject multiple commands (including a bare trailing ";")
+            sql = sql.strip().rstrip(";").strip()
             results = await self.provider.execute_query(sql)
             return {
                 "success": True,

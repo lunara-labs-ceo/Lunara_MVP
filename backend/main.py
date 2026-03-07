@@ -95,7 +95,11 @@ from api.v1 import datasets
 from api.v1 import projects
 from api.v1 import semantic
 from api.v1 import chat
-from api.v1 import reports
+try:
+    from api.v1 import reports
+except Exception as e:
+    reports = None  # type: ignore[assignment]
+    print(f"⚠ Reports module failed to load (non-critical): {e}")
 from services.connection_manager import ConnectionManager
 
 
@@ -227,7 +231,8 @@ app.include_router(connection.router, prefix="/api/v1")
 app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(semantic.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
-app.include_router(reports.router, prefix="/api/v1")
+if reports is not None:
+    app.include_router(reports.router, prefix="/api/v1")
 
 
 @app.get("/health")
