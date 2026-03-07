@@ -280,7 +280,7 @@ function SessionItem({
       className={cn(
         "group flex cursor-pointer items-start gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors",
         isActive
-          ? "border-l-2 border-primary bg-primary/10 text-primary"
+          ? "bg-foreground text-background font-medium"
           : "text-foreground hover:bg-muted/50"
       )}
       onClick={onSelect}
@@ -295,7 +295,10 @@ function SessionItem({
     >
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{session.name || "Untitled"}</p>
-        <p className="text-[10px] text-muted-foreground">
+        <p className={cn(
+          "text-[10px]",
+          isActive ? "text-background/60" : "text-muted-foreground"
+        )}>
           {formatRelativeDate(session.updated_at || session.created_at)}
         </p>
       </div>
@@ -304,7 +307,12 @@ function SessionItem({
           e.stopPropagation();
           onDelete();
         }}
-        className="mt-0.5 flex-shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+        className={cn(
+          "mt-0.5 flex-shrink-0 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100",
+          isActive
+            ? "text-background/60 hover:text-background"
+            : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        )}
         aria-label={`Delete session ${session.name}`}
       >
         <X className="size-3" />

@@ -120,7 +120,11 @@ export function useChatStream(): UseChatStreamReturn {
                   break;
 
                 case "status":
-                  // Tool usage status — not shown in UI per user preference
+                  // Route tool-usage status into thinking/reasoning display
+                  // (same pattern as Atlas/semantic agent)
+                  thinkingText += (thinkingText ? "\n" : "") + (event.content || "");
+                  setStreamingThinking(thinkingText);
+                  setIsThinkingStreaming(true);
                   break;
 
                 case "done":

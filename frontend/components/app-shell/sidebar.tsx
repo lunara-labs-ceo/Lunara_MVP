@@ -264,26 +264,29 @@ function SidebarProjectNav({
 
         <Separator className="my-1 bg-sidebar-border" />
 
-        {navItems.map((item) => (
-          <TooltipProvider key={item.href}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex size-8 items-center justify-center rounded-md transition-colors",
-                    pathname === item.href
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-                  )}
-                >
-                  <item.icon className="size-4" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right">{item.label}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ))}
+        {navItems.map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          return (
+            <TooltipProvider key={item.href}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-md transition-colors",
+                      isActive
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                        : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                    )}
+                  >
+                    <item.icon className="size-4" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">{item.label}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })}
       </div>
     );
   }
@@ -300,21 +303,24 @@ function SidebarProjectNav({
 
       <Separator className="mb-2 bg-sidebar-border" />
 
-      {navItems.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={cn(
-            "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
-            pathname === item.href
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-          )}
-        >
-          <item.icon className="size-4 shrink-0" />
-          <span>{item.label}</span>
-        </Link>
-      ))}
+      {navItems.map((item) => {
+        const isActive = pathname.startsWith(item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+            )}
+          >
+            <item.icon className="size-4 shrink-0" />
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
     </div>
   );
 }

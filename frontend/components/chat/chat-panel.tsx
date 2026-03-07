@@ -95,29 +95,31 @@ export function ChatPanel({
         <ConversationContent>
           {!hasMessages ? (
             <ConversationEmptyState>
-              <div className="flex flex-col items-center gap-3">
-                <MessageSquare className="size-10 text-muted-foreground" />
-                <div className="space-y-1 text-center">
-                  <h3 className="text-sm font-medium">Chat with your data</h3>
+              <div className="flex flex-col items-center gap-4 px-4">
+                <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
+                  <MessageSquare className="size-6 text-primary" />
+                </div>
+                <div className="space-y-1.5 text-center">
+                  <h3 className="text-base font-semibold">Hey, I&apos;m Luna</h3>
                   <p className="text-sm text-muted-foreground">
-                    Ask questions in natural language
+                    Your data analyst. Ask me anything about your database — I&apos;ll explore, write queries, and surface what matters.
                   </p>
                 </div>
-                <div className="mt-4 flex flex-col gap-2">
+                <div className="mt-2 flex flex-col gap-2 w-full max-w-[280px]">
                   <Suggestion
-                    suggestion="Show me the top 10 rows"
+                    suggestion="What data do I have?"
                     onClick={handleSuggestionClick}
                   />
                   <Suggestion
-                    suggestion="What tables do I have?"
+                    suggestion="Show me recent trends"
                     onClick={handleSuggestionClick}
                   />
                   <Suggestion
-                    suggestion="Summarize recent activity"
+                    suggestion="Find my top performers"
                     onClick={handleSuggestionClick}
                   />
                   <Suggestion
-                    suggestion="Find columns with null values"
+                    suggestion="Any anomalies in the data?"
                     onClick={handleSuggestionClick}
                   />
                 </div>

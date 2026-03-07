@@ -609,8 +609,8 @@ export function ChatClient() {
         className="flex shrink-0 flex-col border-l border-border bg-background"
       >
         <div className="flex h-10 items-center gap-2 border-b border-border px-4">
-          <MessageSquare className="size-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">Chat</span>
+          <MessageSquare className="size-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">Luna</span>
         </div>
         <ChatPanel
           messages={messages}
