@@ -72,7 +72,6 @@ export function ChatClient() {
     streamingText,
     streamingThinking,
     isThinkingStreaming,
-    generatedSql,
     abortStream,
   } = useChatStream();
 
@@ -330,11 +329,12 @@ export function ChatClient() {
     });
 
     // 4. Finalize — add completed assistant message
+    // SQL is now embedded in the markdown content (no separate sql field)
     const assistantMsg: ChatMessage = {
       role: "assistant",
       content: result.fullText,
       thinking: result.thinkingText || null,
-      sql: result.generatedSql || null,
+      sql: null,
       timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, assistantMsg]);
@@ -484,17 +484,6 @@ export function ChatClient() {
       )
     );
   }, [activeTabIndex]);
-
-  // Auto-populate editor when agent generates SQL
-  useEffect(() => {
-    if (generatedSql) {
-      setEditorTabs((prev) =>
-        prev.map((tab, i) =>
-          i === activeTabIndex ? { ...tab, sql: generatedSql, queryStatus: "ready" as const } : tab
-        )
-      );
-    }
-  }, [generatedSql, activeTabIndex]);
 
   const sidebarWidth = sidebarOpen
     ? SIDEBAR_WIDTH_EXPANDED

@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useMemo } from "react";
 import { Play, Trash2, Bookmark, Plus, X } from "lucide-react";
+import { useTheme } from "next-themes";
+import CodeMirror from "@uiw/react-codemirror";
+import { sql, PostgreSQL } from "@codemirror/lang-sql";
+import { githubLight, githubDark } from "@uiw/codemirror-theme-github";
+import { keymap } from "@codemirror/view";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ResizeHandle } from "@/components/chat/resize-handle";
@@ -37,23 +42,31 @@ export function SqlEditorPanel({
   isResultsDragging,
   onResultsMouseDown,
 }: SqlEditorPanelProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const activeTab = tabs[activeTabIndex];
+  const { resolvedTheme } = useTheme();
 
-  // Focus textarea when switching tabs
-  useEffect(() => {
-    textareaRef.current?.focus();
-  }, [activeTabIndex]);
+  // CodeMirror extensions — SQL language + Cmd/Ctrl+Enter to run
+  const extensions = useMemo(() => {
+    const runQueryKeymap = keymap.of([
+      {
+        key: "Mod-Enter",
+        run: () => {
+          onRunQuery();
+          return true;
+        },
+      },
+    ]);
+    return [sql({ dialect: PostgreSQL }), runQueryKeymap];
+  }, [onRunQuery]);
 
-  // Cmd+Enter / Ctrl+Enter keyboard shortcut
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        e.preventDefault();
-        onRunQuery();
-      }
+  // Pick theme based on light/dark mode
+  const editorTheme = resolvedTheme === "dark" ? githubDark : githubLight;
+
+  const handleChange = useCallback(
+    (value: string) => {
+      onSqlChange(value);
     },
-    [onRunQuery]
+    [onSqlChange]
   );
 
   return (
@@ -157,21 +170,27 @@ export function SqlEditorPanel({
 
       {/* ---- Editor + Results split ---- */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* SQL Textarea */}
-        <textarea
-          ref={textareaRef}
-          value={activeTab?.sql ?? ""}
-          onChange={(e) => onSqlChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Write your SQL query here..."
-          spellCheck={false}
-          className={cn(
-            "flex-1 resize-none bg-background p-4",
-            "font-mono text-[13px] leading-relaxed text-foreground",
-            "placeholder:text-muted-foreground/50",
-            "min-h-[120px] w-full border-0 outline-none focus:ring-0"
-          )}
-        />
+        {/* SQL CodeMirror Editor */}
+        <div className="flex-1 overflow-auto">
+          <CodeMirror
+            value={activeTab?.sql ?? ""}
+            onChange={handleChange}
+            extensions={extensions}
+            theme={editorTheme}
+            placeholder="Write your SQL query here..."
+            basicSetup={{
+              lineNumbers: true,
+              highlightActiveLineGutter: true,
+              highlightActiveLine: true,
+              foldGutter: true,
+              bracketMatching: true,
+              autocompletion: true,
+              closeBrackets: true,
+              indentOnInput: true,
+            }}
+            className="h-full min-h-[120px] text-[13px] [&_.cm-editor]:h-full [&_.cm-editor]:outline-none [&_.cm-scroller]:font-mono"
+          />
+        </div>
 
         {/* Resize handle between editor and results */}
         <ResizeHandle

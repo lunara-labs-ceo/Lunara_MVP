@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Play, Copy, Check } from "lucide-react";
 import {
   Message,
@@ -46,6 +46,23 @@ function cleanContent(raw: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// SQL extraction — pull SQL code blocks from markdown content
+// ---------------------------------------------------------------------------
+
+const SQL_BLOCK_REGEX = /```sql\s*\n([\s\S]*?)```/gi;
+
+function extractSqlBlocks(content: string): string[] {
+  const blocks: string[] = [];
+  let match: RegExpExecArray | null;
+  const regex = new RegExp(SQL_BLOCK_REGEX.source, SQL_BLOCK_REGEX.flags);
+  while ((match = regex.exec(content)) !== null) {
+    const sql = match[1].trim();
+    if (sql) blocks.push(sql);
+  }
+  return blocks;
+}
+
+// ---------------------------------------------------------------------------
 // ChatMessageComponent
 // ---------------------------------------------------------------------------
 
@@ -84,6 +101,13 @@ export function ChatMessageComponent({
   // Assistant messages
   const displayContent = cleanContent(message.content);
 
+  // Extract SQL blocks from the markdown content for "Run in Editor" buttons
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const sqlBlocks = useMemo(
+    () => (displayContent && !isStreaming ? extractSqlBlocks(displayContent) : []),
+    [displayContent, isStreaming]
+  );
+
   return (
     <Message from="assistant">
       <MessageContent>
@@ -96,6 +120,8 @@ export function ChatMessageComponent({
         )}
 
         {/* Main content rendered with streaming-safe markdown */}
+        {/* SQL code blocks are embedded naturally in the markdown — */}
+        {/* Streamdown renders them with syntax highlighting + copy/download */}
         {displayContent && (
           <MessageResponse>{displayContent}</MessageResponse>
         )}
@@ -104,13 +130,27 @@ export function ChatMessageComponent({
       {/* Action buttons — only shown for completed assistant messages */}
       {!isStreaming && (
         <MessageActions>
-          {message.sql && onRunSql && (
-            <MessageAction
-              tooltip="Run in Editor"
-              onClick={() => onRunSql(message.sql!)}
-            >
-              <Play className="size-3.5" />
-            </MessageAction>
+          {/* Run in Editor buttons for each SQL block found in the message */}
+          {sqlBlocks.length > 0 && onRunSql && (
+            sqlBlocks.length === 1 ? (
+              <MessageAction
+                tooltip="Run in Editor"
+                onClick={() => onRunSql(sqlBlocks[0])}
+              >
+                <Play className="size-3.5" />
+              </MessageAction>
+            ) : (
+              sqlBlocks.map((sql, idx) => (
+                <MessageAction
+                  key={idx}
+                  tooltip={`Run Query ${idx + 1} in Editor`}
+                  onClick={() => onRunSql(sql)}
+                >
+                  <Play className="size-3.5" />
+                  <span className="ml-0.5 text-[10px]">{idx + 1}</span>
+                </MessageAction>
+              ))
+            )
           )}
           <MessageAction
             tooltip={copied ? "Copied!" : "Copy"}

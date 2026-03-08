@@ -15,13 +15,11 @@ interface UseChatStreamReturn {
   sendMessage: (message: string, opts: StreamOptions) => Promise<{
     fullText: string;
     thinkingText: string;
-    generatedSql: string | null;
   }>;
   isStreaming: boolean;
   streamingText: string;
   streamingThinking: string;
   isThinkingStreaming: boolean;
-  generatedSql: string | null;
   abortStream: () => void;
 }
 
@@ -31,7 +29,6 @@ export function useChatStream(): UseChatStreamReturn {
   const [streamingText, setStreamingText] = useState("");
   const [streamingThinking, setStreamingThinking] = useState("");
   const [isThinkingStreaming, setIsThinkingStreaming] = useState(false);
-  const [generatedSql, setGeneratedSql] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -48,13 +45,11 @@ export function useChatStream(): UseChatStreamReturn {
       setStreamingText("");
       setStreamingThinking("");
       setIsThinkingStreaming(false);
-      setGeneratedSql(null);
 
       abortRef.current = new AbortController();
 
       let fullText = "";
       let thinkingText = "";
-      let sql: string | null = null;
 
       try {
         const response = await fetchApiStream(
@@ -115,8 +110,8 @@ export function useChatStream(): UseChatStreamReturn {
                   break;
 
                 case "sql":
-                  sql = event.content || null;
-                  setGeneratedSql(sql);
+                  // Legacy: sql events no longer sent (model writes SQL
+                  // inline as markdown code blocks). Ignore if received.
                   break;
 
                 case "status":
@@ -152,7 +147,7 @@ export function useChatStream(): UseChatStreamReturn {
         abortRef.current = null;
       }
 
-      return { fullText, thinkingText, generatedSql: sql };
+      return { fullText, thinkingText };
     },
     [fetchApiStream]
   );
@@ -163,7 +158,6 @@ export function useChatStream(): UseChatStreamReturn {
     streamingText,
     streamingThinking,
     isThinkingStreaming,
-    generatedSql,
     abortStream,
   };
 }

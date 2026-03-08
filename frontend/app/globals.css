@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "streamdown/styles.css";
+
+/* Tell Tailwind to scan Streamdown's dist for its Tailwind classes
+   (Shiki dark-mode token colors, code block layout utilities, etc.) */
+@source "../node_modules/streamdown/dist";
 
 @custom-variant dark (&:is(.dark *));
 

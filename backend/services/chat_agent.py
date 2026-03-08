@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Optional, Dict, Any, AsyncGenerator, List
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+# pydantic no longer needed (output_schema removed)
 
 # GCP credentials and config are set up by main.py before this module is imported.
 from google.adk.agents import LlmAgent
@@ -27,12 +27,6 @@ from services.warehouse_provider import WarehouseProvider
 
 # SQLite database path for ADK session persistence
 DB_PATH = Path(__file__).parent.parent / "lunara.db"
-
-
-class ChatQueryResponse(BaseModel):
-    """Structured output from the chat agent."""
-    explanation: str = Field(description="Conversational explanation of the analysis and query")
-    sql_query: Optional[str] = Field(None, description="The generated SQL query. Null if the user asked a general question.")
 
 
 class ChatAgentService:
@@ -67,8 +61,6 @@ class ChatAgentService:
                 self.preview_table,
                 self.search_value,
             ],
-            output_schema=ChatQueryResponse,
-            output_key="chat_output",
             planner=BuiltInPlanner(
                 thinking_config=ThinkingConfig(
                     include_thoughts=True,
@@ -162,9 +154,11 @@ class ChatAgentService:
 ## Workflow
 1. Call get_semantic_context to map out the data landscape
 2. Use exploration tools to verify values, dates, or thresholds as needed
-3. Return structured JSON:
-   - explanation: Your analysis in a conversational tone — highlight key findings, mention what you checked, suggest next steps if relevant
-   - sql_query: The {dialect_upper} query (or null if no query needed)
+3. Write your response in natural markdown:
+   - Explain your analysis in a conversational tone — highlight key findings, mention what you checked, suggest next steps
+   - Include SQL queries as fenced code blocks using ```sql ... ``` syntax
+   - You can include multiple queries if the user asks — each gets its own code block
+   - If no query is needed, just respond normally without any code blocks
 
 ## SQL guidelines
 - Always verify filter values with lookup_column_values or search_value
@@ -548,11 +542,8 @@ class ChatAgentService:
             parts=[types.Part(text=user_message)]
         )
 
-        # Stream the agent response
-        # NOTE: The agent uses output_schema (structured output), so the final
-        # LLM text is a raw JSON blob like {"explanation":"...","sql_query":"..."}.
-        # We skip that raw JSON during streaming and instead use the parsed
-        # chat_output from session state after the stream completes.
+        # Stream the agent response — text flows through as markdown
+        # (no structured output; model writes SQL in fenced code blocks)
         try:
             async for event in run_with_retry(
                 self._runner,
@@ -569,11 +560,6 @@ class ChatAgentService:
                                     "content": part.text
                                 }
                             else:
-                                # Skip raw JSON structured output — we'll parse
-                                # it from chat_output below for clean display
-                                text = part.text.strip()
-                                if text.startswith('{') and ('explanation' in text or 'sql_query' in text):
-                                    continue
                                 yield {
                                     "type": "text",
                                     "content": part.text
@@ -584,24 +570,7 @@ class ChatAgentService:
                                 "content": f"Using {part.function_call.name}..."
                             }
 
-            # Read structured output from session state
-            adk_user = f"session_{session_id or 'default'}"
-            final_session = await self._session_service.get_session(
-                app_name="lunara_chat",
-                user_id=adk_user,
-                session_id=adk_session_id,
-            )
-            chat_output = final_session.state.get("chat_output") if final_session else None
-
-            if chat_output and isinstance(chat_output, dict):
-                sql = chat_output.get("sql_query")
-                explanation = chat_output.get("explanation", "")
-                if sql:
-                    yield {"type": "sql", "content": sql}
-                if explanation:
-                    yield {"type": "text", "content": explanation}
-
-            yield {"type": "done", "content": "Query generated!"}
+            yield {"type": "done", "content": "Done"}
 
         except Exception as e:
             yield {"type": "error", "content": str(e)}
