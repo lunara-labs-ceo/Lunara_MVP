@@ -198,28 +198,24 @@ cors_origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5500",
     "http://127.0.0.1:8000",
-    "null",  # For file:// URLs
 ]
 
 # Add Render domain if set
 render_url = os.getenv("RENDER_EXTERNAL_URL")
 if render_url:
     cors_origins.append(render_url)
-    cors_origins.append(render_url.replace("https://", "http://"))
 
 # Add frontend URL (for Next.js frontend on separate domain)
 frontend_url = os.getenv("FRONTEND_URL")
 if frontend_url:
     cors_origins.append(frontend_url)
 
-# For development/demo - allow all origins
-if os.getenv("ALLOW_ALL_ORIGINS") == "true":
-    cors_origins = ["*"]
+print(f"CORS allowed origins: {cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True if cors_origins != ["*"] else False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
