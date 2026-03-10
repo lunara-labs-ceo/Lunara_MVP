@@ -213,7 +213,7 @@ if frontend_url:
     cors_origins.append(frontend_url)
 
 # For development/demo - allow all origins
-if IS_RENDER or os.getenv("ALLOW_ALL_ORIGINS") == "true":
+if os.getenv("ALLOW_ALL_ORIGINS") == "true":
     cors_origins = ["*"]
 
 app.add_middleware(
