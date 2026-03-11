@@ -27,6 +27,10 @@ backend/data/
 .DS_Store
 Thumbs.db
 
+# SQLite databases (ADK local fallback)
+*.db
+backend/lunara.db
+
 # Node (if any)
 node_modules/
 lunara-dev-094f5e9e682e.json

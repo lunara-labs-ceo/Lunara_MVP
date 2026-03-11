@@ -2,6 +2,9 @@
 
 Uses the WarehouseProvider abstraction so the chat agent works with
 any supported data warehouse (PostgreSQL, BigQuery, etc.).
+
+ADK session IDs are stored in the Supabase chat_sessions table and looked up
+on each request so the agent can resume multi-turn conversations natively.
 """
 from __future__ import annotations
 
@@ -20,8 +23,13 @@ from middleware.clerk_auth import ClerkUser, get_current_user
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-# Cache chat agents per data_source_id (they hold ADK session state)
+# Cache chat agents per data_source_id (they hold the agent + runner)
 _chat_agents: Dict[str, ChatAgentService] = {}
+
+
+def get_adk_session_service():
+    """Placeholder — overridden by main.py dependency injection."""
+    raise RuntimeError("ADK session service not configured")
 
 
 # Request/Response models
@@ -35,7 +43,7 @@ class ChatRequest(BaseModel):
     message: str
     semantic_model: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = None
-    history: Optional[List[ChatMessage]] = None
+    history: Optional[List[ChatMessage]] = None  # Kept for backward compat, ignored
 
 
 class ExecuteRequest(BaseModel):
@@ -65,15 +73,16 @@ async def _get_chat_agent(
     data_source_id: str,
     conn_mgr: ConnectionManager,
     supabase: Any,
+    session_service: Any,
 ) -> ChatAgentService:
     """Get or create a chat agent for the given data source.
 
-    Chat agents are cached per data_source_id because they hold ADK
-    session state that should persist across requests.
+    Chat agents are cached per data_source_id because they hold the
+    LLM agent and runner configuration.
     """
     if data_source_id not in _chat_agents:
         provider = await conn_mgr.get_provider(data_source_id, supabase)
-        _chat_agents[data_source_id] = ChatAgentService(provider)
+        _chat_agents[data_source_id] = ChatAgentService(provider, session_service)
     return _chat_agents[data_source_id]
 
 
@@ -84,6 +93,7 @@ async def chat_query(
     user: ClerkUser = Depends(get_current_user),
     conn_mgr: ConnectionManager = Depends(get_connection_manager),
     supabase=Depends(get_supabase),
+    session_service=Depends(get_adk_session_service),
 ):
     """
     Process a chat message and generate SQL.
@@ -94,20 +104,44 @@ async def chat_query(
         raise HTTPException(status_code=400, detail="No message provided")
 
     try:
-        chat_agent = await _get_chat_agent(data_source_id, conn_mgr, supabase)
+        chat_agent = await _get_chat_agent(data_source_id, conn_mgr, supabase, session_service)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+    # Look up stored ADK session ID from Supabase
+    stored_adk_session_id = None
+    if request.session_id:
+        try:
+            result = supabase.table("chat_sessions") \
+                .select("adk_session_id") \
+                .eq("id", request.session_id) \
+                .single() \
+                .execute()
+            if result.data:
+                stored_adk_session_id = result.data.get("adk_session_id")
+        except Exception:
+            pass  # Session may not exist yet, continue
 
     async def event_stream():
         """Generate SSE events from chat agent."""
         try:
-            history_dicts = [m.model_dump() for m in request.history] if request.history else None
             async for event in chat_agent.chat(
                 message=request.message,
                 semantic_model=request.semantic_model,
                 session_id=request.session_id,
-                history=history_dicts
+                stored_adk_session_id=stored_adk_session_id,
             ):
+                # Intercept internal adk_session_id event — persist to Supabase
+                if event["type"] == "adk_session_id":
+                    if request.session_id:
+                        try:
+                            supabase.table("chat_sessions") \
+                                .update({"adk_session_id": event["content"]}) \
+                                .eq("id", request.session_id) \
+                                .execute()
+                        except Exception as e:
+                            print(f"Warning: failed to persist adk_session_id: {e}")
+                    continue  # Don't forward this internal event to the frontend
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             error_event = {"type": "error", "content": str(e)}
@@ -131,6 +165,7 @@ async def execute_query(
     user: ClerkUser = Depends(get_current_user),
     conn_mgr: ConnectionManager = Depends(get_connection_manager),
     supabase=Depends(get_supabase),
+    session_service=Depends(get_adk_session_service),
 ):
     """
     Execute a SQL query against the data warehouse.
@@ -141,7 +176,7 @@ async def execute_query(
         raise HTTPException(status_code=400, detail="No SQL provided")
 
     try:
-        chat_agent = await _get_chat_agent(data_source_id, conn_mgr, supabase)
+        chat_agent = await _get_chat_agent(data_source_id, conn_mgr, supabase, session_service)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -176,8 +211,9 @@ async def create_session(
     request: SessionCreateRequest,
     user: ClerkUser = Depends(get_current_user),
     supabase=Depends(get_supabase),
+    session_service=Depends(get_adk_session_service),
 ):
-    """Create a new chat session."""
+    """Create a new chat session with a pre-created ADK session."""
     result = supabase.table("chat_sessions").insert({
         "project_id": request.project_id,
         "name": request.name,
@@ -186,7 +222,27 @@ async def create_session(
     }).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create session")
-    return result.data[0]
+
+    session_row = result.data[0]
+    supabase_session_id = session_row["id"]
+
+    # Pre-create ADK session so it's ready for the first message
+    try:
+        adk_session = await session_service.create_session(
+            app_name="lunara_chat",
+            user_id=f"session_{supabase_session_id}",
+            state={},
+        )
+        supabase.table("chat_sessions") \
+            .update({"adk_session_id": adk_session.id}) \
+            .eq("id", supabase_session_id) \
+            .execute()
+        session_row["adk_session_id"] = adk_session.id
+    except Exception as e:
+        print(f"Warning: failed to pre-create ADK session: {e}")
+        # Non-fatal — will be created lazily on first message
+
+    return session_row
 
 
 @router.get("/sessions/{session_id}")
@@ -236,12 +292,39 @@ async def delete_session(
     session_id: str,
     user: ClerkUser = Depends(get_current_user),
     supabase=Depends(get_supabase),
+    session_service=Depends(get_adk_session_service),
 ):
-    """Delete a chat session."""
+    """Delete a chat session and its ADK session."""
+    # Fetch adk_session_id before deleting
+    adk_session_id = None
+    try:
+        result = supabase.table("chat_sessions") \
+            .select("adk_session_id") \
+            .eq("id", session_id) \
+            .single() \
+            .execute()
+        if result.data:
+            adk_session_id = result.data.get("adk_session_id")
+    except Exception:
+        pass
+
+    # Delete from Supabase
     supabase.table("chat_sessions") \
         .delete() \
         .eq("id", session_id) \
         .execute()
+
+    # Clean up ADK session
+    if adk_session_id:
+        try:
+            await session_service.delete_session(
+                app_name="lunara_chat",
+                user_id=f"session_{session_id}",
+                session_id=adk_session_id,
+            )
+        except Exception:
+            pass  # Non-fatal
+
     return {"ok": True}
 
 

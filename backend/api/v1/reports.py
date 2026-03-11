@@ -1,4 +1,8 @@
-"""Report generation API endpoints + CRUD for sessions & items."""
+"""Report generation API endpoints + CRUD for sessions & items.
+
+ADK session IDs are stored in the Supabase report_sessions table and looked up
+on each request so the report agent can resume multi-turn conversations natively.
+"""
 from __future__ import annotations
 
 import json
@@ -13,6 +17,11 @@ from middleware.clerk_auth import ClerkUser, get_current_user
 
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+def get_adk_session_service():
+    """Placeholder — overridden by main.py dependency injection."""
+    raise RuntimeError("ADK session service not configured")
 
 
 # ============================================================================
@@ -30,7 +39,7 @@ class GenerateRequest(BaseModel):
     """Request body for report generation."""
     prompt: str
     artifacts: List[ArtifactInput] = []
-    history: List[Dict[str, Any]] = []
+    history: List[Dict[str, Any]] = []  # Kept for backward compat, ignored
 
 
 class SessionCreateRequest(BaseModel):
@@ -61,19 +70,19 @@ async def generate_content(
     report_id: str,
     request: GenerateRequest,
     user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+    session_service=Depends(get_adk_session_service),
 ):
     """Generate content using AI copilot.
-    
+
     Streams SSE events:
     - type: 'text'         - Agent thinking/response text
     - type: 'status'       - Action being performed
     - type: 'code'         - Code being executed
-    - type: 'code_result'  - Code execution output
-    - type: 'chart'        - Generated chart (base64)
     - type: 'content_item' - Final content item added to report
     - type: 'done'         - Generation complete
     """
-    
+
     # Lazy import — ReportAgentService initialises a GCP sandbox at module
     # level which can fail when Agent Engine isn't reachable.
     try:
@@ -87,11 +96,25 @@ async def generate_content(
     # Convert artifact inputs to dicts for the agent
     artifacts_data = [art.model_dump() for art in request.artifacts]
 
+    # Look up stored ADK session ID from Supabase
+    stored_adk_session_id = None
+    try:
+        result = supabase.table("report_sessions") \
+            .select("adk_session_id") \
+            .eq("id", report_id) \
+            .single() \
+            .execute()
+        if result.data:
+            stored_adk_session_id = result.data.get("adk_session_id")
+    except Exception:
+        pass
+
     async def event_stream():
-        # Create fresh service instance (NO singleton - prevents race conditions)
         try:
             agent = ReportAgentService(
                 report_id=report_id,
+                session_service=session_service,
+                adk_session_id=stored_adk_session_id,
                 artifacts=artifacts_data,
             )
         except Exception as init_err:
@@ -99,13 +122,22 @@ async def generate_content(
             return
 
         try:
-            # Stream generation events — agent emits content_item + done inline
-            async for event in agent.generate_content(request.prompt, history=request.history):
+            async for event in agent.generate_content(request.prompt):
+                # Intercept internal adk_session_id event — persist to Supabase
+                if event["type"] == "adk_session_id":
+                    try:
+                        supabase.table("report_sessions") \
+                            .update({"adk_session_id": event["content"]}) \
+                            .eq("id", report_id) \
+                            .execute()
+                    except Exception as e:
+                        print(f"Warning: failed to persist report adk_session_id: {e}")
+                    continue  # Don't forward this internal event to the frontend
                 yield f"data: {json.dumps(event)}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
-    
+
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
@@ -140,8 +172,9 @@ async def create_session(
     request: SessionCreateRequest,
     user: ClerkUser = Depends(get_current_user),
     supabase=Depends(get_supabase),
+    session_service=Depends(get_adk_session_service),
 ):
-    """Create a new report session."""
+    """Create a new report session with a pre-created ADK session."""
     result = supabase.table("report_sessions").insert({
         "project_id": request.project_id,
         "name": request.name,
@@ -150,7 +183,26 @@ async def create_session(
     }).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create session")
-    return result.data[0]
+
+    session_row = result.data[0]
+    supabase_session_id = session_row["id"]
+
+    # Pre-create ADK session so it's ready for the first generation
+    try:
+        adk_session = await session_service.create_session(
+            app_name="lunara_reports",
+            user_id=f"report_{supabase_session_id}",
+            state={},
+        )
+        supabase.table("report_sessions") \
+            .update({"adk_session_id": adk_session.id}) \
+            .eq("id", supabase_session_id) \
+            .execute()
+        session_row["adk_session_id"] = adk_session.id
+    except Exception as e:
+        print(f"Warning: failed to pre-create report ADK session: {e}")
+
+    return session_row
 
 
 @router.get("/sessions/{session_id}")
@@ -200,8 +252,22 @@ async def delete_session(
     session_id: str,
     user: ClerkUser = Depends(get_current_user),
     supabase=Depends(get_supabase),
+    session_service=Depends(get_adk_session_service),
 ):
-    """Delete a report session and its items."""
+    """Delete a report session, its items, and its ADK session."""
+    # Fetch adk_session_id before deleting
+    adk_session_id = None
+    try:
+        result = supabase.table("report_sessions") \
+            .select("adk_session_id") \
+            .eq("id", session_id) \
+            .single() \
+            .execute()
+        if result.data:
+            adk_session_id = result.data.get("adk_session_id")
+    except Exception:
+        pass
+
     # Delete items first
     supabase.table("report_items") \
         .delete() \
@@ -212,6 +278,18 @@ async def delete_session(
         .delete() \
         .eq("id", session_id) \
         .execute()
+
+    # Clean up ADK session
+    if adk_session_id:
+        try:
+            await session_service.delete_session(
+                app_name="lunara_reports",
+                user_id=f"report_{session_id}",
+                session_id=adk_session_id,
+            )
+        except Exception:
+            pass  # Non-fatal
+
     return {"ok": True}
 
 

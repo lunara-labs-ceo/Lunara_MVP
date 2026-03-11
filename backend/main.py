@@ -89,6 +89,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from supabase import create_client as create_supabase_client
+from google.adk.sessions import DatabaseSessionService
 
 from api.v1 import connection
 from api.v1 import datasets
@@ -107,6 +108,7 @@ from services.connection_manager import ConnectionManager
 _connection_manager: Optional[ConnectionManager] = None
 _supabase_client = None
 _fernet: Optional[Fernet] = None
+_adk_session_service: Optional[DatabaseSessionService] = None
 
 
 def get_or_create_encryption_key() -> str:
@@ -162,6 +164,20 @@ async def lifespan(app: FastAPI):
         print("WARNING: Supabase not configured — connection/schema APIs will fail")
         _supabase_client = None
 
+    # Initialise ADK session service (PostgreSQL in prod, SQLite fallback locally)
+    global _adk_session_service
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        _adk_session_service = DatabaseSessionService(db_url=database_url)
+        print("✓ ADK session persistence: PostgreSQL")
+    else:
+        from pathlib import Path as _Path
+        _fallback_db = _Path(__file__).parent / "lunara.db"
+        _adk_session_service = DatabaseSessionService(
+            db_url=f"sqlite:///{_fallback_db}"
+        )
+        print("⚠ DATABASE_URL not set — using SQLite fallback (not for production)")
+
     # Wire shared dependencies for connection + datasets routers
     app.dependency_overrides[connection.get_connection_manager] = lambda: _connection_manager
     app.dependency_overrides[connection.get_supabase] = lambda: _supabase_client
@@ -169,6 +185,10 @@ async def lifespan(app: FastAPI):
     app.dependency_overrides[datasets.get_connection_manager] = lambda: _connection_manager
     app.dependency_overrides[datasets.get_supabase] = lambda: _supabase_client
     app.dependency_overrides[projects.get_supabase] = lambda: _supabase_client
+    # Wire ADK session service for chat + reports
+    app.dependency_overrides[chat.get_adk_session_service] = lambda: _adk_session_service
+    if reports is not None:
+        app.dependency_overrides[reports.get_adk_session_service] = lambda: _adk_session_service
 
     print("Lunara backend started")
 

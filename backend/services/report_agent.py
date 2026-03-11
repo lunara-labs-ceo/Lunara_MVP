@@ -15,7 +15,6 @@ from google.adk.code_executors.agent_engine_sandbox_code_executor import (
     AgentEngineSandboxCodeExecutor,
 )
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from services.retry_utils import run_with_retry
@@ -132,22 +131,32 @@ _REPORTER_AGENT = LlmAgent(
 # ─────────────────────────────────────────────
 
 class ReportAgentService:
-    """Two-agent report pipeline with structured handoff.
+    """Two-agent report pipeline with structured handoff and persistent sessions.
 
     Architecture:
-    - Agent 1 (Analyst): code_executor + output_schema=AnalysisManifest
-      → generates charts saved as GCS artifacts, outputs a validated manifest
-        listing every chart filename, description, and placement hint in order.
+    - Agent 1 (Analyst): code_executor + output_key="analysis"
+      → generates charts saved as artifacts, outputs analysis text to session state.
     - Agent 2 (Reporter): output_schema=DynamicReport, output_key="report_output"
-      → reads the structured manifest, produces validated DynamicReport dict.
-    - Backend loads charts using the manifest's explicit filename list and
-      composes the final HTML with charts placed in the correct order.
+      → reads the analyst findings, produces validated DynamicReport dict.
+    - Backend loads charts from artifacts and composes the final HTML with charts
+      placed in the correct order.
+
+    Sessions are persisted via the shared DatabaseSessionService so that multi-turn
+    report refinement works natively through ADK events.
     """
 
     APP_NAME = "lunara_reports"
 
-    def __init__(self, report_id: str, artifacts: Optional[List[Dict[str, Any]]] = None):
+    def __init__(
+        self,
+        report_id: str,
+        session_service,
+        adk_session_id: Optional[str] = None,
+        artifacts: Optional[List[Dict[str, Any]]] = None,
+    ):
         self.report_id = report_id
+        self._session_service = session_service
+        self._adk_session_id = adk_session_id
         self._artifacts = artifacts or []
         self._content_items: List[Dict[str, Any]] = []
 
@@ -272,27 +281,13 @@ class ReportAgentService:
   {notes_html}
 </div>""".strip()
 
-    @staticmethod
-    def _build_history_prompt(history: List[Dict[str, Any]]) -> str:
-        """Build a conversation history block to inject into the analyst prompt."""
-        if not history:
-            return ""
-        lines = ["\n\n--- CONVERSATION HISTORY (for context) ---"]
-        for msg in history:
-            role = msg.get("role", "user").upper()
-            content = msg.get("content", "")
-            if content:
-                lines.append(f"{role}: {content[:500]}")
-        lines.append("--- END HISTORY ---\n")
-        return "\n".join(lines)
-
     def get_content_items(self) -> List[Dict[str, Any]]:
         return self._content_items.copy()
 
     # ── Main entry point ─────────────────────────────────────────────────────
 
     async def generate_content(
-        self, prompt: str, history: Optional[List[Dict[str, Any]]] = None
+        self, prompt: str
     ) -> AsyncIterator[Dict[str, Any]]:
 
         artifacts = self._get_artifacts()
@@ -305,23 +300,38 @@ class ReportAgentService:
 
         yield {"type": "status", "content": "Loaded artifacts"}
 
-        # ── Shared services ───────────────────────────────────────────────────
+        # ── Session management ───────────────────────────────────────────────
         artifact_service = self._make_artifact_service()
-        session_service = InMemorySessionService()
 
         app_name = self.APP_NAME
         user_id = f"report_{self.report_id}"
 
-        session = await session_service.create_session(
-            app_name=app_name,
-            user_id=user_id,
-            state={},
-        )
+        # Resume stored ADK session or create a new one
+        session = None
+        if self._adk_session_id:
+            try:
+                session = await self._session_service.get_session(
+                    app_name=app_name,
+                    user_id=user_id,
+                    session_id=self._adk_session_id,
+                )
+            except Exception:
+                pass  # Session corrupted or missing, create new
 
-        # ── Build analyst prompt ──────────────────────────────────────────────
-        history_context = self._build_history_prompt(history) if history else ""
+        is_new_session = session is None
+        if is_new_session:
+            session = await self._session_service.create_session(
+                app_name=app_name,
+                user_id=user_id,
+                state={},
+            )
+            # Signal new session ID to API layer for persistence
+            yield {"type": "adk_session_id", "content": session.id}
+
+        session_id = session.id
+
+        # ── Build analyst prompt (no history injection — ADK handles multi-turn) ─
         analyst_prompt_text = (
-            f"{history_context}"
             f"User request: {prompt}\n\n"
             "Artifacts JSON:\n"
             f"{json.dumps(artifacts, ensure_ascii=True)}"
@@ -334,7 +344,7 @@ class ReportAgentService:
         analyst_runner = Runner(
             agent=_ANALYST_AGENT,
             app_name=app_name,
-            session_service=session_service,
+            session_service=self._session_service,
             artifact_service=artifact_service,
         )
 
@@ -345,7 +355,7 @@ class ReportAgentService:
         async for event in run_with_retry(
             analyst_runner,
             user_id=user_id,
-            session_id=session.id,
+            session_id=session_id,
             new_message=analyst_message,
         ):
             # Track artifact filenames from the executor
@@ -368,8 +378,8 @@ class ReportAgentService:
                             yield {"type": "code", "language": "python", "content": code_text}
 
         # ── Read analysis text from session state ──────────────────────────────
-        cur_session = await session_service.get_session(
-            app_name=app_name, user_id=user_id, session_id=session.id
+        cur_session = await self._session_service.get_session(
+            app_name=app_name, user_id=user_id, session_id=session_id
         )
         analysis_text = cur_session.state.get("analysis", "")
 
@@ -385,7 +395,7 @@ class ReportAgentService:
         reporter_runner = Runner(
             agent=_REPORTER_AGENT,
             app_name=app_name,
-            session_service=session_service,
+            session_service=self._session_service,
             artifact_service=artifact_service,
         )
 
@@ -402,7 +412,7 @@ class ReportAgentService:
             if not filename.lower().endswith(".png"):
                 continue
             img_b64 = await self._load_png_as_base64(
-                artifact_service, app_name, user_id, session.id,
+                artifact_service, app_name, user_id, session_id,
                 filename,
             )
             if not img_b64:
@@ -444,20 +454,20 @@ class ReportAgentService:
         async for _event in run_with_retry(
             reporter_runner,
             user_id=user_id,
-            session_id=session.id,
+            session_id=session_id,
             new_message=reporter_message,
         ):
             pass  # Reporter output goes to session.state["report_output"] via output_key
 
         # ── Read structured report from session state ─────────────────────────
-        final_session = await session_service.get_session(
-            app_name=app_name, user_id=user_id, session_id=session.id
+        final_session = await self._session_service.get_session(
+            app_name=app_name, user_id=user_id, session_id=session_id
         )
         report_data: Dict[str, Any] = final_session.state.get("report_output") or {}
 
-        # Fallback: if Reporter produced no output, show analyst manifest text raw
+        # Fallback: if Reporter produced no output, show analyst text raw
         if not report_data:
-            fallback_text = analysis_text or json.dumps(manifest, indent=2) or "No output from agent."
+            fallback_text = analysis_text or "No output from agent."
             fallback_html = (
                 "<div class=\"lunara-report\">"
                 "<h1>Generated Report</h1>"
@@ -477,18 +487,16 @@ class ReportAgentService:
             yield {"type": "done", "items_added": 1}
             return
 
-        # ── Build chart_blocks using manifest descriptions + Reporter captions ─
-        # Primary caption source: Reporter's chart_captions (human-friendly).
-        # Fallback: manifest descriptions from the Analyst.
+        # ── Build chart_blocks using Reporter captions ───────────────────────
         reporter_captions: List[str] = report_data.get("chart_captions") or []
         chart_blocks: List[str] = []
 
         for idx, img_b64 in enumerate(chart_b64s):
-            # Prefer Reporter caption, fall back to manifest description
+            # Prefer Reporter caption, fall back to filename
             if idx < len(reporter_captions) and reporter_captions[idx]:
                 caption = reporter_captions[idx]
-            elif idx < len(chart_descriptions):
-                caption = chart_descriptions[idx]
+            elif idx < len(chart_filenames):
+                caption = chart_filenames[idx]
             else:
                 caption = f"Chart {idx + 1}"
             chart_blocks.append(

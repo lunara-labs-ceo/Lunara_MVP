@@ -1,23 +1,20 @@
 """
-Chat Agent Service using Google ADK with per-session persistence.
+Chat Agent Service using Google ADK with native session persistence.
 
 This agent generates SQL queries from natural language using the semantic model context.
-Each Supabase chat session maps 1:1 to an ADK session for isolated conversation context.
+ADK owns session IDs and handles multi-turn conversation context natively via its
+DatabaseSessionService. No manual history injection needed.
 
 Works with any warehouse backend that implements the WarehouseProvider protocol.
 """
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, AsyncGenerator, List
-from pathlib import Path
-
-# pydantic no longer needed (output_schema removed)
+from typing import Optional, Dict, Any, AsyncGenerator
 
 # GCP credentials and config are set up by main.py before this module is imported.
 from google.adk.agents import LlmAgent
 from google.adk.planners import BuiltInPlanner
 from google.adk.runners import Runner
-from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 from google.genai.types import ThinkingConfig
 
@@ -25,24 +22,20 @@ from services.retry_utils import run_with_retry
 from services.warehouse_provider import WarehouseProvider
 
 
-# SQLite database path for ADK session persistence
-DB_PATH = Path(__file__).parent.parent / "lunara.db"
-
-
 class ChatAgentService:
-    """Service for text-to-SQL chat using LLM agent with per-session persistence."""
+    """Service for text-to-SQL chat using LLM agent with native ADK session persistence."""
 
-    def __init__(self, provider: WarehouseProvider):
+    def __init__(self, provider: WarehouseProvider, session_service):
         """Initialize the chat agent.
 
         Args:
             provider: WarehouseProvider instance for query execution and dialect info.
+            session_service: Shared ADK DatabaseSessionService instance (injected by main.py).
         """
         self.provider = provider
         self._runner: Optional[Runner] = None
         self._semantic_model: Optional[Dict] = None
-        # Track which ADK sessions we've initialized (keyed by session_id)
-        self._active_sessions: Dict[str, str] = {}  # supabase_session_id -> adk_session_id
+        self._session_service = session_service
 
         # Create the agent with tools
         # BuiltInPlanner with ThinkingConfig enables Gemini's native
@@ -67,11 +60,6 @@ class ChatAgentService:
                     thinking_budget=2048,
                 ),
             ),
-        )
-
-        # SQLite session service for ADK persistence
-        self._session_service = DatabaseSessionService(
-            db_url=f"sqlite:///{DB_PATH}"
         )
 
     # ------------------------------------------------------------------
@@ -172,22 +160,6 @@ class ChatAgentService:
 - Instead of "No data source found" → "Hmm, I don't see a connected database yet. Let's get that set up first!"
 """
 
-    def _build_history_prompt(self, history: List[Dict]) -> str:
-        """Build a conversation history prompt to inject context for resumed sessions."""
-        if not history:
-            return ""
-
-        lines = ["\n\n--- CONVERSATION HISTORY (for context) ---"]
-        for msg in history:
-            role = msg.get("role", "user").upper()
-            content = msg.get("content", "")
-            sql = msg.get("sql")
-            lines.append(f"{role}: {content}")
-            if sql:
-                lines.append(f"[Generated SQL: {sql}]")
-        lines.append("--- END HISTORY ---\n")
-        return "\n".join(lines)
-
     async def _ensure_runner(self):
         """Initialize the runner if not already created."""
         if self._runner is None:
@@ -197,81 +169,43 @@ class ChatAgentService:
                 session_service=self._session_service
             )
 
-    async def _get_or_create_session(
+    async def get_or_resume_session(
         self,
-        session_id: Optional[str] = None,
-        user_id: str = "default"
-    ) -> str:
-        """Get or create an ADK session for the given Supabase session ID.
+        supabase_session_id: str,
+        stored_adk_session_id: Optional[str] = None,
+    ) -> tuple[str, bool]:
+        """Resume an existing ADK session or create a new one.
 
         Args:
-            session_id: Supabase chat session UUID. If None, creates a default session.
-            user_id: User identifier for the ADK session.
+            supabase_session_id: The Supabase chat_sessions.id (used as ADK user_id namespace).
+            stored_adk_session_id: The chat_sessions.adk_session_id if previously stored.
 
         Returns:
-            The ADK session ID to use.
+            Tuple of (adk_session_id, is_new) — is_new=True means caller should persist it.
         """
         await self._ensure_runner()
+        adk_user = f"session_{supabase_session_id}"
 
-        # Use session_id as the key, or "default"
-        key = session_id or "default"
-
-        # Already tracked in this server lifecycle
-        if key in self._active_sessions:
-            return self._active_sessions[key]
-
-        # Use the supabase session_id directly as the ADK session user_id
-        # so sessions are isolated per chat
-        adk_user = f"session_{key}"
-
-        try:
-            # Check if ADK already has a session for this user
-            sessions = await self._session_service.list_sessions(
-                app_name="lunara_chat",
-                user_id=adk_user
-            )
-            if sessions:
-                adk_session_id = sessions[0].id
-                print(f"Restored ADK session for {key}: {adk_session_id}")
-            else:
-                session = await self._session_service.create_session(
+        # Try to resume existing session
+        if stored_adk_session_id:
+            try:
+                session = await self._session_service.get_session(
                     app_name="lunara_chat",
                     user_id=adk_user,
-                    state={"messages": []}
+                    session_id=stored_adk_session_id,
                 )
-                adk_session_id = session.id
-                print(f"Created new ADK session for {key}: {adk_session_id}")
-        except Exception as e:
-            session = await self._session_service.create_session(
-                app_name="lunara_chat",
-                user_id=adk_user,
-                state={"messages": []}
-            )
-            adk_session_id = session.id
-            print(f"Created ADK session (fallback) for {key}: {adk_session_id}")
+                if session is not None:
+                    return stored_adk_session_id, False
+            except Exception:
+                pass  # Session corrupted or missing, create new
 
-        self._active_sessions[key] = adk_session_id
-        return adk_session_id
-
-    async def reset_session(self, session_id: Optional[str] = None):
-        """Create a fresh ADK session for a new chat.
-
-        Args:
-            session_id: Supabase session ID to reset.
-        """
-        await self._ensure_runner()
-
-        key = session_id or "default"
-        adk_user = f"session_{key}"
-
+        # Create new ADK session
         session = await self._session_service.create_session(
             app_name="lunara_chat",
             user_id=adk_user,
-            state={"messages": []}
+            state={},
         )
-        self._active_sessions[key] = session.id
-        print(f"Reset ADK session for {key}: {session.id}")
-        return session.id
+        return session.id, True
 
     def set_semantic_model(self, model: Dict):
         """Set the semantic model context for query generation."""
@@ -495,7 +429,7 @@ class ChatAgentService:
         message: str,
         semantic_model: Optional[Dict] = None,
         session_id: Optional[str] = None,
-        history: Optional[List[Dict]] = None
+        stored_adk_session_id: Optional[str] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Process a chat message and generate SQL.
@@ -504,42 +438,27 @@ class ChatAgentService:
             message: User's natural language question
             semantic_model: Optional semantic model to use for context
             session_id: Supabase session ID for isolated conversation context
-            history: Previous messages in this session for context injection
+            stored_adk_session_id: ADK session ID from Supabase (for session resumption)
 
         Yields:
             Stream events with response text and generated SQL.
         """
-        adk_session_id = await self._get_or_create_session(session_id)
+        adk_session_id, is_new = await self.get_or_resume_session(
+            supabase_session_id=session_id or "default",
+            stored_adk_session_id=stored_adk_session_id,
+        )
+
+        # Signal the API layer to persist the new ADK session ID
+        if is_new:
+            yield {"type": "adk_session_id", "content": adk_session_id}
 
         if semantic_model:
             self.set_semantic_model(semantic_model)
 
-        # If we have history and this is a fresh ADK session (server restarted),
-        # prepend history context so the agent knows what was discussed before
-        user_message = message
-        if history and len(history) > 0:
-            # Check if this ADK session has prior turns by seeing if it's newly created
-            try:
-                adk_user = f"session_{session_id or 'default'}"
-                session_obj = await self._session_service.get_session(
-                    app_name="lunara_chat",
-                    user_id=adk_user,
-                    session_id=adk_session_id
-                )
-                # If session has no events/turns, inject history
-                has_turns = bool(session_obj and hasattr(session_obj, 'events') and session_obj.events)
-                if not has_turns:
-                    history_context = self._build_history_prompt(history)
-                    user_message = f"{history_context}\nNew question: {message}"
-            except Exception:
-                # If we can't check, inject history to be safe
-                history_context = self._build_history_prompt(history)
-                user_message = f"{history_context}\nNew question: {message}"
-
-        # Create user message
+        # No history injection needed — ADK session has full event history
         user_content = types.Content(
             role="user",
-            parts=[types.Part(text=user_message)]
+            parts=[types.Part(text=message)]
         )
 
         # Stream the agent response — text flows through as markdown
