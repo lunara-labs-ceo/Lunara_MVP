@@ -56,16 +56,19 @@ class DynamicReport(BaseModel):
 
 
 # ─────────────────────────────────────────────
-# Agent definitions (module-level singletons)
+# Agent definitions (module-level templates)
 # ─────────────────────────────────────────────
 
-# Agent Engine resource name (auto-creates sandboxes per session).
+# Agent Engine resource name — used to create per-session sandboxes at runtime.
 _AGENT_ENGINE_RESOURCE_NAME = os.environ.get(
     "AGENT_ENGINE_RESOURCE_NAME",
     "projects/1025045538344/locations/us-central1/"
     "reasoningEngines/651943325061873664",
 )
 
+# Template agent — code_executor is NOT set here. It is attached per-session
+# at runtime via _get_or_create_sandbox() so each session gets its own
+# isolated sandbox with proper lifecycle management.
 _ANALYST_AGENT = LlmAgent(
     model="gemini-3-flash-preview",
     name="Analyst",
@@ -92,9 +95,6 @@ _ANALYST_AGENT = LlmAgent(
         "   - NEVER reuse the same filename for different charts.\n\n"
         "After charts are done, wrap up with a conversational summary. Tell the story\n"
         "the data is telling — what's interesting, surprising, or noteworthy.\n"
-    ),
-    code_executor=AgentEngineSandboxCodeExecutor(
-        agent_engine_resource_name=_AGENT_ENGINE_RESOURCE_NAME,
     ),
     output_key="analysis",
 )
@@ -143,6 +143,9 @@ class ReportAgentService:
 
     Sessions are persisted via the shared DatabaseSessionService so that multi-turn
     report refinement works natively through ADK events.
+
+    Each session gets its own GCP sandbox for code execution, managed by
+    SandboxManager (TTL-based cleanup, shutdown cleanup, explicit delete).
     """
 
     APP_NAME = "lunara_reports"
@@ -151,14 +154,53 @@ class ReportAgentService:
         self,
         report_id: str,
         session_service,
+        sandbox_manager,
         adk_session_id: Optional[str] = None,
         artifacts: Optional[List[Dict[str, Any]]] = None,
     ):
         self.report_id = report_id
         self._session_service = session_service
+        self._sandbox_manager = sandbox_manager
         self._adk_session_id = adk_session_id
         self._artifacts = artifacts or []
         self._content_items: List[Dict[str, Any]] = []
+
+    # ── Sandbox management (per-session) ─────────────────────────────────────
+
+    def _get_or_create_sandbox(self, session) -> AgentEngineSandboxCodeExecutor:
+        """Get or create a per-session sandbox executor.
+
+        - If session state has a stored sandbox_resource_name, reuse it.
+        - Otherwise, create a new sandbox and store the name in session state.
+        - Registers/touches the sandbox with SandboxManager for TTL tracking.
+
+        Returns:
+            An AgentEngineSandboxCodeExecutor bound to this session's sandbox.
+        """
+        stored_name = session.state.get("_sandbox_resource_name")
+
+        if stored_name:
+            try:
+                executor = AgentEngineSandboxCodeExecutor(
+                    sandbox_resource_name=stored_name,
+                    stateful=True,
+                )
+                self._sandbox_manager.touch(stored_name)
+                return executor
+            except Exception:
+                # Sandbox may have been TTL-deleted or is unreachable.
+                # Fall through to create a new one (self-healing).
+                pass
+
+        # Create a new sandbox
+        executor = AgentEngineSandboxCodeExecutor(
+            agent_engine_resource_name=_AGENT_ENGINE_RESOURCE_NAME,
+            stateful=True,
+        )
+        # Persist sandbox resource name in ADK session state for future turns
+        session.state["_sandbox_resource_name"] = executor.sandbox_resource_name
+        self._sandbox_manager.register(executor.sandbox_resource_name)
+        return executor
 
     # ── Artifact service (GCS in prod, InMemory locally) ─────────────────────
 
@@ -330,6 +372,12 @@ class ReportAgentService:
 
         session_id = session.id
 
+        # ── Sandbox: per-session executor + agent copy ────────────────────────
+        executor = self._get_or_create_sandbox(session)
+        session_analyst = _ANALYST_AGENT.model_copy(
+            update={"code_executor": executor}
+        )
+
         # ── Build analyst prompt (no history injection — ADK handles multi-turn) ─
         analyst_prompt_text = (
             f"User request: {prompt}\n\n"
@@ -342,7 +390,7 @@ class ReportAgentService:
 
         # ── Step 1: Run Analyst (code execution + chart generation) ──────────
         analyst_runner = Runner(
-            agent=_ANALYST_AGENT,
+            agent=session_analyst,
             app_name=app_name,
             session_service=self._session_service,
             artifact_service=artifact_service,

@@ -96,12 +96,9 @@ from api.v1 import datasets
 from api.v1 import projects
 from api.v1 import semantic
 from api.v1 import chat
-try:
-    from api.v1 import reports
-except Exception as e:
-    reports = None  # type: ignore[assignment]
-    print(f"⚠ Reports module failed to load (non-critical): {e}")
+from api.v1 import reports
 from services.connection_manager import ConnectionManager
+from services.sandbox_manager import SandboxManager
 
 
 # Global singletons initialised at startup
@@ -109,6 +106,7 @@ _connection_manager: Optional[ConnectionManager] = None
 _supabase_client = None
 _fernet: Optional[Fernet] = None
 _adk_session_service: Optional[DatabaseSessionService] = None
+_sandbox_manager: Optional[SandboxManager] = None
 
 
 def get_or_create_encryption_key() -> str:
@@ -178,6 +176,11 @@ async def lifespan(app: FastAPI):
         )
         print("⚠ DATABASE_URL not set — using SQLite fallback (not for production)")
 
+    # Initialise SandboxManager for per-session GCP sandbox lifecycle
+    global _sandbox_manager
+    _sandbox_manager = SandboxManager()
+    await _sandbox_manager.start()
+
     # Wire shared dependencies for connection + datasets routers
     app.dependency_overrides[connection.get_connection_manager] = lambda: _connection_manager
     app.dependency_overrides[connection.get_supabase] = lambda: _supabase_client
@@ -187,14 +190,16 @@ async def lifespan(app: FastAPI):
     app.dependency_overrides[projects.get_supabase] = lambda: _supabase_client
     # Wire ADK session service for chat + reports
     app.dependency_overrides[chat.get_adk_session_service] = lambda: _adk_session_service
-    if reports is not None:
-        app.dependency_overrides[reports.get_adk_session_service] = lambda: _adk_session_service
+    app.dependency_overrides[reports.get_adk_session_service] = lambda: _adk_session_service
+    app.dependency_overrides[reports.get_sandbox_manager] = lambda: _sandbox_manager
 
     print("Lunara backend started")
 
     yield
 
     # Shutdown
+    if _sandbox_manager:
+        await _sandbox_manager.stop()
     if _connection_manager:
         await _connection_manager.close_all()
     app.dependency_overrides.clear()
@@ -247,8 +252,7 @@ app.include_router(connection.router, prefix="/api/v1")
 app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(semantic.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
-if reports is not None:
-    app.include_router(reports.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
 
 
 @app.get("/health")

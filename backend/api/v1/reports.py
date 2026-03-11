@@ -24,6 +24,11 @@ def get_adk_session_service():
     raise RuntimeError("ADK session service not configured")
 
 
+def get_sandbox_manager():
+    """Placeholder — overridden by main.py dependency injection."""
+    raise RuntimeError("SandboxManager not configured")
+
+
 # ============================================================================
 # Pydantic Models
 # ============================================================================
@@ -72,6 +77,7 @@ async def generate_content(
     user: ClerkUser = Depends(get_current_user),
     supabase=Depends(get_supabase),
     session_service=Depends(get_adk_session_service),
+    sandbox_manager=Depends(get_sandbox_manager),
 ):
     """Generate content using AI copilot.
 
@@ -82,16 +88,7 @@ async def generate_content(
     - type: 'content_item' - Final content item added to report
     - type: 'done'         - Generation complete
     """
-
-    # Lazy import — ReportAgentService initialises a GCP sandbox at module
-    # level which can fail when Agent Engine isn't reachable.
-    try:
-        from services.report_agent import ReportAgentService
-    except Exception as import_err:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Report agent unavailable: {import_err}",
-        )
+    from services.report_agent import ReportAgentService
 
     # Convert artifact inputs to dicts for the agent
     artifacts_data = [art.model_dump() for art in request.artifacts]
@@ -114,6 +111,7 @@ async def generate_content(
             agent = ReportAgentService(
                 report_id=report_id,
                 session_service=session_service,
+                sandbox_manager=sandbox_manager,
                 adk_session_id=stored_adk_session_id,
                 artifacts=artifacts_data,
             )
@@ -253,8 +251,9 @@ async def delete_session(
     user: ClerkUser = Depends(get_current_user),
     supabase=Depends(get_supabase),
     session_service=Depends(get_adk_session_service),
+    sandbox_manager=Depends(get_sandbox_manager),
 ):
-    """Delete a report session, its items, and its ADK session."""
+    """Delete a report session, its items, its ADK session, and its GCP sandbox."""
     # Fetch adk_session_id before deleting
     adk_session_id = None
     try:
@@ -267,6 +266,24 @@ async def delete_session(
             adk_session_id = result.data.get("adk_session_id")
     except Exception:
         pass
+
+    # Clean up GCP sandbox BEFORE deleting the ADK session (need session state)
+    if adk_session_id:
+        try:
+            adk_session = await session_service.get_session(
+                app_name="lunara_reports",
+                user_id=f"report_{session_id}",
+                session_id=adk_session_id,
+            )
+            sandbox_name = (
+                adk_session.state.get("_sandbox_resource_name")
+                if adk_session else None
+            )
+            if sandbox_name:
+                await sandbox_manager.delete_sandbox(sandbox_name)
+                sandbox_manager.unregister(sandbox_name)
+        except Exception as e:
+            print(f"Warning: sandbox cleanup failed for session {session_id}: {e}")
 
     # Delete items first
     supabase.table("report_items") \
