@@ -56,7 +56,7 @@ export function Pricing() {
                   className="w-full"
                   asChild
                 >
-                  <a href="/login.html">{tier.cta}</a>
+                  <a href="/sign-up">{tier.cta}</a>
                 </Button>
               </CardContent>
             </Card>

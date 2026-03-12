@@ -13,7 +13,7 @@ export const MARQUEE_ITEMS = [
   "AI Report Agents",
   "Agentic Analytics",
   "Human-in-the-Loop",
-  "BigQuery Native",
+  "Connect Any Database",
   "Zero-Code Setup",
 ] as const
 
@@ -21,7 +21,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     step: 1,
     title: "Connect",
-    description: "Plug in your BigQuery warehouse with a single credential upload.",
+    description: "Connect your data warehouse or database — done in seconds.",
     icon: "Database" as const,
   },
   {
@@ -49,7 +49,7 @@ export const AGENTS = [
     number: "01",
     name: "Semantic Agent",
     description:
-      "Connect your BigQuery warehouse and the Semantic Agent automatically analyzes your schema — tables, columns, relationships, and business logic. It generates a semantic layer that gives every future query the context it needs.",
+      "Connect your data warehouse and the Semantic Agent automatically analyzes your schema — tables, columns, relationships, and business logic. It generates a semantic layer that gives every future query the context it needs.",
     features: [
       "Auto-discovers table relationships and join paths",
       "Maps columns to business-friendly descriptions",
@@ -148,7 +148,7 @@ export const PRICING_TIERS = [
     description: "Everything you need to start exploring your data with AI agents.",
     features: [
       "3 AI Agents (Semantic, SQL, Report)",
-      "BigQuery connection",
+      "Data warehouse connection",
       "Unlimited natural language queries",
       "AI-generated reports & charts",
       "Chat history & saved queries",
@@ -177,7 +177,7 @@ export const FAQ_ITEMS = [
   {
     question: "What data warehouses does Lunara support?",
     answer:
-      "Currently, Lunara supports Google BigQuery. Support for Snowflake, Databricks, and PostgreSQL is on the roadmap.",
+      "Lunara connects to PostgreSQL, Supabase, and more. BigQuery, Snowflake, MySQL, and Databricks connectors are coming soon.",
   },
   {
     question: "Is my data secure?",
@@ -197,7 +197,7 @@ export const FAQ_ITEMS = [
   {
     question: 'What does "Early Access" include?',
     answer:
-      "Early Access gives you full access to all three AI agents, BigQuery connectivity, unlimited queries, and report generation — completely free. We're looking for feedback from real users to shape the product.",
+      "Early Access gives you full access to all three AI agents, database connectivity, unlimited queries, and report generation — completely free. We're looking for feedback from real users to shape the product.",
   },
   {
     question: "Can I self-host Lunara?",

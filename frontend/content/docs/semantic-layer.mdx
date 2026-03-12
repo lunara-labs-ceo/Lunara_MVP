@@ -1,0 +1,94 @@
+---
+title: "Understanding the Semantic Layer"
+description: "How Lunara's semantic layer gives AI the context it needs for accurate queries."
+order: 2
+---
+
+The semantic layer is the foundation of everything Lunara does. It's a structured model that sits between your raw database schema and the AI agents, translating technical column names and table structures into business context that the AI can reason about.
+
+Without a semantic layer, an AI model seeing a column called `mrr` has no idea whether it's Monthly Recurring Revenue, a marketing response rate, or something else entirely. With the semantic layer, the AI knows exactly what it is, how to aggregate it, and which tables it joins to.
+
+## What the Semantic Layer Contains
+
+Each semantic model is a JSON document stored per project. It includes:
+
+- **Tables** — which tables from your database are included in the model
+- **Columns** — every column in each table, with metadata about its meaning and usage
+- **Relationships** — how tables connect to each other (joins)
+- **Business descriptions** — plain-English explanations of what each element represents
+
+## Column Types
+
+Every column in the semantic layer is classified as one of three types:
+
+### Dimensions
+
+Dimensions are categorical or descriptive fields used to group and filter data. Examples include customer name, product category, region, or status.
+
+When the AI writes a query with a `GROUP BY` clause or a `WHERE` filter, it draws from dimension columns.
+
+### Measures
+
+Measures are numeric fields that get aggregated in queries. Examples include revenue, quantity, cost, or count of records.
+
+Each measure has a default **aggregation type** that tells the AI how to summarize it:
+
+| Aggregation | When to Use |
+|-------------|-------------|
+| `SUM` | Additive metrics like revenue, quantity |
+| `AVG` | Averages like price per unit, satisfaction score |
+| `COUNT` | Counting occurrences |
+| `COUNT_DISTINCT` | Counting unique values (e.g., unique customers) |
+| `MIN` | Minimum values (e.g., earliest date, lowest price) |
+| `MAX` | Maximum values (e.g., latest date, highest price) |
+
+You can change the default aggregation for any measure in the semantic layer editor.
+
+### Time
+
+Time columns represent dates and timestamps. They're used for time-based filtering (`WHERE date >= '2026-01-01'`), trending (`GROUP BY month`), and comparisons (`this month vs. last month`).
+
+The AI uses time columns to understand the temporal dimension of your data without you having to specify which column to filter on.
+
+## Relationships
+
+Relationships define how tables join together. Each relationship includes:
+
+- **Source table and column** — the table and column on the "many" side
+- **Target table and column** — the table and column on the "one" side
+- **Join type** — typically `LEFT JOIN` or `INNER JOIN`
+- **Confidence score** — how confident the Atlas agent is in the discovered relationship (High, Medium, or Low)
+
+The Atlas agent discovers relationships automatically by analyzing column names, data types, and naming conventions (e.g., `customer_id` in an `orders` table likely joins to `id` in a `customers` table). It also checks referential patterns in your data.
+
+### Reviewing Relationships
+
+Always review auto-discovered relationships before relying on them. Pay special attention to:
+
+- **Low-confidence joins** — the agent may have guessed incorrectly. Verify the join logic makes sense.
+- **Missing relationships** — if two tables should join but the relationship wasn't discovered, you can add it manually.
+- **Incorrect join columns** — the agent might pick the wrong column if multiple candidates exist.
+
+## Editing the Semantic Model
+
+The semantic layer is fully editable. After generation, you can:
+
+- **Change column types** — reclassify a column from Dimension to Measure or vice versa
+- **Update aggregations** — change the default aggregation for any measure
+- **Edit descriptions** — rewrite the business description to be more specific
+- **Add or remove relationships** — fix incorrect joins or add missing ones
+- **Exclude columns** — remove columns that aren't useful for analysis
+
+Changes take effect immediately — the next chat query will use the updated model.
+
+## When to Regenerate
+
+You should regenerate the semantic layer when:
+
+- **You add new tables** to your database that you want to include
+- **Schema changes** — columns are renamed, added, or removed
+- **New relationships** are created between tables
+
+Regenerating replaces the existing model. If you've made manual edits, consider noting them before regenerating so you can reapply them afterward.
+
+> **Tip:** Start with the auto-generated model and refine it as you use the chat agent. If a query comes back wrong because of a misclassified column, fix it in the semantic layer and the issue won't recur.

@@ -69,7 +69,7 @@ export function Hero() {
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Button size="lg" asChild>
-                <a href="/login.html">Get Early Access</a>
+                <a href="/sign-up">Get Early Access</a>
               </Button>
               <Button variant="outline" size="lg" asChild>
                 <a href="mailto:shyamsarma@lunaralabs.ca">Book a Demo</a>

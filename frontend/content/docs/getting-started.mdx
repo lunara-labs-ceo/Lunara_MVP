@@ -1,0 +1,64 @@
+---
+title: "Getting Started"
+description: "Connect your database and run your first AI-powered query in under 5 minutes."
+order: 1
+---
+
+This guide walks you through the core workflow: creating a project, connecting your database, generating a semantic layer, and asking your first question.
+
+## Step 1: Create an Account
+
+Head to [/sign-up](/sign-up) and create your Lunara account. You can sign up with your email or use Google OAuth. During early access, all features are free.
+
+Once you've signed in, you'll land on the **Dashboard**.
+
+## Step 2: Create a Project
+
+Click **New Project** on the dashboard. Give it a name and a short description of what you're analyzing — for example, "E-commerce Analytics" or "SaaS Metrics."
+
+Each project is a self-contained workspace with its own database connection, semantic layer, chat sessions, and reports.
+
+## Step 3: Connect Your Database
+
+Navigate to **Data Sources** from the project sidebar and click **Add Connection**.
+
+Lunara currently supports **BigQuery**. Paste your service account JSON credentials. Lunara encrypts credentials at rest using Fernet (AES) encryption — your plaintext credentials are never stored.
+
+Once connected, you'll see your datasets and tables listed in the schema browser.
+
+> **Tip:** Start with a focused set of tables. You don't need to connect every table in your warehouse — just the ones relevant to your analysis.
+
+## Step 4: Select Tables for Your Semantic Layer
+
+Open the **Semantic Layer** page from the sidebar. You'll see all available tables from your connected database.
+
+Select the tables you want to include in your semantic model. Choose tables that are related and that cover the domain you want to analyze. For example, if you're analyzing sales data, you might select `orders`, `customers`, `products`, and `order_items`.
+
+## Step 5: Generate the Semantic Layer
+
+Click **Generate Semantic Layer**. The Atlas agent will analyze your selected tables and produce a structured model that includes:
+
+- **Column classifications** — each column is typed as a Dimension, Measure, or Time field
+- **Aggregation rules** — measures get default aggregations (SUM, AVG, COUNT, etc.)
+- **Table relationships** — joins between tables are discovered automatically with confidence scores
+- **Business descriptions** — plain-English descriptions of what each table and column represents
+
+Review the generated model. You can edit column types, fix descriptions, add relationships, or remove columns that aren't useful. The semantic layer is yours to refine.
+
+## Step 6: Start Chatting with Your Data
+
+Navigate to the **Chat** page. Type a question in plain English:
+
+- "What was total revenue last month?"
+- "Show me the top 10 customers by order count"
+- "How does average order value trend over the past 12 months?"
+
+The Query Agent will use your semantic layer to generate accurate SQL. The query appears in the SQL editor, where you can review it, modify it if needed, and click **Run** to execute.
+
+Results appear in a table below the editor. You can sort, scroll, and explore the data.
+
+## What's Next
+
+Once you're comfortable with the chat workflow, try the **Report Builder**. The Analyst Agent can plan a multi-query analysis, execute the queries, and generate a narrative report with charts — all from a single prompt.
+
+For a deeper understanding of how the semantic layer works and how to get the most out of it, read the [Understanding the Semantic Layer](/docs/semantic-layer) guide.

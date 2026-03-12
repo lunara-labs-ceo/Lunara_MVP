@@ -1,17 +1,44 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { Menu, X, Sun, Moon } from "lucide-react"
+import { Menu, X, Sun, Moon, ChevronDown } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { useTheme } from "next-themes"
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
-import { NAV_LINKS } from "@/lib/constants"
+
+const PRODUCT_LINKS = [
+  { label: "Semantic Layer", href: "/product/semantic-layer" },
+  { label: "SQL Chat Agent", href: "/product/chat" },
+  { label: "Report Builder", href: "/product/reports" },
+] as const
+
+const NAV_ITEMS = [
+  { label: "Pricing", href: "/pricing" },
+  { label: "Docs", href: "/docs" },
+  { label: "Blog", href: "/blog" },
+] as const
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [productOpen, setProductOpen] = useState(false)
   const { theme, setTheme } = useTheme()
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setProductOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -30,7 +57,44 @@ export function Header() {
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map((link) => (
+          {/* Product dropdown */}
+          <div ref={dropdownRef} className="relative">
+            <button
+              onClick={() => setProductOpen(!productOpen)}
+              className="flex items-center gap-1 rounded-md px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Product
+              <ChevronDown
+                className={`size-3.5 transition-transform ${productOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            <AnimatePresence>
+              {productOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-0 top-full mt-1 w-52 rounded-lg border border-border bg-card p-2 shadow-lg"
+                >
+                  {PRODUCT_LINKS.map((link) => (
+                    <Link
+                      key={link.label}
+                      href={link.href}
+                      onClick={() => setProductOpen(false)}
+                      className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Regular nav links */}
+          {NAV_ITEMS.map((link) => (
             <Link
               key={link.label}
               href={link.href}
@@ -89,7 +153,23 @@ export function Header() {
             className="overflow-hidden border-t border-border bg-background md:hidden"
           >
             <div className="flex flex-col gap-1 px-4 py-4">
-              {NAV_LINKS.map((link) => (
+              {/* Product links — flattened with header */}
+              <span className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+                Product
+              </span>
+              {PRODUCT_LINKS.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-md px-3 py-2.5 pl-6 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              {/* Regular nav links */}
+              {NAV_ITEMS.map((link) => (
                 <Link
                   key={link.label}
                   href={link.href}
@@ -99,6 +179,7 @@ export function Header() {
                   {link.label}
                 </Link>
               ))}
+
               <div className="mt-3 flex flex-col gap-2 border-t border-border pt-4">
                 <SignedOut>
                   <Button variant="outline" asChild className="w-full">

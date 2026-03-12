@@ -3,17 +3,25 @@ import { Separator } from "@/components/ui/separator"
 
 const footerLinks = {
   Product: [
-    { label: "Platform", href: "#how-it-works" },
-    { label: "Agents", href: "#agents" },
-    { label: "Pricing", href: "#pricing" },
+    { label: "Semantic Layer", href: "/product/semantic-layer" },
+    { label: "SQL Agent", href: "/product/chat" },
+    { label: "Reports", href: "/product/reports" },
+    { label: "Pricing", href: "/pricing" },
   ],
   Resources: [
-    { label: "Documentation", href: "#" },
-    { label: "FAQ", href: "#faq" },
+    { label: "Documentation", href: "/docs" },
+    { label: "Blog", href: "/blog" },
+    { label: "Changelog", href: "/changelog" },
+    { label: "FAQ", href: "/#faq" },
+  ],
+  Company: [
+    { label: "About", href: "/about" },
+    { label: "Security", href: "/security" },
+    { label: "Contact", href: "/contact" },
   ],
   Legal: [
-    { label: "Privacy Policy", href: "#" },
-    { label: "Terms of Service", href: "#" },
+    { label: "Privacy Policy", href: "/legal/privacy" },
+    { label: "Terms of Service", href: "/legal/terms" },
   ],
 }
 
@@ -21,7 +29,7 @@ export function Footer() {
   return (
     <footer className="border-t border-border bg-card/30">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
