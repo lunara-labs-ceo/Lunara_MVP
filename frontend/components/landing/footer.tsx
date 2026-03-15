@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator"
 const footerLinks = {
   Product: [
     { label: "Semantic Layer", href: "/product/semantic-layer" },
-    { label: "SQL Agent", href: "/product/chat" },
+    { label: "Luna", href: "/product/chat" },
     { label: "Reports", href: "/product/reports" },
     { label: "Pricing", href: "/pricing" },
   ],

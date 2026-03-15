@@ -24,15 +24,15 @@ With that context in hand, the AI doesn't have to guess what `mrr` means or how 
 
 Lunara uses three specialized AI agents, each designed for a specific stage of the analytics workflow:
 
-**Atlas (Semantic Agent)** analyzes your raw schema and generates the semantic layer. It examines table structures, column names, data types, and sample values to infer business meaning. You review and refine the result — the AI proposes, you decide.
+**Atlas** analyzes your raw schema and generates the semantic layer. It examines table structures, column names, data types, and sample values to infer business meaning. You review and refine the result — the AI proposes, you decide.
 
-**Query Agent (SQL Agent)** takes natural-language questions and generates SQL using the semantic layer as its guide. It can look up distinct column values, check date ranges, preview sample rows, and search for specific values before writing the query. The result is SQL grounded in your actual data, not hallucinated table names.
+**Luna** takes natural-language questions and generates SQL using the semantic layer as its guide. It can look up distinct column values, check date ranges, preview sample rows, and search for specific values before writing the query. The result is SQL grounded in your actual data, not hallucinated table names.
 
-**Analyst Agent (Report Agent)** goes further: it plans an analysis, generates and executes multiple queries, then produces a narrative report with charts and insights. Think of it as a junior analyst that can draft the first version of a board deck.
+**Quill** goes further: it plans an analysis, generates and executes multiple queries, then produces a narrative report with charts and insights. Think of it as a junior analyst that can draft the first version of a board deck.
 
 ## Human in the Loop, Always
 
-Lunara never executes a query without your approval. The Query Agent generates SQL and presents it in an editor where you can review, modify, and run it yourself. You see the results before anything is saved.
+Lunara never executes a query without your approval. Luna generates SQL and presents it in an editor where you can review, modify, and run it yourself. You see the results before anything is saved.
 
 This isn't just a safety mechanism. It's a design philosophy. AI should accelerate your workflow, not replace your judgment. The best analytics happen when a skilled human and a capable AI collaborate — each doing what they do best.
 

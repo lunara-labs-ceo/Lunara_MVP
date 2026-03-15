@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
 const slides = [
-  { src: "/images/chat-agent.png", alt: "Lunara SQL Chat Agent", label: "SQL Agent" },
+  { src: "/images/chat-agent.png", alt: "Luna — Lunara Natural Language to SQL", label: "Luna" },
   { src: "/images/reporting-agent.png", alt: "Lunara Report Builder", label: "Report Builder" },
 ]
 

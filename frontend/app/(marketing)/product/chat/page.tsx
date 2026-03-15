@@ -25,9 +25,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
 export const metadata: Metadata = {
-  title: "SQL Chat Agent - Lunara | Natural Language to SQL",
+  title: "Luna - Lunara | Natural Language to SQL",
   description:
-    "Ask questions in plain English. Lunara's SQL Agent uses your semantic layer to generate accurate, production-grade SQL. Review before you run.",
+    "Ask questions in plain English. Luna uses your semantic layer to generate accurate, production-grade SQL. Review before you run.",
 }
 
 /* ---------- Data ---------- */
@@ -121,7 +121,7 @@ export default function ChatAgentPage() {
             className="mb-6 font-mono text-xs uppercase tracking-wider"
           >
             <span className="mr-2 inline-block size-1.5 rounded-full bg-primary animate-pulse" />
-            SQL Agent
+            Luna
           </Badge>
 
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
@@ -130,7 +130,7 @@ export default function ChatAgentPage() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            The SQL Agent uses your semantic layer to understand context,
+            Luna uses your semantic layer to understand context,
             look up values, and generate accurate queries — all from natural
             language.
           </p>
@@ -231,7 +231,7 @@ export default function ChatAgentPage() {
               <div className="flex h-9 items-center gap-2 border-b border-border bg-muted/50 px-4">
                 <MessageSquare className="size-4 text-muted-foreground" />
                 <span className="font-mono text-xs text-muted-foreground">
-                  SQL Agent
+                  Luna
                 </span>
               </div>
               <CardContent className="space-y-4 p-5">

@@ -517,7 +517,7 @@ export function ReportClient() {
         <div className="flex h-10 items-center gap-2 border-b border-border px-4">
           <Sparkles className="size-4 text-primary" />
           <span className="text-sm font-medium text-foreground">
-            Report Copilot
+            Quill
           </span>
         </div>
         <ReportChatPanel

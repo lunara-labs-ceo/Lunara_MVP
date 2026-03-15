@@ -2,17 +2,17 @@
 
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { Menu, X, Sun, Moon, ChevronDown } from "lucide-react"
+import { Menu, X, Sun, Moon, ChevronDown, Layers, MessageSquare, PenLine } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { useTheme } from "next-themes"
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 
 const PRODUCT_LINKS = [
-  { label: "Semantic Layer", href: "/product/semantic-layer" },
-  { label: "SQL Chat Agent", href: "/product/chat" },
-  { label: "Report Builder", href: "/product/reports" },
-] as const
+  { name: "Atlas", desc: "Schema Intelligence", href: "/product/semantic-layer", icon: Layers, color: "text-blue-500" },
+  { name: "Luna", desc: "Data Chat", href: "/product/chat", icon: MessageSquare, color: "text-violet-500" },
+  { name: "Quill", desc: "Report Writer", href: "/product/reports", icon: PenLine, color: "text-amber-500" },
+]
 
 const NAV_ITEMS = [
   { label: "Pricing", href: "/pricing" },
@@ -63,7 +63,7 @@ export function Header() {
               onClick={() => setProductOpen(!productOpen)}
               className="flex items-center gap-1 rounded-md px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              Product
+              Your Agents
               <ChevronDown
                 className={`size-3.5 transition-transform ${productOpen ? "rotate-180" : ""}`}
               />
@@ -76,16 +76,20 @@ export function Header() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute left-0 top-full mt-1 w-52 rounded-lg border border-border bg-card p-2 shadow-lg"
+                  className="absolute left-0 top-full mt-1 w-72 rounded-lg border border-border bg-card p-2 shadow-lg"
                 >
                   {PRODUCT_LINKS.map((link) => (
                     <Link
-                      key={link.label}
+                      key={link.name}
                       href={link.href}
                       onClick={() => setProductOpen(false)}
-                      className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      className="flex items-start gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-accent"
                     >
-                      {link.label}
+                      <link.icon className={`size-5 mt-0.5 shrink-0 ${link.color}`} />
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">{link.name}</div>
+                        <div className="text-xs text-muted-foreground">{link.desc}</div>
+                      </div>
                     </Link>
                   ))}
                 </motion.div>
@@ -153,18 +157,22 @@ export function Header() {
             className="overflow-hidden border-t border-border bg-background md:hidden"
           >
             <div className="flex flex-col gap-1 px-4 py-4">
-              {/* Product links — flattened with header */}
+              {/* Agent links — flattened with header */}
               <span className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-                Product
+                Your Agents
               </span>
               {PRODUCT_LINKS.map((link) => (
                 <Link
-                  key={link.label}
+                  key={link.name}
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-md px-3 py-2.5 pl-6 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="flex items-start gap-3 rounded-md px-3 py-2.5 pl-6 transition-colors hover:bg-accent"
                 >
-                  {link.label}
+                  <link.icon className={`size-5 mt-0.5 shrink-0 ${link.color}`} />
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">{link.name}</div>
+                    <div className="text-xs text-muted-foreground">{link.desc}</div>
+                  </div>
                 </Link>
               ))}
 

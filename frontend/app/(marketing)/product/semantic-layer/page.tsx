@@ -25,7 +25,7 @@ import { Badge } from "@/components/ui/badge"
 export const metadata: Metadata = {
   title: "Semantic Layer - Lunara | AI-Powered Schema Understanding",
   description:
-    "Lunara's Semantic Agent automatically analyzes your database schema, discovers relationships, and builds a business-friendly model. Human-in-the-loop review.",
+    "Atlas automatically analyzes your database schema, discovers relationships, and builds a business-friendly model. Human-in-the-loop review.",
 }
 
 /* ---------- Data ---------- */
@@ -120,7 +120,7 @@ export default function SemanticLayerPage() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            The Semantic Agent analyzes your schema, discovers relationships,
+            Atlas analyzes your schema, discovers relationships,
             and builds a business-friendly model — so every query gets the
             context it needs.
           </p>
@@ -254,7 +254,7 @@ export default function SemanticLayerPage() {
 
             <p className="mb-8 text-lg leading-relaxed text-muted-foreground">
               Every classification, description, and relationship is
-              editable. The Semantic Agent does the heavy lifting, but you
+              editable. Atlas does the heavy lifting, but you
               stay in control at every step.
             </p>
 
@@ -337,7 +337,7 @@ export default function SemanticLayerPage() {
           </h2>
 
           <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-            Connect your warehouse and let the Semantic Agent do the heavy
+            Connect your warehouse and let Atlas do the heavy
             lifting. You review, you approve, you ship.
           </p>
 

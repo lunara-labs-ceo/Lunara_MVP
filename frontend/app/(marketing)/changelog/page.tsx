@@ -42,7 +42,7 @@ const entries: ChangelogEntry[] = [
     version: "v0.1.0",
     title: "Initial Launch",
     description:
-      "Lunara MVP with Semantic Agent, SQL Chat Agent, and Report Builder. PostgreSQL support.",
+      "Lunara MVP with Atlas, Luna, and Quill. PostgreSQL support.",
   },
 ]
 

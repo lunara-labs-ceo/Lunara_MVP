@@ -9,8 +9,8 @@ export const NAV_LINKS = [
 
 export const MARQUEE_ITEMS = [
   "Natural Language to SQL",
-  "AI Semantic Agents",
-  "AI Report Agents",
+  "Meet Atlas, Luna & Quill",
+  "Three AI Agents, One Platform",
   "Agentic Analytics",
   "Human-in-the-Loop",
   "Connect Any Database",
@@ -47,44 +47,44 @@ export const HOW_IT_WORKS_STEPS = [
 export const AGENTS = [
   {
     number: "01",
-    name: "Semantic Agent",
+    name: "Atlas",
     description:
-      "Connect your data warehouse and the Semantic Agent automatically analyzes your schema — tables, columns, relationships, and business logic. It generates a semantic layer that gives every future query the context it needs.",
+      "Connect your data warehouse and Atlas automatically analyzes your schema — tables, columns, relationships, and business logic. It generates a semantic layer that gives every future query the context it needs.",
     features: [
       "Auto-discovers table relationships and join paths",
       "Maps columns to business-friendly descriptions",
       "You review and approve before anything runs",
     ],
     image: "/images/semantic-agent.png",
-    imageAlt: "Semantic Agent — AI Analysis Output",
+    imageAlt: "Atlas — AI Analysis Output",
     imagePosition: "left" as const,
   },
   {
     number: "02",
-    name: "SQL Agent",
+    name: "Luna",
     description:
-      "Ask questions in plain English. The SQL Agent uses your semantic layer to generate accurate, optimized SQL — complete with the right joins, filters, and aggregations. You run it when you're ready.",
+      "Ask questions in plain English. Luna uses your semantic layer to generate accurate, optimized SQL — complete with the right joins, filters, and aggregations. You run it when you're ready.",
     features: [
       "Natural language to SQL in seconds",
       "Looks up column values, date ranges, and stats automatically",
       "You control when queries execute — never runs without approval",
     ],
     image: "/images/sql-agent-chat.png",
-    imageAlt: "SQL Agent — Chat & Generated Query",
+    imageAlt: "Luna — Chat & Generated Query",
     imagePosition: "right" as const,
   },
   {
     number: "03",
-    name: "Report Agent",
+    name: "Quill",
     description:
-      'Tell it what you need — "Scout the top players in the market" — and the Report Agent runs the analysis, generates charts, and writes a narrative summary. Two AI agents work together: one analyzes, one reports.',
+      'Tell it what you need — "Scout the top players in the market" — and Quill runs the analysis, generates charts, and writes a narrative summary. Two AI agents work together: one analyzes, one reports.',
     features: [
       "AI-generated charts and data visualizations",
       "Written narrative with key insights and trends",
-      "Two-agent pipeline: Analyst Agent + Reporter Agent",
+      "Two-agent pipeline: Quill analyzes, then writes",
     ],
     image: "/images/report-agent-output.png",
-    imageAlt: "Report Agent — Generated Report with Charts",
+    imageAlt: "Quill — Generated Report with Charts",
     imagePosition: "left" as const,
   },
 ] as const
@@ -130,7 +130,7 @@ export const TESTIMONIALS = [
     company: "Early Access User",
   },
   {
-    quote: "The report agent saved us an entire week of manual analysis. It generated charts and narrative that were ready to share with leadership.",
+    quote: "Quill saved us an entire week of manual analysis. It generated charts and narrative that were ready to share with leadership.",
     author: "Analytics Manager",
     company: "Beta Tester",
   },
@@ -147,7 +147,7 @@ export const PRICING_TIERS = [
     price: "Free",
     description: "Everything you need to start exploring your data with AI agents.",
     features: [
-      "3 AI Agents (Semantic, SQL, Report)",
+      "3 AI Agents — Atlas, Luna & Quill",
       "Data warehouse connection",
       "Unlimited natural language queries",
       "AI-generated reports & charts",
@@ -187,12 +187,12 @@ export const FAQ_ITEMS = [
   {
     question: "Do I need to know SQL?",
     answer:
-      "Not at all. Lunara's SQL Agent generates production-grade SQL from plain English questions. You can review and edit the SQL before running it, but it's not required.",
+      "Not at all. Luna generates production-grade SQL from plain English questions. You can review and edit the SQL before running it, but it's not required.",
   },
   {
     question: "How does the semantic layer work?",
     answer:
-      "When you connect your warehouse, the Semantic Agent analyzes your schema — tables, columns, relationships, and data types. It generates a business-friendly model that the other agents use for context. You can review and edit it before anything runs.",
+      "When you connect your warehouse, Atlas analyzes your schema — tables, columns, relationships, and data types. It generates a business-friendly model that the other agents use for context. You can review and edit it before anything runs.",
   },
   {
     question: 'What does "Early Access" include?',

@@ -107,7 +107,7 @@ export function ReportChatPanel({
                 </div>
                 <div className="space-y-1.5 text-center">
                   <h3 className="text-base font-semibold">
-                    Hey, I&apos;m your Report Copilot
+                    Hey, I&apos;m Quill
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     I can help you build reports from your saved data — charts,

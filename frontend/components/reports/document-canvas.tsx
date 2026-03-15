@@ -117,7 +117,7 @@ export function DocumentCanvas({
 
       {/* ---- Toolbar (only when editor has content) ---- */}
       {items.length > 0 && (
-        <div className="flex items-center border-b border-border px-4 py-1">
+        <div className="flex items-center justify-center border-b border-border px-4 py-1">
           <EditorToolbar editor={editor} />
         </div>
       )}
@@ -133,7 +133,7 @@ export function DocumentCanvas({
                 Start Building Your Report
               </h3>
               <p className="text-sm text-muted-foreground/60">
-                Chat with the Report Copilot to generate content
+                Chat with Quill to generate content
               </p>
             </div>
           ) : (
