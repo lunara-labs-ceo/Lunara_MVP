@@ -66,6 +66,12 @@ class ItemCreateRequest(BaseModel):
     position: int = 0
 
 
+class ItemUpdateRequest(BaseModel):
+    content: Optional[str] = None
+    title: Optional[str] = None
+    position: Optional[int] = None
+
+
 # ============================================================================
 # API Endpoints
 # ============================================================================
@@ -345,6 +351,33 @@ async def create_item(
     }).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create item")
+    return result.data[0]
+
+
+@router.patch("/items/{item_id}")
+async def update_item(
+    item_id: str,
+    request: ItemUpdateRequest,
+    user: ClerkUser = Depends(get_current_user),
+    supabase=Depends(get_supabase),
+):
+    """Update a report item (content, title, or position)."""
+    update_data: Dict[str, Any] = {}
+    if request.content is not None:
+        update_data["content"] = request.content
+    if request.title is not None:
+        update_data["title"] = request.title
+    if request.position is not None:
+        update_data["position"] = request.position
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+
+    result = supabase.table("report_items") \
+        .update(update_data) \
+        .eq("id", item_id) \
+        .execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Item not found")
     return result.data[0]
 
 

@@ -264,6 +264,25 @@ export function ReportClient() {
     [fetchApi]
   );
 
+  const handleUpdateItem = useCallback(
+    async (itemId: string, content: string) => {
+      try {
+        await fetchApi(`/api/v1/reports/items/${itemId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ content }),
+        });
+        setReportItems((prev) =>
+          prev.map((item) =>
+            item.id === itemId ? { ...item, content } : item
+          )
+        );
+      } catch (err) {
+        console.error("Failed to update item:", err);
+      }
+    },
+    [fetchApi]
+  );
+
   // ---------- Send message ----------
 
   const handleSendMessage = useCallback(
@@ -477,6 +496,7 @@ export function ReportClient() {
             title={reportTitle}
             onTitleChange={handleTitleChange}
             onDeleteItem={handleDeleteItem}
+            onUpdateItem={handleUpdateItem}
             isGenerating={isStreaming}
           />
         )}
