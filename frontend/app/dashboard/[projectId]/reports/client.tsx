@@ -348,9 +348,10 @@ export function ReportClient() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // 6. Process content items from stream
+      // 6. Process content items — REPLACE existing items (not append)
+      // Save new items first (so canvas transitions atomically)
+      const newItems: ReportItem[] = [];
       for (const item of result.contentItems) {
-        // Persist each item
         try {
           const saved = await fetchApi<ReportItem>(
             "/api/v1/reports/items",
@@ -361,17 +362,26 @@ export function ReportClient() {
                 type: item.type,
                 title: item.title || "",
                 content: item.content || "",
-                position: reportItems.length + result.contentItems.indexOf(item),
+                position: newItems.length,
               }),
             }
           );
-          setReportItems((prev) => [...prev, saved]);
+          newItems.push(saved);
         } catch (err) {
           console.error("Failed to save report item:", err);
-          // Add locally as fallback
-          setReportItems((prev) => [...prev, item]);
+          newItems.push(item);
         }
       }
+
+      // Delete old items from backend (fire-and-forget)
+      for (const existing of reportItems) {
+        fetchApi(`/api/v1/reports/items/${existing.id}`, {
+          method: "DELETE",
+        }).catch((err) => console.error("Failed to delete old item:", err));
+      }
+
+      // Atomic state replacement
+      setReportItems(newItems);
 
       // 7. Persist messages (fire-and-forget)
       const allMsgs = [...currentMessages, userMsg, assistantMsg];
@@ -404,7 +414,7 @@ export function ReportClient() {
       sessionId,
       projectId,
       artifacts,
-      reportItems.length,
+      reportItems,
       fetchApi,
       sendPrompt,
     ]
