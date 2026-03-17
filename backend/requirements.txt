@@ -28,3 +28,6 @@ supabase>=2.0.0
 # PostgreSQL drivers
 asyncpg
 psycopg2-binary
+
+# Stripe billing
+stripe>=8.0.0

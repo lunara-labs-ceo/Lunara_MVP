@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from google.api_core.exceptions import ResourceExhausted, TooManyRequests
 from services.chat_agent import ChatAgentService
 from services.connection_manager import ConnectionManager
 from api.v1.connection import get_connection_manager, get_supabase
@@ -103,6 +104,14 @@ async def chat_query(
     if not request.message:
         raise HTTPException(status_code=400, detail="No message provided")
 
+    # Deduct 1 credit for chat query
+    from services.billing import CreditService
+    credit_service = CreditService(supabase)
+    await credit_service.deduct_credits(
+        user.user_id, cost=1, action="chat_query",
+        reference_id=request.session_id,
+    )
+
     try:
         chat_agent = await _get_chat_agent(data_source_id, conn_mgr, supabase, session_service)
     except ValueError as e:
@@ -124,6 +133,7 @@ async def chat_query(
 
     async def event_stream():
         """Generate SSE events from chat agent."""
+        success = False
         try:
             async for event in chat_agent.chat(
                 message=request.message,
@@ -143,9 +153,22 @@ async def chat_query(
                             print(f"Warning: failed to persist adk_session_id: {e}")
                     continue  # Don't forward this internal event to the frontend
                 yield f"data: {json.dumps(event)}\n\n"
+            success = True
+        except (ResourceExhausted, TooManyRequests):
+            error_event = {"type": "error", "content": "Luna is experiencing high demand right now. Your credit has been refunded — please try again in a moment."}
+            yield f"data: {json.dumps(error_event)}\n\n"
         except Exception as e:
             error_event = {"type": "error", "content": str(e)}
             yield f"data: {json.dumps(error_event)}\n\n"
+        finally:
+            if not success:
+                try:
+                    await credit_service.refund_credits(
+                        user.user_id, cost=1, action="chat_query",
+                        reference_id=request.session_id,
+                    )
+                except Exception as refund_err:
+                    print(f"Warning: credit refund failed: {refund_err}")
 
     return StreamingResponse(
         event_stream(),

@@ -17,6 +17,8 @@ import {
   PanelLeft,
   Sun,
   Moon,
+  Settings,
+  Zap,
 } from "lucide-react";
 import { UserButton, useOrganization } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
@@ -24,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useBilling } from "@/hooks/use-billing";
 import {
   Tooltip,
   TooltipContent,
@@ -328,6 +331,9 @@ function SidebarProjectNav({
 function SidebarFooter({ collapsed }: { collapsed: boolean }) {
   const { organization } = useOrganization();
   const { theme, setTheme } = useTheme();
+  const { credits, totalCredits, plan, isPro, isLoading: billingLoading } = useBilling();
+  const creditPercent = totalCredits > 0 ? Math.round((credits / totalCredits) * 100) : 0;
+  const isLow = credits <= 10;
 
   if (collapsed) {
     return (
@@ -361,6 +367,46 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="flex flex-col gap-2 border-t border-sidebar-border px-4 py-3 shrink-0">
+      {/* Credit usage */}
+      {!billingLoading && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className={cn("text-xs font-medium", isLow ? "text-destructive" : "text-sidebar-foreground/60")}>
+              <Zap className="inline size-3 mr-0.5" />
+              {credits} / {totalCredits} credits
+            </span>
+            <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40">
+              {plan}
+            </span>
+          </div>
+          <div className="h-1 rounded-full bg-sidebar-accent overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                isLow ? "bg-destructive" : "bg-primary"
+              )}
+              style={{ width: `${creditPercent}%` }}
+            />
+          </div>
+          {!isPro ? (
+            <Link
+              href="/dashboard/settings/billing"
+              className="flex items-center justify-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90"
+            >
+              <Zap className="size-3" />
+              Upgrade to Pro
+            </Link>
+          ) : (
+            <Link
+              href="/dashboard/settings/billing"
+              className="text-[10px] font-medium text-muted-foreground hover:text-foreground"
+            >
+              Manage billing
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5 min-w-0">
           <UserButton

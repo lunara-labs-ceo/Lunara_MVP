@@ -33,21 +33,21 @@ export const metadata: Metadata = {
 /* ------------------------------------------------------------------ */
 
 const FREE_FEATURES = [
-  "3 AI Agents (Semantic, SQL, Report)",
-  "Data warehouse connection",
-  "Unlimited natural language queries",
-  "AI-generated reports & charts",
+  "3 AI Agents — Atlas, Luna & Quill",
+  "50 credits / month",
+  "1 data warehouse connection",
   "Chat history & saved queries",
+  "Editable reports with rich-text editor",
   "Community support",
 ]
 
 const PRO_FEATURES = [
   "Everything in Free",
-  "Team collaboration & sharing",
+  "1,000 credits / month",
   "Multiple warehouse connections",
-  "Custom semantic layer editing",
-  "API access & integrations",
+  "Team collaboration & sharing",
   "Priority support",
+  "Annual billing option (save 20%)",
 ]
 
 interface ComparisonRow {
@@ -57,15 +57,12 @@ interface ComparisonRow {
 }
 
 const COMPARISON_ROWS: ComparisonRow[] = [
-  { feature: "AI Agents", free: "3", pro: "3+" },
+  { feature: "AI Agents (Atlas, Luna, Quill)", free: "3", pro: "3" },
+  { feature: "Monthly credits", free: "50", pro: "1,000" },
   { feature: "Data warehouse connections", free: "1", pro: "Unlimited" },
-  { feature: "Natural language queries", free: "Unlimited", pro: "Unlimited" },
-  { feature: "AI-generated reports", free: true, pro: true },
+  { feature: "Editable reports", free: true, pro: true },
   { feature: "Chat history & saved queries", free: true, pro: true },
-  { feature: "Semantic layer editing", free: false, pro: true },
   { feature: "Team collaboration", free: false, pro: true },
-  { feature: "API access", free: false, pro: true },
-  { feature: "Custom integrations", free: false, pro: true },
   { feature: "Priority support", free: false, pro: true },
 ]
 
@@ -73,12 +70,17 @@ const FAQ_ITEMS = [
   {
     question: "Is there really a free tier?",
     answer:
-      "Yes. Early Access is completely free with no credit card required. You get full access to all three AI agents, unlimited natural language queries, and AI-generated reports and charts.",
+      "Yes. The free tier gives you 50 credits per month with full access to all three AI agents — Atlas, Luna, and Quill. No credit card required.",
   },
   {
-    question: "What happens when I hit usage limits?",
+    question: "What are credits?",
     answer:
-      "We will notify you well before you approach any limits. You can upgrade to Pro at any time to unlock additional capacity, or continue on the free tier within its included allowances.",
+      "Credits are consumed when you use AI features. A Luna chat query costs 1 credit, Atlas semantic layer generation costs 3 credits, and a Quill report generation costs 5 credits. Credits reset monthly.",
+  },
+  {
+    question: "What happens when I run out of credits?",
+    answer:
+      "You'll be prompted to upgrade to Pro. Your data, sessions, and reports are never deleted — you just can't generate new AI content until credits reset or you upgrade.",
   },
   {
     question: "Can I cancel anytime?",
@@ -88,7 +90,7 @@ const FAQ_ITEMS = [
   {
     question: "Do you offer annual billing?",
     answer:
-      "Annual billing is coming soon and will include a meaningful discount compared to monthly pricing. Join the waitlist to be notified when it becomes available.",
+      "Yes! The annual plan is $240/year ($20/month effective) — a 20% savings compared to monthly billing.",
   },
   {
     question: "Need a custom plan?",
@@ -201,7 +203,7 @@ export default function PricingPage() {
                   <span className="text-sm text-muted-foreground">/month</span>
                 </div>
                 <CardDescription className="mt-2">
-                  For teams that need collaboration, governance, and scale.
+                  1,000 credits/month. Team collaboration and priority support.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-6">
@@ -219,7 +221,7 @@ export default function PricingPage() {
               <CardFooter>
                 <Button size="lg" className="w-full" asChild>
                   <Link href="/sign-up">
-                    Start Free Trial
+                    Get Started
                     <ArrowRight className="ml-1 size-4" />
                   </Link>
                 </Button>

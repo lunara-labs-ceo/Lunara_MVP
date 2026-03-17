@@ -22,6 +22,7 @@ import { useApiClient } from "@/lib/api";
 import { useReportStream } from "@/hooks/use-report-stream";
 import type { ReportMessage, ReportSession, ReportItem } from "@/types/report";
 import type { ChatArtifact } from "@/types/chat";
+import { triggerBillingRefresh } from "@/hooks/use-billing";
 
 const SIDEBAR_WIDTH_EXPANDED = 240;
 const SIDEBAR_WIDTH_COLLAPSED = 40;
@@ -386,6 +387,9 @@ export function ReportClient() {
 
       // Atomic state replacement
       setReportItems(newItems);
+
+      // Refresh billing credits in sidebar
+      triggerBillingRefresh();
 
       // 7. Persist messages (fire-and-forget)
       const allMsgs = [...currentMessages, userMsg, assistantMsg];

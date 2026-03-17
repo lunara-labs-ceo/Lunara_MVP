@@ -71,6 +71,9 @@ export function useChatStream(): UseChatStreamReturn {
         );
 
         if (!response.ok) {
+          if (response.status === 402) {
+            throw new Error("INSUFFICIENT_CREDITS");
+          }
           const errorText = await response.text();
           throw new Error(`API ${response.status}: ${errorText}`);
         }
@@ -138,7 +141,11 @@ export function useChatStream(): UseChatStreamReturn {
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           const errorMsg = err instanceof Error ? err.message : "Stream failed";
-          fullText += `\n\n**Error:** ${errorMsg}`;
+          if (errorMsg === "INSUFFICIENT_CREDITS") {
+            fullText += "\n\nYou've used all your credits this month. **[Upgrade to Pro](/dashboard/settings/billing)** for 1,000 credits/month.";
+          } else {
+            fullText += `\n\n**Error:** ${errorMsg}`;
+          }
           setStreamingText(fullText);
         }
       } finally {

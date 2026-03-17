@@ -2,7 +2,7 @@
 
 ## What Is Lunara?
 
-Lunara is an **agentic data analytics platform** that lets users connect their BigQuery data warehouse, chat with an AI agent to generate SQL queries, and build visual reports — all in a browser-based UI.
+Lunara is an **agentic data analytics platform** that lets users connect their PostgreSQL data warehouse, build an AI-powered semantic layer, chat with an AI agent to generate SQL queries, and build editable visual reports — all in a browser-based UI.
 
 **Live URL:** https://lunaralabs.io (deployed on Render)
 
@@ -12,13 +12,27 @@ Lunara is an **agentic data analytics platform** that lets users connect their B
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Vanilla HTML/CSS/JS pages (no framework). Each page is a self-contained `.html` file |
-| Backend | Python 3.10, FastAPI, Uvicorn |
-| AI/LLM | Google ADK (Agent Development Kit) with Gemini 3 Flash Preview |
-| Database | Supabase (PostgreSQL + Auth + RLS) |
-| Data Warehouse | Google BigQuery (user connects their own) |
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, shadcn/ui |
+| Backend | Python 3.12, FastAPI, Uvicorn |
+| AI/LLM | Google ADK 1.18 (Agent Development Kit) with Gemini 3 Flash Preview via Vertex AI |
+| Database | Supabase (PostgreSQL + RLS) |
+| Data Warehouse | PostgreSQL/Supabase (user connects their own). BigQuery, Snowflake, MySQL coming soon |
+| Auth | Clerk (JWT + organizations) |
 | Deployment | Render (auto-deploys from `render-deploy` branch) |
-| Auth | Supabase Auth (email/password, Google OAuth) |
+| Rich Text Editor | Tiptap (report builder) |
+| SQL Editor | CodeMirror with SQL language support |
+
+---
+
+## AI Agents
+
+Lunara has three branded AI agents:
+
+| Agent | Internal Service | Purpose |
+|-------|-----------------|---------|
+| **Atlas** | `SemanticAgentService` + `RelationshipAgentService` | Analyzes database schema, classifies columns (dimension/measure/time), discovers table relationships, generates semantic layer |
+| **Luna** | `ChatAgentService` | Text-to-SQL chat agent with 6 exploration tools. Generates SQL from natural language using the semantic layer for context |
+| **Quill** | `ReportAgentService` | Two-agent pipeline (Analyst + Reporter). Generates charts via Python code execution in GCP sandboxes, writes narrative HTML reports |
 
 ---
 
@@ -26,86 +40,98 @@ Lunara is an **agentic data analytics platform** that lets users connect their B
 
 ```
 Lunara MVP/
-├── landing.html            # Marketing landing page
-├── login.html              # Supabase auth login/signup
-├── auth/callback.html      # OAuth callback handler
-├── dashboard.html          # Project dashboard (CRUD projects)
-├── data_sources.html       # Data source connection page
-├── bq_connection.html      # BigQuery credential upload
-├── schema_browser.html     # Browse BQ tables/columns
-├── semantic_layer_setup.html  # AI-generated semantic layer config
-├── chat_agent.html         # SQL chat agent + editor + results (MAIN PAGE)
-├── report_builder.html     # AI report builder with charts
+├── frontend/
+│   ├── app/                    # Next.js App Router pages
+│   │   ├── page.tsx            # Landing page
+│   │   ├── (marketing)/        # Marketing pages (pricing, about, blog, docs, legal, product/*)
+│   │   ├── sign-in/            # Clerk sign-in
+│   │   ├── sign-up/            # Clerk sign-up
+│   │   ├── onboarding/         # Org creation flow
+│   │   ├── dashboard/          # Projects overview
+│   │   │   └── [projectId]/
+│   │   │       ├── data-sources/   # Connect databases
+│   │   │       ├── schema/         # Browse tables/columns
+│   │   │       ├── semantic/       # Atlas — semantic layer
+│   │   │       ├── chat/           # Luna — SQL chat agent
+│   │   │       └── reports/        # Quill — report builder
+│   │   ├── globals.css         # Theme colors (warm cream/charcoal palette)
+│   │   ├── icon.svg            # Lunara favicon
+│   │   ├── sitemap.ts          # SEO
+│   │   └── robots.ts           # SEO
+│   ├── components/
+│   │   ├── app-shell/          # Sidebar, org activator
+│   │   ├── chat/               # Luna chat components
+│   │   ├── reports/            # Quill report components (Tiptap editor, toolbar)
+│   │   ├── landing/            # Marketing components (header, hero, footer, etc.)
+│   │   ├── data-sources/       # Connection dialog
+│   │   └── ui/                 # shadcn/ui primitives
+│   ├── hooks/                  # use-chat-stream, use-report-stream, use-resize, use-projects
+│   ├── lib/                    # API client, utils, MDX, constants, preprocess-report-html
+│   ├── types/                  # TypeScript types (chat, report, project)
+│   ├── content/                # MDX blog posts and docs
+│   └── proxy.ts                # Clerk auth middleware
 │
 ├── backend/
-│   ├── main.py              # FastAPI app entry point
-│   ├── requirements.txt     # Python dependencies
-│   ├── .env                 # Local env vars (not committed)
-│   ├── .env.example         # Template for env vars
+│   ├── main.py                 # FastAPI app entry point, dependency injection, CORS, lifespan
+│   ├── requirements.txt        # Python dependencies
+│   ├── .env.example            # Environment variable template
+│   ├── middleware/
+│   │   └── clerk_auth.py       # Clerk JWT verification (protects all /api/v1/* routes)
 │   ├── api/v1/
-│   │   ├── auth.py          # Auth endpoints
-│   │   ├── chat.py          # /api/v1/chat/* endpoints (SSE streaming)
-│   │   ├── connection.py    # BigQuery connection endpoints
-│   │   ├── datasets.py      # Dataset/table browsing endpoints
-│   │   ├── reports.py       # /api/v1/report/* endpoints
-│   │   └── semantic.py      # Semantic layer generation endpoints
+│   │   ├── chat.py             # Luna chat endpoints (SSE streaming, sessions, artifacts, query execution)
+│   │   ├── connection.py       # Data source CRUD (encrypted credentials)
+│   │   ├── datasets.py         # Schema/table/column browsing
+│   │   ├── projects.py         # Project CRUD (org-scoped)
+│   │   ├── reports.py          # Quill report endpoints (SSE streaming, sessions, items CRUD)
+│   │   └── semantic.py         # Atlas semantic layer endpoints (SSE streaming, model CRUD)
 │   ├── services/
-│   │   ├── bigquery.py      # BigQueryService — connection + query execution
-│   │   ├── chat_agent.py    # ChatAgentService — ADK agent for text-to-SQL
-│   │   ├── semantic_agent.py # SemanticAgentService — generates semantic models
-│   │   ├── report_agent.py  # ReportAgentService — generates reports with charts
-│   │   ├── relationship_agent.py # Discovers table relationships
-│   │   └── retry_utils.py   # Exponential backoff for Gemini 429 errors
-│   ├── models/              # Pydantic models
-│   └── supabase_migrations/ # SQL migration files for Supabase tables
+│   │   ├── chat_agent.py       # Luna — ADK LlmAgent with 6 exploration tools
+│   │   ├── semantic_agent.py   # Atlas — schema analysis + column classification
+│   │   ├── relationship_agent.py  # Atlas — FK/relationship discovery via LLM reasoning
+│   │   ├── report_agent.py     # Quill — two-agent pipeline (Analyst + Reporter)
+│   │   ├── connection_manager.py  # Caches WarehouseProvider instances, decrypts credentials
+│   │   ├── sandbox_manager.py  # GCP Agent Engine sandbox lifecycle (TTL cleanup)
+│   │   └── providers/
+│   │       └── postgresql_provider.py  # WarehouseProvider implementation for PostgreSQL
+│   ├── supabase_migrations/    # 9 SQL migration files
+│   └── lunara.db               # SQLite fallback for ADK sessions (local dev only)
 │
-├── docs/                    # Design docs and roadmaps
-├── render.yaml              # Render deployment config
-└── runtime.txt              # Python version for Render (3.10.x)
+├── render.yaml                 # Render deployment blueprint (two services)
+├── runtime.txt                 # Python 3.12.0
+└── docs/                       # Design docs and roadmaps
 ```
 
 ---
 
 ## Core User Flow
 
-1. **Sign up / Log in** → `login.html` (Supabase Auth)
-2. **Create a project** → `dashboard.html`
-3. **Connect BigQuery** → `data_sources.html` → `bq_connection.html`
-4. **Generate semantic layer** → `semantic_layer_setup.html` (AI agent analyzes the schema and creates a semantic model describing tables, columns, relationships, and business logic)
-5. **Chat with data** → `chat_agent.html` (user asks questions in natural language → agent generates SQL → user runs it → sees results in table)
-6. **Build reports** → `report_builder.html` (agent generates charts and narrative reports)
+1. **Sign up / Log in** → Clerk auth (`/sign-in`, `/sign-up`)
+2. **Create organization** → `/onboarding` (Clerk orgs for multi-tenant isolation)
+3. **Create a project** → `/dashboard`
+4. **Connect database** → `/dashboard/[projectId]/data-sources` (PostgreSQL/Supabase with encrypted credentials)
+5. **Browse schema** → `/dashboard/[projectId]/schema` (select tables for semantic layer)
+6. **Generate semantic layer** → `/dashboard/[projectId]/semantic` (Atlas analyzes schema, classifies columns, discovers relationships)
+7. **Chat with data** → `/dashboard/[projectId]/chat` (Luna generates SQL from natural language, user executes queries, saves artifacts)
+8. **Build reports** → `/dashboard/[projectId]/reports` (Quill generates charts + narrative, user edits with rich-text toolbar)
 
 ---
 
-## Key Architecture Concepts
+## Key Architecture
 
-### Semantic Layer
-A JSON model stored in Supabase (`semantic_models` table) that describes the user's BigQuery schema in business terms. The chat agent uses this to generate accurate SQL. Generated by the `SemanticAgentService` using ADK.
+### Authentication
+Clerk JWT on all API routes via `middleware/clerk_auth.py`. Supports Clerk v1 and v2 JWT formats. Lazy-syncs users and orgs to Supabase `profiles` and `organizations` tables. Frontend uses `useApiClient()` hook that auto-attaches Bearer token.
 
-### Chat Agent (text-to-SQL)
-`ChatAgentService` in `chat_agent.py`. Uses Google ADK with Gemini. Has 7 tools:
-- `get_semantic_context()` — loads the semantic model
-- `lookup_column_values()` — gets distinct values for filtering
-- `get_date_range()` — gets min/max dates
-- `get_column_stats()` — gets numeric stats
-- `preview_table()` — sample rows
-- `search_value()` — fuzzy search
-- `generate_sql()` — outputs the final SQL
+### Data Warehouse Connections
+**WarehouseProvider protocol** abstracts database operations (`test_connection`, `list_schemas`, `list_tables`, `execute_query`, etc.). Currently PostgreSQL is implemented. Credentials are **Fernet-encrypted** and stored per-project in Supabase `data_sources.credentials_encrypted`. `ConnectionManager` caches provider instances and handles decryption.
 
-The agent does NOT execute queries. It generates SQL which the user runs manually via the editor.
+### ADK Session Persistence
+Uses Google ADK `DatabaseSessionService` backed by PostgreSQL (`DATABASE_URL` env var) for persistent multi-turn conversations. Falls back to SQLite locally. ADK session IDs stored in `chat_sessions.adk_session_id` and `report_sessions.adk_session_id`.
 
-### Report Agent
-`ReportAgentService` in `report_agent.py`. Uses a two-agent pipeline:
-1. **Analyst agent** — analyzes the data request, generates SQL, runs queries
-2. **Reporter agent** — takes analysis results and generates narrative report with charts
+### Sandbox Code Execution
+Quill's Analyst agent executes Python code (matplotlib charts) in **GCP Agent Engine sandboxes**. `SandboxManager` handles lifecycle: creation, TTL-based cleanup (default 30min), explicit deletion on session delete, and shutdown cleanup. Chart PNGs stored in GCS bucket (prod) or in-memory (dev).
 
-Charts are generated using Python code execution in a sandbox.
-
-### BigQuery Connection
-**⚠️ KNOWN ISSUE:** Currently stores credentials in a single encrypted file on the server (`backend/data/credentials.enc`). This is a global singleton — all projects share one connection. This is being replaced with **OAuth + per-project credentials** stored in Supabase. See `docs/bigquery_oauth_design.md` for the migration plan.
-
-### ADK Session Management
-Each chat session creates an ADK `InMemorySessionService` session. Sessions are persisted in Supabase (`chat_sessions` table) but ADK sessions are in-memory and don't survive server restarts.
+### Report Editor
+Reports are generated as semantic HTML by the Quill agent. Content is loaded into a **Tiptap** rich-text editor with a full toolbar (bold, italic, underline, headings, lists, alignment, highlight, links, tables, sub/superscript, undo/redo). Edits auto-save to Supabase with 1s debounce via `PATCH /reports/items/:id`.
 
 ---
 
@@ -113,54 +139,77 @@ Each chat session creates an ADK `InMemorySessionService` session. Sessions are 
 
 | Table | Purpose |
 |-------|---------|
-| `projects` | User projects |
-| `data_sources` | BigQuery connection metadata per project |
+| `profiles` | Clerk user records (lazy-synced) |
+| `organizations` | Clerk org records (lazy-synced) |
+| `projects` | User projects (org-scoped) |
+| `data_sources` | Database connections with encrypted credentials |
 | `semantic_models` | Semantic layer JSON per project |
-| `chat_sessions` | Chat session history (messages as JSONB) |
-| `chat_artifacts` | Saved query results |
-| `report_sessions` | Report builder sessions |
-| `report_items` | Report content blocks (text, charts) |
+| `chat_sessions` | Luna chat sessions (messages JSONB + ADK session ID) |
+| `chat_artifacts` | Saved query results from Luna |
+| `report_sessions` | Quill report sessions (messages JSONB + ADK session ID) |
+| `report_items` | Report content blocks (HTML, charts) |
 
-RLS is enabled. See `docs/SUPABASE_SCHEMA_REFERENCE.md` and `backend/supabase_migrations/` for full schema.
+RLS enabled on all tables. Backend uses Supabase service role key.
 
 ---
 
 ## API Endpoints
 
-All mounted at `/api/v1/`:
+All prefixed with `/api/v1/`, all require Clerk JWT:
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/chat/send` | POST | Send message to chat agent (SSE stream) |
-| `/chat/execute` | POST | Execute a SQL query against BigQuery |
-| `/report/generate` | POST | Generate report content (SSE stream) |
-| `/semantic/generate` | POST | Generate semantic layer (SSE stream) |
-| `/semantic/model` | GET/POST | Get/save semantic model |
-| `/connection/upload` | POST | Upload BQ service account JSON |
-| `/connection/status` | GET | Check BQ connection status |
-| `/datasets/list` | GET | List BQ datasets |
-| `/datasets/{id}/tables` | GET | List tables in a dataset |
+**Projects:** `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`
+
+**Connections:** `POST /connections`, `GET /connections`, `GET /connections/{id}/status`, `DELETE /connections/{id}`
+
+**Schemas:** `GET /schemas/{conn_id}/schemas`, `GET /schemas/{conn_id}/schemas/{schema}/tables`, `GET /schemas/{conn_id}/tables/{schema}/{table}/columns`
+
+**Semantic (Atlas):** `POST /semantic/generate` (SSE), `GET/POST /semantic/model`, `POST /semantic/detect-relationships` (SSE)
+
+**Chat (Luna):** `POST /chat/query` (SSE), `POST /chat/execute`, `GET/POST /chat/sessions`, `GET/PATCH/DELETE /chat/sessions/{id}`, `GET/POST/DELETE /chat/artifacts`
+
+**Reports (Quill):** `POST /reports/{id}/generate` (SSE), `GET/POST /reports/sessions`, `GET/PATCH/DELETE /reports/sessions/{id}`, `GET/POST/PATCH/DELETE /reports/items`
+
+**Health:** `GET /health`
 
 ---
 
 ## Running Locally
 
+**Backend:**
 ```bash
 cd backend
 source venv/bin/activate
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Then open http://localhost:8000/landing.html
+**Frontend:**
+```bash
+cd frontend
+pnpm dev
+```
 
-### Required Environment Variables (backend/.env)
+Then open http://localhost:3000
 
+### Required Environment Variables
+
+**Backend (`backend/.env`):**
 ```
 GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
-GOOGLE_CLOUD_PROJECT=your-gcp-project-id
-FERNET_KEY=your-fernet-encryption-key
+GOOGLE_CLOUD_PROJECT=lunara-prod
+GOOGLE_CLOUD_LOCATION=global
+GOOGLE_GENAI_USE_VERTEXAI=TRUE
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=xxx
+CLERK_ISSUER_URL=https://xxx.clerk.accounts.dev
+DATABASE_URL=postgresql://...  # For ADK session persistence
+ENCRYPTION_KEY=xxx  # Auto-generated if missing
+```
+
+**Frontend (`frontend/.env.local`):**
+```
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxx
+CLERK_SECRET_KEY=sk_test_xxx
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ---
@@ -168,37 +217,16 @@ SUPABASE_SERVICE_ROLE_KEY=xxx
 ## Deployment
 
 - **Branch:** `render-deploy` auto-deploys to Render
-- **Workflow:** Develop on `gcp-migration` → merge into `render-deploy` → push
-- **Config:** `render.yaml` defines the web service
-- **Runtime:** Python 3.10 (`runtime.txt`)
-
----
-
-## Current Roadmaps & Design Docs
-
-| Doc | Status |
-|-----|--------|
-| `docs/ux_improvements_roadmap.md` | SQL tabs ✅, resize panels ✅, 429 retry ✅, inline viz parked |
-| `docs/bigquery_oauth_design.md` | Per-project OAuth credentials — **TODO this weekend** |
-| `docs/report_builder_v2_roadmap.md` | Report builder improvements roadmap |
-| `docs/BACKLOG.md` | General backlog items |
-
----
-
-## Known Issues & Gotchas
-
-1. **BigQuery credentials are global** — one encrypted file shared across all projects/users. Blocking for multi-user. Fix: OAuth migration (see design doc)
-2. **No auth on API endpoints** — anyone who can reach the server can call all endpoints. Needs middleware to verify Supabase JWT.
-3. **ADK sessions are in-memory** — don't survive server restarts. History is reconstructed from Supabase on session resume.
-4. **SQL injection risk** — chat agent tools use f-strings for SQL with LLM-provided table/column names. Low risk (LLM-generated, not user-input) but not zero.
-5. **Date serialization** — BigQuery returns Python `date`/`datetime` objects. `bigquery.py` has a `_serialize_value()` helper to convert them to strings for JSON.
+- **Services:** Two Render services (backend + frontend) defined in `render.yaml`
+- **Runtime:** Python 3.12 (backend), Node.js (frontend)
+- **GCP credentials on Render:** Base64-encoded JSON in `GOOGLE_APPLICATION_CREDENTIALS_JSON` env var (decoded to temp file at startup)
 
 ---
 
 ## Code Style & Conventions
 
-- **Frontend:** Pure vanilla HTML/CSS/JS. No frameworks. Each page is self-contained with inline `<style>` and `<script>`. Supabase client initialized per-page.
-- **Backend:** FastAPI with async endpoints. Services are instantiated once in `main.py` and shared via dependency injection.
-- **Streaming:** Chat and report generation use Server-Sent Events (SSE) via `sse-starlette`.
-- **CSS variables:** `--electric-blue`, `--bg-stone`, `--border-stone`, `--dark-text` defined in each page.
-- **Google Fonts:** Inter for UI text, Courier New for code/SQL.
+- **Frontend:** Next.js App Router with React Server Components for auth. Client components use `"use client"` directive. Tailwind for styling. shadcn/ui for component primitives.
+- **Backend:** FastAPI with async endpoints. Services instantiated in `main.py` lifespan and shared via dependency injection. All routes protected by Clerk JWT middleware.
+- **Streaming:** Chat, semantic layer, and report generation use Server-Sent Events (SSE) via `sse-starlette`.
+- **Theme:** Warm cream/charcoal palette with CSS custom properties in `globals.css`. Light/dark mode via `next-themes`.
+- **Font:** IBM Plex Sans.

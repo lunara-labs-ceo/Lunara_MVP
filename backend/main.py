@@ -97,6 +97,7 @@ from api.v1 import projects
 from api.v1 import semantic
 from api.v1 import chat
 from api.v1 import reports
+from api.v1 import billing
 from services.connection_manager import ConnectionManager
 from services.sandbox_manager import SandboxManager
 
@@ -253,6 +254,7 @@ app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(semantic.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
+app.include_router(billing.router, prefix="/api/v1")
 
 
 @app.get("/health")

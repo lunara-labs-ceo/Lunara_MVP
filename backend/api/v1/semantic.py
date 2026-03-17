@@ -7,6 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 
+from google.api_core.exceptions import ResourceExhausted, TooManyRequests
 from models.semantic import GenerateRequest, SemanticModel, StreamEvent, RelationshipRequest
 from services.semantic_agent import SemanticAgentService
 from services.relationship_agent import RelationshipAgentService
@@ -60,6 +61,13 @@ async def generate_semantic_layer(
     if not request.tables:
         raise HTTPException(status_code=400, detail="No tables provided")
 
+    # Deduct 3 credits for semantic layer generation
+    from services.billing import CreditService
+    credit_service = CreditService(supabase)
+    await credit_service.deduct_credits(
+        user.user_id, cost=3, action="semantic_generation",
+    )
+
     # Get the provider for this data source — creates a fresh agent per request
     try:
         provider = await conn_mgr.get_provider(data_source_id, supabase)
@@ -71,38 +79,51 @@ async def generate_semantic_layer(
     async def event_stream():
         """Generate SSE events from both agents."""
         semantic_model = None
-        
+        success = False
+
         try:
             # Phase 1: Semantic Layer Generation
             phase_event = {"type": "phase", "content": "🚀 Phase 1: Analyzing tables and classifying columns..."}
             yield f"data: {json.dumps(phase_event)}\n\n"
-            
+
             async for event in semantic_agent.generate_semantic_layer(request.tables):
                 # Capture the model data for the relationship agent
                 if event.get("type") == "model":
                     semantic_model = event.get("data", {})
-                
+
                 # Forward all events to the stream
                 yield f"data: {json.dumps(event)}\n\n"
-            
+
             # Phase 2: Relationship Detection (only if we have model data)
             if semantic_model and semantic_model.get("tables"):
                 phase_event = {"type": "phase", "content": "🔗 Phase 2: Detecting relationships between tables..."}
                 yield f"data: {json.dumps(phase_event)}\n\n"
-                
+
                 async for event in relationship_agent.detect_relationships(semantic_model):
                     yield f"data: {json.dumps(event)}\n\n"
             else:
                 skip_event = {"type": "status", "content": "⚠️ Skipping relationship detection - no table data available"}
                 yield f"data: {json.dumps(skip_event)}\n\n"
-            
+
             # Final completion
             complete_event = {"type": "complete", "content": "✅ Semantic layer generation complete!"}
             yield f"data: {json.dumps(complete_event)}\n\n"
-            
+            success = True
+
+        except (ResourceExhausted, TooManyRequests):
+            error_event = {"type": "error", "content": "Atlas is experiencing high demand right now. Your credits have been refunded — please try again in a moment."}
+            yield f"data: {json.dumps(error_event)}\n\n"
         except Exception as e:
             error_event = {"type": "error", "content": str(e)}
             yield f"data: {json.dumps(error_event)}\n\n"
+        finally:
+            if not success:
+                try:
+                    await credit_service.refund_credits(
+                        user.user_id, cost=3, action="semantic_generation",
+                    )
+                except Exception as refund_err:
+                    print(f"Warning: credit refund failed: {refund_err}")
     
     return StreamingResponse(
         event_stream(),

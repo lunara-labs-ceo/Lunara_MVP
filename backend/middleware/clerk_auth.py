@@ -78,6 +78,13 @@ async def _sync_user_to_supabase(user: ClerkUser) -> None:
             }).execute()
             logger.info(f"Created Supabase profile for Clerk user {user.user_id}")
 
+            # Auto-provision free-tier billing
+            from services.billing import CreditService
+            billing = CreditService(sb)
+            await billing.get_or_create_subscription(user.user_id)
+            await billing.get_or_create_ledger(user.user_id)
+            logger.info(f"Provisioned free-tier billing for user {user.user_id}")
+
         # Sync org if present
         if user.org_id:
             org_result = sb.table("organizations").select("id").eq("id", user.org_id).maybe_single().execute()

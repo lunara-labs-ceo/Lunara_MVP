@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from google.api_core.exceptions import ResourceExhausted, TooManyRequests
 from api.v1.connection import get_supabase
 from middleware.clerk_auth import ClerkUser, get_current_user
 
@@ -96,6 +97,14 @@ async def generate_content(
     """
     from services.report_agent import ReportAgentService
 
+    # Deduct 5 credits for report generation
+    from services.billing import CreditService
+    credit_service = CreditService(supabase)
+    await credit_service.deduct_credits(
+        user.user_id, cost=5, action="report_generation",
+        reference_id=report_id,
+    )
+
     # Convert artifact inputs to dicts for the agent
     artifacts_data = [art.model_dump() for art in request.artifacts]
 
@@ -113,6 +122,7 @@ async def generate_content(
         pass
 
     async def event_stream():
+        success = False
         try:
             agent = ReportAgentService(
                 report_id=report_id,
@@ -138,9 +148,21 @@ async def generate_content(
                         print(f"Warning: failed to persist report adk_session_id: {e}")
                     continue  # Don't forward this internal event to the frontend
                 yield f"data: {json.dumps(event)}\n\n"
+            success = True
 
+        except (ResourceExhausted, TooManyRequests):
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Quill is experiencing high demand right now. Your credits have been refunded — please try again in a moment.'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+        finally:
+            if not success:
+                try:
+                    await credit_service.refund_credits(
+                        user.user_id, cost=5, action="report_generation",
+                        reference_id=report_id,
+                    )
+                except Exception as refund_err:
+                    print(f"Warning: credit refund failed: {refund_err}")
 
     return StreamingResponse(
         event_stream(),

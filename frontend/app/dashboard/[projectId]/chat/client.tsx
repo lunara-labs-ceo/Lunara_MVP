@@ -23,6 +23,7 @@ import { useChatStream } from "@/hooks/use-chat-stream";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { SaveArtifactDialog } from "@/components/chat/save-artifact-dialog";
 import type { ChatMessage, ChatSession, ChatArtifact, SemanticModel, EditorTab } from "@/types/chat";
+import { triggerBillingRefresh } from "@/hooks/use-billing";
 
 const SIDEBAR_WIDTH_EXPANDED = 240;
 const SIDEBAR_WIDTH_COLLAPSED = 40;
@@ -327,6 +328,9 @@ export function ChatClient() {
       sessionId: activeSessionId,
       history: currentMessages,
     });
+
+    // Refresh billing credits in sidebar
+    triggerBillingRefresh();
 
     // 4. Finalize — add completed assistant message
     // SQL is now embedded in the markdown content (no separate sql field)
