@@ -266,6 +266,10 @@ export function ReportClient() {
 
   const handleUpdateItem = useCallback(
     async (itemId: string, content: string) => {
+      // Check item still exists in state (may have been replaced by a new generation)
+      const exists = reportItems.some((item) => item.id === itemId);
+      if (!exists) return;
+
       try {
         await fetchApi(`/api/v1/reports/items/${itemId}`, {
           method: "PATCH",
@@ -276,11 +280,11 @@ export function ReportClient() {
             item.id === itemId ? { ...item, content } : item
           )
         );
-      } catch (err) {
-        console.error("Failed to update item:", err);
+      } catch {
+        // Silently ignore — item may have been deleted by a report regeneration
       }
     },
-    [fetchApi]
+    [fetchApi, reportItems]
   );
 
   // ---------- Send message ----------

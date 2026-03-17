@@ -127,6 +127,15 @@ _REPORTER_AGENT = LlmAgent(
 
 
 # ─────────────────────────────────────────────
+# Per-session sandbox + chart cache.
+# ADK's Runner overwrites session.state on each turn, so we can't persist
+# custom keys there. This dict maps ADK session IDs to sandbox names and
+# chart filenames so they survive across requests within the same process.
+# SandboxManager still handles TTL cleanup and lifecycle.
+# ─────────────────────────────────────────────
+_session_cache: Dict[str, Dict[str, Any]] = {}
+
+# ─────────────────────────────────────────────
 # Service class
 # ─────────────────────────────────────────────
 
@@ -170,14 +179,15 @@ class ReportAgentService:
     def _get_or_create_sandbox(self, session) -> AgentEngineSandboxCodeExecutor:
         """Get or create a per-session sandbox executor.
 
-        - If session state has a stored sandbox_resource_name, reuse it.
-        - Otherwise, create a new sandbox and store the name in session state.
-        - Registers/touches the sandbox with SandboxManager for TTL tracking.
+        Looks up the sandbox name from the module-level cache (keyed by ADK
+        session ID). We can't use session.state because ADK's Runner
+        overwrites it on each turn.
 
         Returns:
             An AgentEngineSandboxCodeExecutor bound to this session's sandbox.
         """
-        stored_name = session.state.get("_sandbox_resource_name")
+        cached = _session_cache.get(session.id, {})
+        stored_name = cached.get("sandbox_name")
 
         if stored_name:
             try:
@@ -197,8 +207,8 @@ class ReportAgentService:
             agent_engine_resource_name=_AGENT_ENGINE_RESOURCE_NAME,
             stateful=True,
         )
-        # Persist sandbox resource name in ADK session state for future turns
-        session.state["_sandbox_resource_name"] = executor.sandbox_resource_name
+        # Cache sandbox name for future turns
+        _session_cache.setdefault(session.id, {})["sandbox_name"] = executor.sandbox_resource_name
         self._sandbox_manager.register(executor.sandbox_resource_name)
         return executor
 
@@ -431,12 +441,18 @@ class ReportAgentService:
         )
         analysis_text = cur_session.state.get("analysis", "")
 
-        # ── If no charts were generated, this was just a conversation — skip report ──
-        named_artifacts = [
+        # ── Determine chart filenames (new this turn + cached from previous turns) ──
+        new_chart_files = [
             fn for fn in artifact_version_map
             if not fn.startswith("code_execution_image_") and fn.lower().endswith(".png")
         ]
-        if not named_artifacts:
+
+        cached = _session_cache.get(session_id, {})
+        previous_chart_files: List[str] = cached.get("chart_filenames") or []
+        chart_source_files = new_chart_files if new_chart_files else previous_chart_files
+
+        # If truly no charts anywhere (first turn, conversation only), skip report
+        if not chart_source_files and is_new_session:
             return
 
         # ── Step 2: Run Reporter (structured output, no tools) ────────────────
@@ -447,13 +463,11 @@ class ReportAgentService:
             artifact_service=artifact_service,
         )
 
-        # ── Load charts from artifact deltas ──────────────────────────────────
-        # The sandbox executor creates both auto-named files (code_execution_image_*)
-        # and our custom-named files (from plt.savefig). We keep only the custom ones.
+        # ── Load charts from artifacts ──────────────────────────────────────
         chart_b64s: List[str] = []
         chart_filenames: List[str] = []
 
-        for filename in sorted(artifact_version_map.keys()):
+        for filename in sorted(chart_source_files):
             # Skip auto-generated sandbox images
             if filename.startswith("code_execution_image_"):
                 continue
@@ -470,6 +484,9 @@ class ReportAgentService:
                 continue
             chart_b64s.append(img_b64)
             chart_filenames.append(filename)
+
+        # Cache chart filenames for future turns
+        _session_cache.setdefault(session_id, {})["chart_filenames"] = chart_filenames
 
         # ── Build the Reporter prompt with chart info ─────────────────────────
         chart_manifest_text = ""
