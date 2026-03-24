@@ -18,8 +18,8 @@ export function HowItWorks() {
     <SectionWrapper id="how-it-works">
       <SectionHeader
         badge="How It Works"
-        title="Four Steps to Insights"
-        subtitle="From raw warehouse to polished reports — set up in minutes, not weeks."
+        title="Context First, Then Insights"
+        subtitle="Most tools start with queries. Lunara starts with understanding your data."
       />
 
       <AnimatedGroup

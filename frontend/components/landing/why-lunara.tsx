@@ -9,17 +9,17 @@ import { ScrollReveal } from "@/components/shared/scroll-reveal"
 const COMPARISONS = [
   {
     label: "Traditional BI",
-    description: "Requires SQL expertise and weeks of setup",
+    description: "Powerful but requires SQL expertise and weeks of dashboard setup",
     positive: false,
   },
   {
-    label: "Generic AI",
-    description: "Generates plausible but wrong queries",
+    label: "Generic AI Chat",
+    description: "Generates plausible SQL that silently gets the wrong answer",
     positive: false,
   },
   {
     label: "Lunara",
-    description: "Semantic context = accurate queries from day one",
+    description: "Semantic context means accurate queries and reports from day one",
     positive: true,
   },
 ] as const
@@ -29,16 +29,19 @@ export function WhyLunara() {
     <SectionWrapper id="why-lunara">
       <SectionHeader
         badge="WHY LUNARA"
-        title="The Semantic Layer Difference"
+        title="Why Context Changes Everything"
+        subtitle="The gap isn't NL-to-SQL. It's business context."
       />
 
       <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">
         {/* Left — statement */}
         <ScrollReveal direction="left">
           <p className="text-2xl font-semibold leading-snug tracking-tight text-foreground md:text-3xl">
-            Most BI tools require SQL expertise. Most AI tools hallucinate
-            queries. Lunara&apos;s semantic layer gives AI the business context
-            it needs to get SQL right&nbsp;&mdash;&nbsp;every time.
+            Every &ldquo;chat with your data&rdquo; tool can generate SQL. The problem
+            is they generate the wrong SQL&nbsp;&mdash;&nbsp;because they don&apos;t
+            understand your business. Lunara&apos;s semantic layer gives agents the
+            context they need: what your metrics mean, how tables relate, which
+            filters apply. That&apos;s why queries are accurate from day one.
           </p>
         </ScrollReveal>
 

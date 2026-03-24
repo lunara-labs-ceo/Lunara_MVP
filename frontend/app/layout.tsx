@@ -11,9 +11,9 @@ const ibmPlexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Lunara — AI Agents That Actually Understand Your Data",
+  title: "Lunara — Your Data Agents Are Missing Context",
   description:
-    "Lunara builds a semantic layer on top of your warehouse so anyone can explore data, generate reports, and get answers — all within minutes.",
+    "Lunara builds a semantic layer on top of your warehouse — so every query, report, and insight is grounded in how your business actually works.",
 };
 
 export default function RootLayout({

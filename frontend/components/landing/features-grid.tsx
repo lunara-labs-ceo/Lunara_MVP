@@ -1,6 +1,6 @@
 "use client"
 
-import { ShieldCheck, Layers, MessageSquareCode, BarChart3 } from "lucide-react"
+import { ShieldCheck, Layers, Brain, MessageSquareCode, BarChart3 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { SectionWrapper } from "@/components/shared/section-wrapper"
 import { SectionHeader } from "@/components/shared/section-header"
@@ -10,6 +10,7 @@ import { FEATURES } from "@/lib/constants"
 const iconMap = {
   ShieldCheck,
   Layers,
+  Brain,
   MessageSquareCode,
   BarChart3,
 } as const

@@ -38,33 +38,33 @@ export function Hero() {
           <AnimatedGroup preset="blur-slide" className="flex flex-col items-center">
             <Badge variant="secondary" className="mb-6 font-mono text-xs uppercase tracking-wider">
               <span className="mr-2 inline-block size-1.5 rounded-full bg-primary animate-pulse" />
-              Agentic BI for modern data teams
+              The semantic layer for data agents
             </Badge>
           </AnimatedGroup>
 
           <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl xl:text-8xl">
             <TextEffect preset="fade-in-blur" speedReveal={1.1} speedSegment={0.3} per="word">
-              AI Agents That
+              Your Data Agents
+            </TextEffect>{" "}
+            <TextEffect preset="fade-in-blur" speedReveal={1.1} speedSegment={0.3} per="word" delay={0.4}>
+              Are Missing
             </TextEffect>{" "}
             <TextEffect
               preset="fade-in-blur"
               speedReveal={1.1}
               speedSegment={0.3}
               per="word"
-              delay={0.4}
+              delay={0.7}
               className="text-primary"
             >
-              Actually Understand
-            </TextEffect>{" "}
-            <TextEffect preset="fade-in-blur" speedReveal={1.1} speedSegment={0.3} per="word" delay={0.7}>
-              Your Data.
+              Context.
             </TextEffect>
           </h1>
 
           <AnimatedGroup preset="blur-slide" className="mt-8 flex flex-col items-center">
             <p className="max-w-2xl text-lg text-muted-foreground md:text-xl">
-              Lunara builds a semantic layer on top of your warehouse, so anyone can explore data, generate
-              reports, and get answers — all within minutes.
+              Lunara builds a semantic layer on top of your warehouse — so every query, report, and
+              insight is grounded in how your business actually works.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">

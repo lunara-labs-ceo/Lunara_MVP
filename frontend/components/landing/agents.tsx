@@ -14,8 +14,8 @@ export function Agents() {
     <SectionWrapper id="agents">
       <SectionHeader
         badge="Meet Your Agents"
-        title="Three Agents. One Platform."
-        subtitle="From raw schema to polished reports — each agent handles a different stage of your analytics workflow."
+        title="Context In. Insights Out."
+        subtitle="Atlas builds the foundation. Luna and Quill deliver on it."
       />
 
       <div className="space-y-24 lg:space-y-32">

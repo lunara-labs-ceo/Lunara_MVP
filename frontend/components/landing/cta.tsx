@@ -19,7 +19,7 @@ export function CTA() {
       <div className="relative z-10 mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
         <h2 className="text-4xl font-semibold tracking-tight md:text-6xl lg:text-7xl">
           <TextEffect preset="fade-in-blur" speedReveal={1.1} speedSegment={0.3} per="word">
-            Ready to Put Your
+            Ready to Give Your Data
           </TextEffect>{" "}
           <TextEffect
             preset="fade-in-blur"
@@ -29,12 +29,12 @@ export function CTA() {
             delay={0.4}
             className="text-primary"
           >
-            Data to Work?
+            the Context It Deserves?
           </TextEffect>
         </h2>
 
         <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-          Sign up free and start exploring your data with AI agents.
+          Build your semantic layer in minutes. Start getting accurate answers today.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">

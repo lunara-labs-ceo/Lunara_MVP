@@ -8,21 +8,21 @@ import { ScrollReveal } from "@/components/shared/scroll-reveal"
 
 const PERSONAS = [
   {
-    title: "Data Analysts",
+    title: "Data Teams",
     description:
-      "Stop writing boilerplate SQL. Let AI handle joins and aggregations while you focus on insights.",
+      "Build one semantic layer. Every agent, every team member, every query draws from the same source of truth. No more tribal knowledge locked in someone's head.",
     icon: BarChart3,
   },
   {
     title: "Business Users",
     description:
-      "Ask questions in plain English. No SQL knowledge required. Get answers in seconds, not days.",
+      "Ask questions and get answers that are actually right — because the AI already understands your metrics, dimensions, and business logic.",
     icon: Users,
   },
   {
     title: "Engineering Leaders",
     description:
-      "Give your team self-serve analytics without building internal tools. Ship faster.",
+      "Give your team self-serve analytics that work out of the box. No internal tools to build, no dashboards to maintain.",
     icon: Settings,
   },
 ] as const
