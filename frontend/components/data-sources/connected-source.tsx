@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Database, Loader2, Trash2 } from "lucide-react";
+import { Database, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ interface ConnectedSourceProps {
   name: string;
   type: string;
   status: "connected" | "error" | "pending";
+  config?: Record<string, unknown> | null;
   createdAt: string;
   onDelete: (id: string) => void;
 }
@@ -36,9 +37,11 @@ export function ConnectedSource({
   name,
   type,
   status,
+  config,
   createdAt,
   onDelete,
 }: ConnectedSourceProps) {
+  const isFileUpload = type === "file_upload";
   const [isDeleting, setIsDeleting] = useState(false);
 
   async function handleDelete() {
@@ -55,12 +58,21 @@ export function ConnectedSource({
       {/* Left side: icon + name + metadata */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/5 text-primary dark:bg-primary/10">
-          <Database className="size-4" />
+          {isFileUpload ? (
+            <FileSpreadsheet className="size-4" />
+          ) : (
+            <Database className="size-4" />
+          )}
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{name}</p>
           <p className="text-xs text-muted-foreground">
-            {type === "postgres" ? "PostgreSQL" : type} &middot; Connected{" "}
+            {isFileUpload
+              ? `CSV Upload${config?.row_count ? ` \u00b7 ${Number(config.row_count).toLocaleString()} rows` : ""}`
+              : type === "postgres"
+                ? "PostgreSQL"
+                : type}{" "}
+            &middot; {isFileUpload ? "Uploaded" : "Connected"}{" "}
             {formatRelativeTime(createdAt)}
           </p>
         </div>

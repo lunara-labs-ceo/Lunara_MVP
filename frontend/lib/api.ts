@@ -53,5 +53,30 @@ export function useApiClient() {
     [] // no deps — always stable
   );
 
-  return { fetchApi, fetchApiStream };
+  const uploadFile = useCallback(
+    async <T = unknown>(
+      path: string,
+      formData: FormData
+    ): Promise<T> => {
+      const token = await getTokenRef.current();
+      const res = await fetch(`${API_URL}${path}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // Do NOT set Content-Type — browser sets it with multipart boundary
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`API ${res.status}: ${text}`);
+      }
+
+      return res.json();
+    },
+    []
+  );
+
+  return { fetchApi, fetchApiStream, uploadFile };
 }

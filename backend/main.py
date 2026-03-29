@@ -98,8 +98,10 @@ from api.v1 import semantic
 from api.v1 import chat
 from api.v1 import reports
 from api.v1 import billing
+from api.v1 import uploads
 from services.connection_manager import ConnectionManager
 from services.sandbox_manager import SandboxManager
+from services.upload_service import UploadService
 
 
 # Global singletons initialised at startup
@@ -108,6 +110,7 @@ _supabase_client = None
 _fernet: Optional[Fernet] = None
 _adk_session_service: Optional[DatabaseSessionService] = None
 _sandbox_manager: Optional[SandboxManager] = None
+_upload_service: Optional[UploadService] = None
 
 
 def get_or_create_encryption_key() -> str:
@@ -182,6 +185,11 @@ async def lifespan(app: FastAPI):
     _sandbox_manager = SandboxManager()
     await _sandbox_manager.start()
 
+    # Initialise UploadService for file upload data sources
+    global _upload_service
+    if database_url:
+        _upload_service = UploadService(database_url)
+
     # Wire shared dependencies for connection + datasets routers
     app.dependency_overrides[connection.get_connection_manager] = lambda: _connection_manager
     app.dependency_overrides[connection.get_supabase] = lambda: _supabase_client
@@ -193,12 +201,18 @@ async def lifespan(app: FastAPI):
     app.dependency_overrides[chat.get_adk_session_service] = lambda: _adk_session_service
     app.dependency_overrides[reports.get_adk_session_service] = lambda: _adk_session_service
     app.dependency_overrides[reports.get_sandbox_manager] = lambda: _sandbox_manager
+    # Wire upload service
+    if _upload_service:
+        app.dependency_overrides[uploads.get_upload_service] = lambda: _upload_service
+    app.dependency_overrides[uploads.get_supabase] = lambda: _supabase_client
 
     print("Lunara backend started")
 
     yield
 
     # Shutdown
+    if _upload_service:
+        await _upload_service.close()
     if _sandbox_manager:
         await _sandbox_manager.stop()
     if _connection_manager:
@@ -255,6 +269,7 @@ app.include_router(semantic.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
+app.include_router(uploads.router, prefix="/api/v1")
 
 
 @app.get("/health")

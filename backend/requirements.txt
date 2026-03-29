@@ -31,3 +31,8 @@ psycopg2-binary
 
 # Stripe billing
 stripe>=8.0.0
+
+# File upload support
+python-multipart
+pandas>=2.0.0
+chardet>=5.0.0

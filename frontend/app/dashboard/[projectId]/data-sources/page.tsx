@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Database } from "lucide-react";
+import { Database, Upload } from "lucide-react";
 import { useApiClient } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConnectorCard } from "@/components/data-sources/connector-card";
 import { ConnectionDialog } from "@/components/data-sources/connection-dialog";
+import { FileUploadDialog } from "@/components/data-sources/file-upload-dialog";
 import { ConnectedSource } from "@/components/data-sources/connected-source";
 import { Supabase as SupabaseIcon } from "@/components/ui/svgs/supabase";
 import { BigQueryIcon } from "@/components/ui/svgs/bigquery";
@@ -81,6 +82,7 @@ export default function DataSourcesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   // -- Fetch connections ---------------------------------------------------
 
@@ -111,13 +113,18 @@ export default function DataSourcesPage() {
   // -- Delete a connection -------------------------------------------------
 
   async function handleDelete(connectionId: string) {
+    // Determine if this is a file upload to route to the correct endpoint
+    const conn = connections.find((c) => c.id === connectionId);
+    const isUpload = conn?.type === "file_upload";
+
     // Optimistic: remove from list immediately
     setConnections((prev) => prev.filter((c) => c.id !== connectionId));
 
     try {
-      await fetchApi(`/api/v1/connections/${connectionId}`, {
-        method: "DELETE",
-      });
+      const endpoint = isUpload
+        ? `/api/v1/uploads/${connectionId}`
+        : `/api/v1/connections/${connectionId}`;
+      await fetchApi(endpoint, { method: "DELETE" });
     } catch {
       // If delete failed, re-fetch the list to restore correct state
       loadConnections();
@@ -157,6 +164,22 @@ export default function DataSourcesPage() {
               }
             />
           ))}
+        </div>
+      </section>
+
+      {/* Upload Data */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          Upload Data
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <ConnectorCard
+            name="Upload a File"
+            description="Upload a CSV file to create a queryable data source."
+            icon={<Upload className="size-8" />}
+            status="ready"
+            onClick={() => setUploadDialogOpen(true)}
+          />
         </div>
       </section>
 
@@ -215,6 +238,7 @@ export default function DataSourcesPage() {
                 name={conn.name}
                 type={conn.type}
                 status={conn.status}
+                config={conn.config}
                 createdAt={conn.created_at ?? new Date().toISOString()}
                 onDelete={handleDelete}
               />
@@ -227,6 +251,14 @@ export default function DataSourcesPage() {
       <ConnectionDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        projectId={projectId}
+        onSuccess={loadConnections}
+      />
+
+      {/* File upload dialog */}
+      <FileUploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
         projectId={projectId}
         onSuccess={loadConnections}
       />
